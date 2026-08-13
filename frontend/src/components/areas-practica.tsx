@@ -26,12 +26,12 @@ const spans = [
   "lg:col-span-2 lg:row-span-1",
 ];
 
-// una tarjeta, un color: familia editorial derivada del dorado de marca, cada
-// una como degradado que fluye (nunca un color plano), no un arcoíris
-// genérico (una sola tarjeta neutra para respirar)
+// un solo acento (tinta + oro), variando intensidad y ángulo por tarjeta en
+// vez de un color distinto por tarjeta: más disciplinado, más "firma legal
+// seria" que el bento arcoíris genérico. Nunca un color plano.
 const paletas = [
   {
-    gradient: "linear-gradient(135deg, #0c0a08 0%, #211b13 45%, #171310 100%)",
+    gradient: "linear-gradient(150deg, #0a0906 0%, #1c1811 55%, #0a0906 100%)",
     ink: "text-night-ink",
     icono: "text-gold",
     flecha: "text-night-ink/50",
@@ -43,22 +43,22 @@ const paletas = [
     flecha: "text-ink-fixed/50",
   },
   {
-    gradient: "linear-gradient(135deg, #7a3620 0%, #b1512f 55%, #c96a45 100%)",
-    ink: "text-terracotta-ink",
-    icono: "text-terracotta-ink",
-    flecha: "text-terracotta-ink/60",
+    gradient: "linear-gradient(160deg, #221c12 0%, #3d321c 60%, #221c12 100%)",
+    ink: "text-gold-pale",
+    icono: "text-gold-pale",
+    flecha: "text-gold-pale/60",
   },
   {
-    gradient: "linear-gradient(135deg, #263629 0%, #3f5b44 55%, #587a5f 100%)",
-    ink: "text-forest-ink",
-    icono: "text-forest-ink",
-    flecha: "text-forest-ink/60",
+    gradient: "linear-gradient(135deg, #171410 0%, #2a2317 100%)",
+    ink: "text-gold-pale",
+    icono: "text-gold",
+    flecha: "text-gold-pale/60",
   },
   {
-    gradient: "linear-gradient(135deg, #16283a 0%, #24425c 55%, #3a6288 100%)",
-    ink: "text-navy-ink",
-    icono: "text-navy-ink",
-    flecha: "text-navy-ink/60",
+    gradient: "linear-gradient(150deg, #4a3a12 0%, #a97c16 55%, #4a3a12 100%)",
+    ink: "text-ink-fixed",
+    icono: "text-ink-fixed",
+    flecha: "text-ink-fixed/60",
   },
   {
     gradient: "linear-gradient(135deg, var(--color-surface) 0%, var(--color-paper) 100%)",

@@ -1,36 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  /* papel cálido (marca, no beige-brass genérico: valores propios) */
-  --color-paper: #f6f2ea;
-  --color-surface: #fdfbf6;
+  /* identidad "Tinta y Oro": base neutra fría casi blanca, no el crema/beige
+     genérico de IA. Contraste frío y disciplinado en vez de una paleta
+     terrosa de cuatro colores. */
+  --color-paper: #faf9f6;
+  --color-surface: #ffffff;
 
-  /* tinta */
-  --color-ink: #1c1a16;
-  --color-ink-soft: #55503f;
+  /* tinta casi negra, no negro puro */
+  --color-ink: #14130f;
+  --color-ink-soft: #57544a;
 
-  /* dorado real de marca (extraído del sitio en producción, rgb(217,169,37)) */
+  /* dorado real de marca (extraído del sitio en producción, rgb(217,169,37)):
+     único acento del sitio, fijo, no cambia con el tema */
   --color-gold: #d9a925;
   --color-gold-deep: #a97c16;
   --color-gold-pale: #f1e2b8;
 
   /* sección de acento oscuro (footer, CTA), no es un modo oscuro del sitio */
-  --color-night: #171310;
+  --color-night: #14130f;
   --color-night-ink: #f3ede0;
 
-  --color-line: #e4ddc9;
-
-  /* acentos editoriales adicionales, familia armónica con el dorado de marca */
-  --color-terracotta: #b1512f;
-  --color-terracotta-ink: #fbe8de;
-  --color-forest: #3f5b44;
-  --color-forest-ink: #e7efe4;
-  --color-navy: #24425c;
-  --color-navy-ink: #e6edf2;
+  --color-line: #e7e3d8;
 
   /* tinta fija: para texto sobre superficies doradas brillantes, nunca se
      invierte con el tema (el panel admin no usa esta capa, no lo toca) */
-  --color-ink-fixed: #1c1a16;
+  --color-ink-fixed: #14130f;
 }
 
 /* tema claro/oscuro del sitio público (no afecta /admin, que conserva la
@@ -41,16 +36,16 @@
    ningún componente necesita lógica de tema propia. El fondo nunca es un
    color sólido: siempre es --page-gradient, un degradado real. */
 .site-theme {
-  --page-gradient: linear-gradient(175deg, #fbf7ee 0%, #f3ecdc 45%, #ece2cb 100%);
+  --page-gradient: linear-gradient(175deg, #fdfcfa 0%, #f5f3ee 45%, #ece8dc 100%);
 }
 
 html[data-theme="dark"] .site-theme {
-  --color-paper: #15120d;
-  --color-surface: #211b13;
+  --color-paper: #0e0d0b;
+  --color-surface: #1a1712;
   --color-ink: #f4efe3;
-  --color-ink-soft: #b9ac92;
-  --color-line: #3a3020;
-  --page-gradient: linear-gradient(175deg, #1d170f 0%, #15120d 45%, #0d0b07 100%);
+  --color-ink-soft: #b3ac9c;
+  --color-line: #322c20;
+  --page-gradient: linear-gradient(175deg, #17140f 0%, #0e0d0b 45%, #080705 100%);
 }
 
 @theme inline {

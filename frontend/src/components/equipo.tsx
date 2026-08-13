@@ -37,7 +37,7 @@ export function Equipo() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE }}
-              className={i % 2 === 1 ? "sm:mt-8" : ""}
+              className={`group ${i % 2 === 1 ? "sm:mt-8" : ""}`}
             >
               <motion.div
                 animate={{ y: [0, -8, 0] }}
@@ -60,7 +60,7 @@ export function Equipo() {
                     fill
                     sizes="(min-width: 1024px) 220px, (min-width: 640px) 30vw, 45vw"
                     style={mascara}
-                    className="object-cover grayscale-[20%] transition-all duration-500 hover:grayscale-0"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
               </motion.div>

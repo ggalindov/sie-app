@@ -7,6 +7,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { ArrowRight } from "@phosphor-icons/react";
 import { siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
+import { SealRing } from "@/components/seal-ring";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -57,30 +58,35 @@ function BrandCard() {
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="rounded-[2rem] bg-ink/5 p-2 shadow-[0_0_80px_-20px_rgba(217,169,37,0.35)] ring-1 ring-gold/15"
+        className="rounded-[2rem] bg-ink/5 p-2 shadow-[0_0_80px_-20px_rgba(217,169,37,0.3)] ring-1 ring-gold/15"
       >
         <div
           className="gradient-animate relative aspect-[4/5] w-full overflow-hidden rounded-[1.6rem]"
           style={{
             backgroundImage:
-              "linear-gradient(135deg, #171310 0%, #3a2c10 35%, #a97c16 68%, #171310 100%)",
+              "linear-gradient(150deg, #0a0906 0%, #171310 40%, #221c11 62%, #0a0906 100%)",
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center">
-            <motion.div
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="relative aspect-[644/559] w-[64%] max-w-[300px]"
-            >
-              <Image
-                src="/marca/logo.png"
-                alt={siteConfig.nombre}
-                fill
-                sizes="300px"
-                className="object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
-                priority
-              />
-            </motion.div>
+            <div className="relative aspect-square w-[70%] max-w-[320px]">
+              <SealRing />
+              <motion.div
+                animate={{ scale: [1, 1.03, 1] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <div className="relative aspect-[644/559] w-[62%] max-w-[300px]">
+                  <Image
+                    src="/marca/logo.png"
+                    alt={siteConfig.nombre}
+                    fill
+                    sizes="300px"
+                    className="object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+                    priority
+                  />
+                </div>
+              </motion.div>
+            </div>
           </div>
 
           <div className="absolute inset-0 bg-gradient-to-t from-night/60 via-transparent to-transparent" />

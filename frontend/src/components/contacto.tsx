@@ -148,13 +148,29 @@ export function Contacto() {
               </a>
             </div>
 
-            <div className="mt-8 flex items-start gap-3 rounded-2xl bg-ink/5 p-5">
-              <ShieldCheck weight="light" className="h-6 w-6 shrink-0 text-gold-deep" />
-              <p className="text-xs leading-relaxed text-ink-soft">
-                Protegemos tus datos personales conforme a la Ley 1581 de 2012 (Habeas
-                Data). La información que nos compartas solo se usa para dar respuesta a
-                tu solicitud y nunca se cede a terceros sin tu autorización.
-              </p>
+            <div className="mt-8 rounded-2xl bg-ink/5 p-5">
+              <div className="flex items-center gap-3">
+                <ShieldCheck weight="light" className="h-5 w-5 shrink-0 text-gold-deep" />
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink">
+                  Protección de tus datos
+                </p>
+              </div>
+              <ul className="mt-3 space-y-2 text-xs leading-relaxed text-ink-soft">
+                <li>
+                  Tratamiento de datos personales conforme a la Ley 1581 de 2012 (Habeas
+                  Data): tu información solo se usa para dar respuesta a tu solicitud.
+                </li>
+                <li>
+                  Nunca cedemos tus datos a terceros sin tu autorización expresa.
+                </li>
+                <li>
+                  Toda la comunicación con este sitio viaja cifrada (HTTPS/TLS).
+                </li>
+                <li>
+                  Puedes solicitar en cualquier momento acceso, corrección o eliminación
+                  de tus datos escribiéndonos a {siteConfig.correo}.
+                </li>
+              </ul>
             </div>
           </motion.div>
 
