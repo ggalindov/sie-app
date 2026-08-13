@@ -1,0 +1,568 @@
+{
+  "info": {
+    "_postman_id": "8f3b6f2a-2f7a-4c9a-9d3e-sie-juridicos-0001",
+    "name": "SIE Jurídicos - API Backend",
+    "description": "Colección de la API de SIE Jurídicos: solicitudes (leads), blog jurídico, chatbot y autenticación de usuarios internos (ADMIN_GENERAL / ABOGADO). No hay registro público: use primero los requests de Login (requieren que ya exista un usuario, ver nota de arranque en el README del backend).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+    { "key": "correo_admin", "value": "admin@siejuridicos.com", "type": "string" },
+    { "key": "contrasena_admin", "value": "ClaveAdmin2026!", "type": "string" },
+    { "key": "correo_abogado", "value": "carlos.munoz@siejuridicos.com", "type": "string" },
+    { "key": "contrasena_abogado", "value": "ClaveAbogado2026!", "type": "string" },
+    { "key": "jwt_token_admin", "value": "", "type": "string" },
+    { "key": "jwt_token_abogado", "value": "", "type": "string" },
+    { "key": "id_usuario_nuevo", "value": "", "type": "string" },
+    { "key": "solicitud_id", "value": "", "type": "string" },
+    { "key": "articulo_id", "value": "", "type": "string" },
+    { "key": "articulo_slug", "value": "", "type": "string" },
+    { "key": "chatbot_conversacion_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login - Administrador General",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login exitoso', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set('jwt_token_admin', json.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{correo_admin}}\",\n  \"contrasena\": \"{{contrasena_admin}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login del administrador general. El token recibido se guarda automáticamente en {{jwt_token_admin}}."
+          }
+        },
+        {
+          "name": "Login - Abogado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login exitoso', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set('jwt_token_abogado', json.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{correo_abogado}}\",\n  \"contrasena\": \"{{contrasena_abogado}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login de un abogado. El token recibido se guarda automáticamente en {{jwt_token_abogado}}. Requiere que el administrador general ya haya creado esta cuenta (ver request 'Crear usuario abogado')."
+          }
+        },
+        {
+          "name": "Cambiar mi contraseña",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contrasenaActual\": \"{{contrasena_admin}}\",\n  \"contrasenaNueva\": \"NuevaClaveSegura2026!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "password"]
+            },
+            "description": "RF-30: cualquier usuario interno autenticado puede cambiar su propia contraseña."
+          }
+        },
+        {
+          "name": "Crear usuario abogado (Admin General)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Usuario creado', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('id_usuario_nuevo', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Carlos Andrés Muñoz Gil\",\n  \"correo\": \"{{correo_abogado}}\",\n  \"contrasena\": \"{{contrasena_abogado}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/usuarios",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "usuarios"]
+            },
+            "description": "Solo ADMIN_GENERAL puede crear cuentas de abogados. El rol se asigna automáticamente como ABOGADO."
+          }
+        },
+        {
+          "name": "Listar usuarios internos (Admin General)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/usuarios",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "usuarios"]
+            }
+          }
+        },
+        {
+          "name": "Listar usuarios internos (como Abogado - debe fallar 403)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/usuarios",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "usuarios"]
+            },
+            "description": "Demuestra la restricción de rol: un ABOGADO no puede administrar usuarios internos, debe responder 403."
+          }
+        },
+        {
+          "name": "Desactivar cuenta de abogado (Admin General)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/usuarios/{{id_usuario_nuevo}}/activo",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "usuarios", "{{id_usuario_nuevo}}", "activo"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Solicitudes",
+      "item": [
+        {
+          "name": "Crear solicitud desde el formulario (público)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Solicitud creada', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('solicitud_id', json.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María Fernanda Restrepo Ortiz\",\n  \"correo\": \"maria.restrepo@example.com\",\n  \"telefono\": \"3001234567\",\n  \"mensaje\": \"Fui despedida de mi empleo sin justa causa hace dos semanas y no me han pagado la liquidación. Quisiera saber qué opciones tengo.\",\n  \"aceptaTratamientoDatos\": true,\n  \"aceptaMarketing\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/solicitudes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "solicitudes"]
+            },
+            "description": "Endpoint público del formulario de contacto. El id creado se guarda en {{solicitud_id}}. Dispara automáticamente: correo de confirmación+promoción al remitente, correo de notificación al admin, y (si aceptaMarketing=true) lo agrega a la lista de suscriptores de marketing."
+          }
+        },
+        {
+          "name": "Crear solicitud duplicada (debe fallar 409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María Fernanda Restrepo Ortiz\",\n  \"correo\": \"maria.restrepo@example.com\",\n  \"telefono\": \"3001234567\",\n  \"mensaje\": \"Fui despedida de mi empleo sin justa causa hace dos semanas y no me han pagado la liquidación. Quisiera saber qué opciones tengo.\",\n  \"aceptaTratamientoDatos\": true,\n  \"aceptaMarketing\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/solicitudes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "solicitudes"]
+            },
+            "description": "Mismo correo + mismo mensaje que el request anterior dentro de 24h: fn_crear_solicitud debe rechazarlo (ERRCODE SIE01, HTTP 409)."
+          }
+        },
+        {
+          "name": "Listar solicitudes (Admin General)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/solicitudes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "solicitudes"]
+            }
+          }
+        },
+        {
+          "name": "Listar solicitudes filtradas por estado y fecha (Abogado)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/solicitudes?estado=NUEVO&desde=2026-08-01&hasta=2026-08-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "solicitudes"],
+              "query": [
+                { "key": "estado", "value": "NUEVO" },
+                { "key": "desde", "value": "2026-08-01" },
+                { "key": "hasta", "value": "2026-08-31" }
+              ]
+            },
+            "description": "ABOGADO también puede consultar solicitudes, solo la administración de usuarios está restringida a ADMIN_GENERAL."
+          }
+        },
+        {
+          "name": "Actualizar estado - NUEVO a CONTACTADO (Abogado)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nuevoEstado\": \"CONTACTADO\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/solicitudes/{{solicitud_id}}/estado",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "solicitudes", "{{solicitud_id}}", "estado"]
+            }
+          }
+        },
+        {
+          "name": "Actualizar estado - CONTACTADO a CERRADO (Abogado)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nuevoEstado\": \"CERRADO\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/solicitudes/{{solicitud_id}}/estado",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "solicitudes", "{{solicitud_id}}", "estado"]
+            }
+          }
+        },
+        {
+          "name": "Actualizar estado - CERRADO a NUEVO (debe fallar 409)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nuevoEstado\": \"NUEVO\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/solicitudes/{{solicitud_id}}/estado",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "solicitudes", "{{solicitud_id}}", "estado"]
+            },
+            "description": "CERRADO es un estado terminal: fn_actualizar_estado_solicitud debe rechazar esta transición (ERRCODE SIE02, HTTP 409)."
+          }
+        },
+        {
+          "name": "Agendar cita (Abogado)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fechaHora\": \"2026-09-01T10:00:00\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/solicitudes/{{solicitud_id}}/cita",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "solicitudes", "{{solicitud_id}}", "cita"]
+            },
+            "description": "Agenda o reprograma la cita sobre una solicitud existente (fecha debe ser futura). Envía correo de confirmación al cliente y de notificación al admin. Ajusta la fecha del body a una futura antes de ejecutar."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Artículos",
+      "item": [
+        {
+          "name": "Listar categorías (público)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/categorias",
+              "host": ["{{base_url}}"],
+              "path": ["api", "categorias"]
+            },
+            "description": "Catálogo fijo sembrado por migración (Laboral, Familia, Civil, Mercantil, Administrativo, Constitucional, Actualidad Jurídica). Use el id de 'Laboral' (normalmente 1) en los requests de artículos siguientes."
+          }
+        },
+        {
+          "name": "Crear artículo (Abogado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Artículo creado', function () { pm.response.to.have.status(201); });",
+                  "const json = pm.response.json();",
+                  "if (json.id) { pm.collectionVariables.set('articulo_id', json.id); }",
+                  "if (json.slug) { pm.collectionVariables.set('articulo_slug', json.slug); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"¿Qué hacer si me despiden sin justa causa?\",\n  \"contenido\": \"<p>Cuando un trabajador es despedido sin justa causa en Colombia, tiene derecho a una indemnización calculada según su tiempo de servicio y tipo de contrato...</p>\",\n  \"resumen\": \"Guía práctica sobre los derechos del trabajador ante un despido injustificado.\",\n  \"idCategoria\": 1,\n  \"tiempoLecturaMin\": 6\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/articulos",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "articulos"]
+            },
+            "description": "El artículo se crea en estado BORRADOR. El id y el slug generados se guardan en {{articulo_id}} y {{articulo_slug}}."
+          }
+        },
+        {
+          "name": "Editar y publicar artículo (Abogado)",
+          "request": {
+            "method": "PUT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_abogado}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"¿Qué hacer si me despiden sin justa causa?\",\n  \"contenido\": \"<p>Cuando un trabajador es despedido sin justa causa en Colombia, tiene derecho a una indemnización calculada según su tiempo de servicio y tipo de contrato. En este artículo explicamos el paso a paso para reclamarla.</p>\",\n  \"resumen\": \"Guía práctica sobre los derechos del trabajador ante un despido injustificado.\",\n  \"idCategoria\": 1,\n  \"tiempoLecturaMin\": 7,\n  \"estado\": \"PUBLICADO\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/articulos/{{articulo_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "articulos", "{{articulo_id}}"]
+            },
+            "description": "estado=PUBLICADO invoca fn_publicar_articulo, que valida integridad (título, contenido y categoría completos) y asigna fecha_publicacion."
+          }
+        },
+        {
+          "name": "Listar artículos publicados (público, con filtro)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/articulos?categoria=1&q=despido",
+              "host": ["{{base_url}}"],
+              "path": ["api", "articulos"],
+              "query": [
+                { "key": "categoria", "value": "1" },
+                { "key": "q", "value": "despido" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detalle de artículo publicado (público)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/articulos/{{articulo_slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "articulos", "{{articulo_slug}}"]
+            }
+          }
+        },
+        {
+          "name": "Eliminar artículo (Admin General)",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/articulos/{{articulo_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "articulos", "{{articulo_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chatbot",
+      "item": [
+        {
+          "name": "Primer mensaje (nueva conversación)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Respuesta recibida', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "if (json.conversacionId) { pm.collectionVariables.set('chatbot_conversacion_id', json.conversacionId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversacionId\": null,\n  \"mensaje\": \"Hola, ¿cuál es el horario de atención de la firma?\",\n  \"historial\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chatbot/mensaje",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chatbot", "mensaje"]
+            },
+            "description": "Requiere ANTHROPIC_API_KEY configurada en el backend. El id de conversación creado se guarda en {{chatbot_conversacion_id}}."
+          }
+        },
+        {
+          "name": "Mensaje de seguimiento (comparte datos de contacto)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversacionId\": {{chatbot_conversacion_id}},\n  \"mensaje\": \"Me llamo Carlos Andrés Muñoz Gil, mi correo es carlos.munoz.contacto@example.com y quisiera asesoría sobre la custodia de mi hijo tras mi separación.\",\n  \"historial\": [\n    { \"rol\": \"USUARIO\", \"contenido\": \"Hola, ¿cuál es el horario de atención de la firma?\" },\n    { \"rol\": \"ASISTENTE\", \"contenido\": \"¡Hola! Nuestro horario de atención es de lunes a viernes de 8:00 a.m. a 5:00 p.m. ¿En qué puedo ayudarte?\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chatbot/mensaje",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chatbot", "mensaje"]
+            },
+            "description": "Al compartir nombre, correo y motivo, el modelo debería invocar la herramienta de registro de solicitud (origen=CHATBOT)."
+          }
+        },
+        {
+          "name": "Mensaje sobre conversación inexistente (debe fallar 404)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversacionId\": 999999,\n  \"mensaje\": \"Hola\",\n  \"historial\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/chatbot/mensaje",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chatbot", "mensaje"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Marketing",
+      "item": [
+        {
+          "name": "Listar suscriptores de marketing (Admin General o Abogado)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwt_token_admin}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/marketing/suscriptores",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "marketing", "suscriptores"]
+            },
+            "description": "Lista los correos que aceptaron explícitamente el checkbox de marketing al enviar el formulario de contacto (ver 'Crear solicitud desde el formulario')."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "SIE Juridicos (docker)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "sie_juridicos",
+      "Username": "sie_user",
+      "SSLMode": "prefer",
+      "Comment": "Postgres del backend, definido en compose.yaml. La contrasena por defecto es 'secret' (ver .env). Marca 'Save password' al conectar para no repetirla."
+    }
+  }
+}

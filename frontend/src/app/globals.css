@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+:root {
+  /* papel cálido (marca, no beige-brass genérico: valores propios) */
+  --color-paper: #f6f2ea;
+  --color-surface: #fdfbf6;
+
+  /* tinta */
+  --color-ink: #1c1a16;
+  --color-ink-soft: #55503f;
+
+  /* dorado real de marca (extraído del sitio en producción, rgb(217,169,37)) */
+  --color-gold: #d9a925;
+  --color-gold-deep: #a97c16;
+  --color-gold-pale: #f1e2b8;
+
+  /* sección de acento oscuro (footer, CTA), no es un modo oscuro del sitio */
+  --color-night: #171310;
+  --color-night-ink: #f3ede0;
+
+  --color-line: #e4ddc9;
+
+  /* acentos editoriales adicionales, familia armónica con el dorado de marca */
+  --color-terracotta: #b1512f;
+  --color-terracotta-ink: #fbe8de;
+  --color-forest: #3f5b44;
+  --color-forest-ink: #e7efe4;
+  --color-navy: #24425c;
+  --color-navy-ink: #e6edf2;
+
+  /* tinta fija: para texto sobre superficies doradas brillantes, nunca se
+     invierte con el tema (el panel admin no usa esta capa, no lo toca) */
+  --color-ink-fixed: #1c1a16;
+}
+
+/* tema claro/oscuro del sitio público (no afecta /admin, que conserva la
+   paleta clara original a propósito, ver CLAUDE.md sección 5.5). El atributo
+   data-theme vive en <html> (lo fija un script inline antes del primer
+   pintado, ver layout.tsx, para no parpadear); .site-theme traduce ese
+   atributo a los mismos tokens que ya usan bg-paper/bg-surface/text-ink, así
+   ningún componente necesita lógica de tema propia. El fondo nunca es un
+   color sólido: siempre es --page-gradient, un degradado real. */
+.site-theme {
+  --page-gradient: linear-gradient(175deg, #fbf7ee 0%, #f3ecdc 45%, #ece2cb 100%);
+}
+
+html[data-theme="dark"] .site-theme {
+  --color-paper: #15120d;
+  --color-surface: #211b13;
+  --color-ink: #f4efe3;
+  --color-ink-soft: #b9ac92;
+  --color-line: #3a3020;
+  --page-gradient: linear-gradient(175deg, #1d170f 0%, #15120d 45%, #0d0b07 100%);
+}
+
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-surface: var(--color-surface);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-gold: var(--color-gold);
+  --color-gold-deep: var(--color-gold-deep);
+  --color-gold-pale: var(--color-gold-pale);
+  --color-night: var(--color-night);
+  --color-night-ink: var(--color-night-ink);
+  --color-line: var(--color-line);
+  --color-terracotta: var(--color-terracotta);
+  --color-terracotta-ink: var(--color-terracotta-ink);
+  --color-forest: var(--color-forest);
+  --color-forest-ink: var(--color-forest-ink);
+  --color-navy: var(--color-navy);
+  --color-navy-ink: var(--color-navy-ink);
+  --color-ink-fixed: var(--color-ink-fixed);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-night);
+}
+
+/* capa ambiental fija: da continuidad visual permanente entre secciones,
+   en vez de cortes secos de color plano. Vive detrás de todo el contenido. */
+.ambient-field {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  filter: hue-rotate(var(--scroll-hue, 0deg));
+  background-image:
+    radial-gradient(1100px circle at 12% 8%, rgba(217, 169, 37, 0.28), transparent 55%),
+    radial-gradient(900px circle at 88% 26%, rgba(241, 207, 106, 0.18), transparent 55%),
+    radial-gradient(1000px circle at 22% 88%, rgba(177, 81, 47, 0.18), transparent 55%),
+    radial-gradient(900px circle at 82% 92%, rgba(63, 91, 68, 0.16), transparent 55%),
+    radial-gradient(700px circle at 50% 50%, rgba(36, 66, 92, 0.12), transparent 60%),
+    var(--page-gradient);
+  animation: ambient-drift 26s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-2.5%, 2.5%, 0) scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-field {
+    animation: none;
+  }
+}
+
+/* pill del nav: mezcla el color de superficie del tema activo con transparencia
+   vía color-mix, así el fondo del nav siempre es correcto en claro y oscuro sin
+   necesitar dos valores rgba hardcodeados en JS. --nav-alpha lo anima Motion. */
+.nav-pill {
+  background-color: color-mix(in srgb, var(--color-surface) calc(var(--nav-alpha, 70) * 1%), transparent);
+}
+
+/* degradado animado reutilizable: para cualquier superficie que antes era un
+   color plano. El fondo se define en línea (bg-gradient-to-br ...) con
+   background-size 200%, y esta clase mueve la posición para que el color
+   fluya en vez de quedar estático. */
+.gradient-animate {
+  background-size: 220% 220%;
+  animation: gradient-flow 10s ease-in-out infinite;
+}
+
+@keyframes gradient-flow {
+  0%,
+  100% {
+    background-position: 0% 30%;
+  }
+  50% {
+    background-position: 100% 70%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gradient-animate {
+    animation-duration: 36s;
+  }
+}
+
+/* costura entre secciones: filo dorado en degradado en vez de un borde plano */
+.section-seam {
+  position: relative;
+}
+
+.section-seam::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(217, 169, 37, 0.4), transparent);
+}
+
+/* grano de papel muy sutil, fijo, nunca sobre contenedores con scroll (perf) */
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.025;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
