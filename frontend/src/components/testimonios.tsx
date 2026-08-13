@@ -57,7 +57,7 @@ export function Testimonios() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="rounded-full border border-line px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-gold-deep hover:text-gold-deep"
+            className="rounded-full border border-line px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:border-gold-deep hover:text-gold-deep active:scale-[0.97]"
           >
             Deja tu testimonio
           </motion.button>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight } from "@phosphor-icons/react";
+import { RevealImage } from "@/components/reveal-image";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -16,15 +17,17 @@ export function TalentoHumano() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="order-2 aspect-[4/3] overflow-hidden rounded-3xl md:order-1"
+          className="order-2 md:order-1"
         >
-          <Image
-            src="/marca/hero-building.jpg"
-            alt="Edificio corporativo"
-            width={800}
-            height={600}
-            className="h-full w-full object-cover"
-          />
+          <RevealImage className="aspect-[4/3] rounded-3xl ring-1 ring-line">
+            <Image
+              src="/marca/hero-building.jpg"
+              alt="Edificio corporativo de SIE Jurídicos"
+              width={800}
+              height={600}
+              className="h-full w-full object-cover"
+            />
+          </RevealImage>
         </motion.div>
 
         <motion.div
