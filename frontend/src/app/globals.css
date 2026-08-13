@@ -140,6 +140,18 @@ body {
   }
 }
 
+/* fotos del equipo: cada una trae su propio zoom base (--foto-zoom, ver
+   equipo.tsx) para corregir encuadres inconsistentes entre las fotos reales,
+   compuesto con un acercamiento leve al hover */
+.equipo-foto {
+  transform: scale(var(--foto-zoom, 1));
+  transition: transform 500ms ease-out;
+}
+
+.group:hover .equipo-foto {
+  transform: scale(calc(var(--foto-zoom, 1) * 1.05));
+}
+
 /* costura entre secciones: filo dorado en degradado en vez de un borde plano */
 .section-seam {
   position: relative;

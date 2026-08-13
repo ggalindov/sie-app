@@ -85,6 +85,14 @@ export type MiembroEquipo = {
   cargo: string;
   foto: string;
   bio?: string;
+  // encuadre por foto: las fotos reales del equipo vienen con zoom y
+  // encuadre distintos entre sí (algunas muy cerca de rostro, otras con
+  // mucho fondo, una descentrada). No hay herramienta de recorte/edición de
+  // imagen disponible en este entorno, así que se corrige por CSS: posicion
+  // es object-position, zoom es un scale() aplicado sobre la imagen para que
+  // todos los rostros lean a un tamaño y encuadre parecido en la grilla.
+  posicion?: string;
+  zoom?: number;
 };
 
 // Bios de Tatiana y Jorge Mario tomadas literalmente de sus páginas de perfil
@@ -97,19 +105,57 @@ export const equipo: MiembroEquipo[] = [
     cargo: "Socia Fundadora",
     foto: "/equipo/tatiana-bustos.jpg",
     bio: "Especialista en Derecho Administrativo y Probatorio, Magíster en Administración Estratégica de Recursos Humanos. Más de 20 años de experiencia en el sector público y privado, con cargos como Directora de Conciliación en la Personería de Bogotá y asesora jurídica en la Contraloría General de la República.",
+    posicion: "50% 32%",
   },
   {
     nombre: "Jorge Mario Cifuentes Lara",
     cargo: "Abogado Senior",
     foto: "/equipo/jorge-mario.png",
     bio: "Especialista en Derecho Administrativo, Conciliador en Derecho. Experto en Derecho Laboral, Seguridad Social, Tributario, Contractual y procesos de insolvencia, reestructuración y liquidación, con más de 20 años de experiencia en el sector público y privado.",
+    posicion: "50% 30%",
+    zoom: 0.94,
   },
-  { nombre: "Oscar Fernando Rincón", cargo: "Abogado Senior", foto: "/equipo/oscar-rincon.jpg" },
-  { nombre: "Natalia Cárdenas Triviño", cargo: "Abogada", foto: "/equipo/natalia-cardenas.jpg" },
-  { nombre: "Karen Yalena Cantillo Martínez", cargo: "Abogada", foto: "/equipo/karen-cantillo.jpg" },
-  { nombre: "Kory Violeta Mendoza Sarabia", cargo: "Líder de Gestión", foto: "/equipo/kory-mendoza.png" },
-  { nombre: "Iris Edelmira Pinzón", cargo: "Gestora Jurídica", foto: "/equipo/iris-pinzon.png" },
-  { nombre: "Alejandra Villate", cargo: "Practicante", foto: "/equipo/alejandra-villate.jpg" },
+  {
+    nombre: "Oscar Fernando Rincón",
+    cargo: "Abogado Senior",
+    foto: "/equipo/oscar-rincon.jpg",
+    posicion: "50% 28%",
+    zoom: 0.94,
+  },
+  {
+    nombre: "Natalia Cárdenas Triviño",
+    cargo: "Abogada",
+    foto: "/equipo/natalia-cardenas.jpg",
+    posicion: "62% 30%",
+    zoom: 1.18,
+  },
+  {
+    nombre: "Karen Yalena Cantillo Martínez",
+    cargo: "Abogada",
+    foto: "/equipo/karen-cantillo.jpg",
+    posicion: "50% 30%",
+  },
+  {
+    nombre: "Kory Violeta Mendoza Sarabia",
+    cargo: "Líder de Gestión",
+    foto: "/equipo/kory-mendoza.png",
+    posicion: "50% 28%",
+    zoom: 1.1,
+  },
+  {
+    nombre: "Iris Edelmira Pinzón",
+    cargo: "Gestora Jurídica",
+    foto: "/equipo/iris-pinzon.png",
+    posicion: "50% 26%",
+    zoom: 1.12,
+  },
+  {
+    nombre: "Alejandra Villate",
+    cargo: "Practicante",
+    foto: "/equipo/alejandra-villate.jpg",
+    posicion: "48% 28%",
+    zoom: 1.02,
+  },
 ];
 
 export type Testimonio = {

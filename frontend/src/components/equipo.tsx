@@ -59,8 +59,12 @@ export function Equipo() {
                     alt={persona.nombre}
                     fill
                     sizes="(min-width: 1024px) 220px, (min-width: 640px) 30vw, 45vw"
-                    style={mascara}
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    style={{
+                      ...mascara,
+                      objectPosition: persona.posicion ?? "50% 32%",
+                      ["--foto-zoom" as string]: persona.zoom ?? 1,
+                    }}
+                    className="equipo-foto object-cover"
                   />
                 </div>
               </motion.div>
