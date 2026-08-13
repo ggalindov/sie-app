@@ -17,7 +17,13 @@ export function TrustedBy() {
   const logos = [...empresasConfianza, ...empresasConfianza];
 
   return (
-    <section className="section-seam bg-surface/90 py-24 md:py-28">
+    <section
+      className="section-seam gradient-animate relative py-24 md:py-28"
+      style={{
+        backgroundImage:
+          "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.14), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.1), transparent 55%), linear-gradient(175deg, var(--color-surface) 0%, var(--color-paper) 100%)",
+      }}
+    >
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-10 md:grid-cols-12 md:items-end">
           <motion.div
@@ -54,21 +60,28 @@ export function TrustedBy() {
         </div>
       </div>
 
-      <div className="mt-14 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+      <div className="mt-16 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
         <div className="flex w-max animate-marquee items-center gap-8 hover:[animation-play-state:paused]">
           {logos.map((empresa, i) => (
-            <div
+            <motion.div
               key={`${empresa.src}-${i}`}
-              className="flex h-28 w-56 shrink-0 items-center justify-center rounded-3xl bg-white p-6 shadow-[0_20px_45px_-20px_rgba(0,0,0,0.45)] ring-1 ring-black/5 transition-transform duration-300 hover:scale-105"
+              animate={{ y: [0, -8, 0] }}
+              transition={{
+                duration: 4 + (i % 4) * 0.4,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: (i % 7) * 0.25,
+              }}
+              className="flex h-36 w-72 shrink-0 items-center justify-center rounded-[1.75rem] bg-white p-8 shadow-[0_24px_55px_-20px_rgba(0,0,0,0.35)] ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:scale-105"
             >
               <Image
                 src={empresa.src}
                 alt={empresa.alt}
-                width={160}
-                height={80}
+                width={200}
+                height={100}
                 className="h-full w-full object-contain"
               />
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

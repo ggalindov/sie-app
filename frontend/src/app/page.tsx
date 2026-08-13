@@ -1,4 +1,5 @@
 import { Hero } from "@/components/hero";
+import { Criterio } from "@/components/criterio";
 import { QuienesSomos } from "@/components/quienes-somos";
 import { AreasPractica } from "@/components/areas-practica";
 import { TalentoHumano } from "@/components/talento-humano";
@@ -12,6 +13,7 @@ export default function Home() {
   return (
     <main className="flex-1">
       <Hero />
+      <Criterio />
       <QuienesSomos />
       <AreasPractica />
       <TalentoHumano />

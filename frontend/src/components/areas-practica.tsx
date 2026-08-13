@@ -61,11 +61,10 @@ const paletas = [
     flecha: "text-ink-fixed/60",
   },
   {
-    gradient: "linear-gradient(135deg, var(--color-surface) 0%, var(--color-paper) 100%)",
-    ink: "text-ink",
-    icono: "text-gold-deep",
-    flecha: "text-ink-soft",
-    ring: true,
+    gradient: "linear-gradient(200deg, #120f09 0%, #3a2f16 55%, #0c0a07 100%)",
+    ink: "text-night-ink",
+    icono: "text-gold",
+    flecha: "text-night-ink/50",
   },
 ];
 
@@ -100,7 +99,7 @@ export function AreasPractica() {
                 <Link
                   href={`/areas/${area.slug}`}
                   style={{ backgroundImage: p.gradient }}
-                  className={`group gradient-animate relative flex h-full flex-col justify-between overflow-hidden rounded-3xl p-7 shadow-[0_1px_0_rgba(255,255,255,0.06)_inset] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)] ${p.ink} ${p.ring ? "ring-1 ring-line" : ""}`}
+                  className={`group gradient-animate relative flex h-full flex-col justify-between overflow-hidden rounded-3xl p-7 shadow-[0_1px_0_rgba(255,255,255,0.06)_inset] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)] ${p.ink}`}
                 >
                   <div
                     aria-hidden="true"
@@ -130,10 +129,10 @@ export function AreasPractica() {
                       {area.nombre}
                     </h3>
                     <p
-                      className={`mt-2 text-sm leading-relaxed opacity-70 transition-all duration-300 ${
+                      className={`mt-2 overflow-hidden text-sm leading-relaxed opacity-70 transition-all duration-300 ${
                         destacada
                           ? "line-clamp-3"
-                          : "line-clamp-0 max-h-0 opacity-0 group-hover:line-clamp-3 group-hover:max-h-24 group-hover:opacity-70"
+                          : "max-h-0 opacity-0 group-hover:max-h-24 group-hover:opacity-70"
                       }`}
                     >
                       {area.resumen}
