@@ -59,12 +59,6 @@ html[data-theme="dark"] .site-theme {
   --color-night: var(--color-night);
   --color-night-ink: var(--color-night-ink);
   --color-line: var(--color-line);
-  --color-terracotta: var(--color-terracotta);
-  --color-terracotta-ink: var(--color-terracotta-ink);
-  --color-forest: var(--color-forest);
-  --color-forest-ink: var(--color-forest-ink);
-  --color-navy: var(--color-navy);
-  --color-navy-ink: var(--color-navy-ink);
   --color-ink-fixed: var(--color-ink-fixed);
 
   --font-display: var(--font-display);
