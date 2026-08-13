@@ -39,6 +39,7 @@ export function Contacto() {
     const data = new FormData(form);
 
     setEstado("enviando");
+    const toastId = toast.loading("Enviando tu mensaje...");
     try {
       await crearSolicitud({
         nombre: String(data.get("nombre") ?? ""),
@@ -52,13 +53,14 @@ export function Contacto() {
       form.reset();
       setAceptaDatos(false);
       setAceptaMarketing(false);
+      toast.success("Mensaje enviado. Te contactaremos pronto.", { id: toastId });
     } catch (err) {
       setEstado("idle");
       const mensaje =
         err instanceof ApiError
           ? err.message
           : "No pudimos enviar tu mensaje. Intenta de nuevo en unos minutos.";
-      toast.error(mensaje);
+      toast.error(mensaje, { id: toastId });
     }
   }
 

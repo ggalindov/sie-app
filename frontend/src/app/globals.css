@@ -36,7 +36,7 @@
    ningún componente necesita lógica de tema propia. El fondo nunca es un
    color sólido: siempre es --page-gradient, un degradado real. */
 .site-theme {
-  --page-gradient: linear-gradient(175deg, #fdfcfa 0%, #f5f3ee 45%, #ece8dc 100%);
+  --page-gradient: linear-gradient(175deg, #ffffff 0%, #f4efe0 48%, #e3d7b8 100%);
 }
 
 html[data-theme="dark"] .site-theme {
@@ -83,6 +83,20 @@ body {
   z-index: -1;
   pointer-events: none;
   filter: hue-rotate(var(--scroll-hue, 0deg));
+  /* en modo claro los mismos tintes quedan casi invisibles sobre un fondo
+     casi blanco, así que aquí van más saturados; el modo oscuro (donde ya
+     se veían bien) los atenúa un poco más abajo */
+  background-image:
+    radial-gradient(1100px circle at 12% 8%, rgba(217, 169, 37, 0.4), transparent 55%),
+    radial-gradient(900px circle at 88% 26%, rgba(241, 207, 106, 0.3), transparent 55%),
+    radial-gradient(1000px circle at 22% 88%, rgba(177, 81, 47, 0.26), transparent 55%),
+    radial-gradient(900px circle at 82% 92%, rgba(63, 91, 68, 0.22), transparent 55%),
+    radial-gradient(700px circle at 50% 50%, rgba(36, 66, 92, 0.18), transparent 60%),
+    var(--page-gradient);
+  animation: ambient-drift 26s ease-in-out infinite alternate;
+}
+
+html[data-theme="dark"] .ambient-field {
   background-image:
     radial-gradient(1100px circle at 12% 8%, rgba(217, 169, 37, 0.28), transparent 55%),
     radial-gradient(900px circle at 88% 26%, rgba(241, 207, 106, 0.18), transparent 55%),
@@ -90,7 +104,6 @@ body {
     radial-gradient(900px circle at 82% 92%, rgba(63, 91, 68, 0.16), transparent 55%),
     radial-gradient(700px circle at 50% 50%, rgba(36, 66, 92, 0.12), transparent 60%),
     var(--page-gradient);
-  animation: ambient-drift 26s ease-in-out infinite alternate;
 }
 
 @keyframes ambient-drift {
@@ -187,7 +200,7 @@ body {
 }
 
 .animate-marquee {
-  animation: marquee 28s linear infinite;
+  animation: marquee 34s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

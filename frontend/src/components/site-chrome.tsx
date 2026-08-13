@@ -20,15 +20,21 @@ export function SiteChrome({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="site-theme relative flex min-h-full flex-1 flex-col bg-paper text-ink">
-      <div className="ambient-field" aria-hidden="true" />
-      <ScrollAmbient />
-      <ScrollProgress />
-      <SiteNav />
-      {children}
-      <SiteFooter />
-      <WhatsappFloat />
-      <ChatbotWidget />
-    </div>
+    <>
+      {/* fondo ambiental como hermano de nivel superior, no anidado dentro
+          del wrapper de contenido: un z-index negativo dentro de otro
+          contexto de apilamiento (position:relative) no se pintaba de forma
+          fiable en algunos navegadores, dejando el fondo plano y sólido */}
+      <div className="site-theme ambient-field" aria-hidden="true" />
+      <div className="site-theme relative flex min-h-full flex-1 flex-col text-ink">
+        <ScrollAmbient />
+        <ScrollProgress />
+        <SiteNav />
+        {children}
+        <SiteFooter />
+        <WhatsappFloat />
+        <ChatbotWidget />
+      </div>
+    </>
   );
 }

@@ -33,6 +33,12 @@ rem aplicacion" en https://myaccount.google.com/apppasswords (no uses tu contras
 set MAIL_USERNAME=
 set MAIL_PASSWORD=
 
+rem Credenciales reales (Gmail u otras): NUNCA las pongas aqui arriba, este archivo esta
+rem versionado en git y se sube al repositorio. Crea "run.local.bat" (esta en .gitignore,
+rem nunca se sube) junto a este script con las mismas variables set MAIL_USERNAME=... /
+rem set MAIL_PASSWORD=... y se cargan automaticamente abajo si el archivo existe.
+if exist "%~dp0run.local.bat" call "%~dp0run.local.bat"
+
 echo ============================================================
 echo  SIE Juridicos backend
 echo  - Docker Desktop debe estar corriendo (spring-boot-docker-compose

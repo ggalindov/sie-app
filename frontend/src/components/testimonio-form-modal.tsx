@@ -44,6 +44,7 @@ export function TestimonioFormModal({
     const data = new FormData(form);
 
     setEstado("enviando");
+    const toastId = toast.loading("Enviando tu testimonio...");
     try {
       await crearTestimonio({
         nombre: String(data.get("nombre") ?? ""),
@@ -55,13 +56,14 @@ export function TestimonioFormModal({
       });
       setEstado("enviado");
       form.reset();
+      toast.success("Testimonio enviado. Gracias por tu tiempo.", { id: toastId });
     } catch (err) {
       setEstado("idle");
       const mensaje =
         err instanceof ApiError
           ? err.message
           : "No pudimos enviar tu testimonio. Intenta de nuevo en unos minutos.";
-      toast.error(mensaje);
+      toast.error(mensaje, { id: toastId });
     }
   }
 

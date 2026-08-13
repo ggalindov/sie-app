@@ -4,6 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .env
+run.local.bat
 
 ### STS ###
 .apt_generated

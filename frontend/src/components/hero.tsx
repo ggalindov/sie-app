@@ -140,7 +140,7 @@ export function Hero() {
 
         <motion.div
           {...entry(0.15)}
-          className="relative mx-auto w-full max-w-sm md:col-span-5 md:col-start-9 md:max-w-none"
+          className="relative mx-auto w-full max-w-sm md:col-span-5 md:col-start-8 md:max-w-none"
         >
           <BrandCard />
 

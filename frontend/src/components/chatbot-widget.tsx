@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChatCircleDots, X, PaperPlaneTilt } from "@phosphor-icons/react";
+import { X, PaperPlaneTilt } from "@phosphor-icons/react";
 import { enviarMensajeChatbot, type TurnoChat } from "@/lib/api";
+import { SiebotMascot } from "@/components/siebot-mascot";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 const MENSAJE_BIENVENIDA: TurnoChat = {
   rol: "ASISTENTE",
   contenido:
-    "Hola, soy el asistente virtual de SIE Jurídicos. Puedo contarte sobre nuestros horarios, ubicación y áreas de práctica, o tomar tus datos para que un abogado te contacte. ¿En qué puedo ayudarte?",
+    "Hola, soy Siebot, el asistente virtual de SIE Jurídicos. Puedo contarte sobre nuestros horarios, ubicación y áreas de práctica, o tomar tus datos para que un abogado te contacte. ¿En qué puedo ayudarte?",
 };
 
 export function ChatbotWidget() {
@@ -71,7 +72,7 @@ export function ChatbotWidget() {
         transition={{ duration: 0.5, delay: 0.9, ease: EASE }}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.96 }}
-        className="fixed bottom-6 left-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ink text-paper shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)]"
+        className="fixed bottom-6 left-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-ink text-paper shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)]"
       >
         <AnimatePresence initial={false} mode="wait">
           {open ? (
@@ -79,8 +80,8 @@ export function ChatbotWidget() {
               <X className="h-6 w-6" weight="light" />
             </motion.span>
           ) : (
-            <motion.span key="chat" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
-              <ChatCircleDots className="h-6 w-6" weight="fill" />
+            <motion.span key="chat" initial={{ rotate: 90, opacity: 0, scale: 0.6 }} animate={{ rotate: 0, opacity: 1, scale: 1 }} exit={{ rotate: -90, opacity: 0, scale: 0.6 }} transition={{ duration: 0.25 }}>
+              <SiebotMascot size={38} />
             </motion.span>
           )}
         </AnimatePresence>
@@ -96,12 +97,10 @@ export function ChatbotWidget() {
             className="fixed inset-x-4 bottom-24 z-40 flex max-h-[70vh] flex-col overflow-hidden rounded-3xl bg-surface shadow-[0_30px_60px_-15px_rgba(28,26,22,0.4)] ring-1 ring-line sm:inset-x-auto sm:bottom-24 sm:left-6 sm:w-96"
           >
             <div className="flex items-center gap-3 border-b border-line bg-ink px-5 py-4 text-paper">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ink-fixed">
-                <ChatCircleDots weight="fill" className="h-5 w-5" />
-              </span>
+              <SiebotMascot size={36} pensando={cargando} />
               <div>
-                <p className="text-sm font-medium">SIE Jurídicos</p>
-                <p className="text-xs text-paper/60">Asistente virtual</p>
+                <p className="text-sm font-medium">Siebot</p>
+                <p className="text-xs text-paper/60">Asistente virtual de SIE Jurídicos</p>
               </div>
             </div>
 

@@ -61,7 +61,7 @@ export function TrustedBy() {
       </div>
 
       <div className="mt-16 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <div className="flex w-max animate-marquee items-center gap-8 hover:[animation-play-state:paused]">
+        <div className="flex w-max animate-marquee items-center gap-8">
           {logos.map((empresa, i) => (
             <motion.div
               key={`${empresa.src}-${i}`}
@@ -72,13 +72,13 @@ export function TrustedBy() {
                 ease: "easeInOut",
                 delay: (i % 7) * 0.25,
               }}
-              className="flex h-36 w-72 shrink-0 items-center justify-center rounded-[1.75rem] bg-white p-8 shadow-[0_24px_55px_-20px_rgba(0,0,0,0.35)] ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:scale-105"
+              className="flex h-44 w-80 shrink-0 items-center justify-center rounded-[1.75rem] bg-white p-9 shadow-[0_24px_55px_-20px_rgba(0,0,0,0.35)] ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:scale-105"
             >
               <Image
                 src={empresa.src}
                 alt={empresa.alt}
-                width={200}
-                height={100}
+                width={240}
+                height={130}
                 className="h-full w-full object-contain"
               />
             </motion.div>

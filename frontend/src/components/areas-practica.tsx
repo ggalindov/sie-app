@@ -70,7 +70,14 @@ const paletas = [
 
 export function AreasPractica() {
   return (
-    <section id="areas" className="section-seam bg-surface/90 py-24 md:py-32">
+    <section
+      id="areas"
+      className="section-seam gradient-animate relative py-24 md:py-32"
+      style={{
+        backgroundImage:
+          "radial-gradient(110% 80% at 85% 0%, rgba(217,169,37,0.12), transparent 55%), radial-gradient(90% 80% at 5% 100%, rgba(217,169,37,0.09), transparent 55%), linear-gradient(175deg, var(--color-surface) 0%, var(--color-paper) 100%)",
+      }}
+    >
       <div className="mx-auto max-w-7xl px-6">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}
@@ -99,7 +106,7 @@ export function AreasPractica() {
                 <Link
                   href={`/areas/${area.slug}`}
                   style={{ backgroundImage: p.gradient }}
-                  className={`group gradient-animate relative flex h-full flex-col justify-between overflow-hidden rounded-3xl p-7 shadow-[0_1px_0_rgba(255,255,255,0.06)_inset] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)] ${p.ink}`}
+                  className={`group gradient-animate relative flex h-full flex-col justify-between overflow-hidden rounded-3xl p-7 shadow-[0_1px_0_rgba(255,255,255,0.08)_inset] ring-1 ring-white/10 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_28px_55px_-20px_rgba(0,0,0,0.55)] ${p.ink}`}
                 >
                   <div
                     aria-hidden="true"
@@ -114,7 +121,7 @@ export function AreasPractica() {
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
-                      className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-current/10`}
+                      className="flex h-12 w-12 items-center justify-center rounded-2xl bg-current/10 ring-1 ring-current/15"
                     >
                       <Icono weight="light" className={`h-6 w-6 ${p.icono}`} />
                     </motion.span>
@@ -125,7 +132,7 @@ export function AreasPractica() {
                   </div>
 
                   <div className="relative">
-                    <h3 className="font-display text-xl leading-snug">
+                    <h3 className="font-display text-xl font-medium leading-snug">
                       {area.nombre}
                     </h3>
                     <p
