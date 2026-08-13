@@ -61,26 +61,26 @@ function BrandCard() {
         className="rounded-[2rem] bg-ink/5 p-2 shadow-[0_0_80px_-20px_rgba(217,169,37,0.3)] ring-1 ring-gold/15"
       >
         <div
-          className="gradient-animate relative aspect-[4/5] w-full overflow-hidden rounded-[1.6rem]"
+          className="gradient-animate relative aspect-square w-full overflow-hidden rounded-[1.6rem]"
           style={{
             backgroundImage:
               "linear-gradient(150deg, #0a0906 0%, #171310 40%, #221c11 62%, #0a0906 100%)",
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="relative aspect-square w-[70%] max-w-[320px]">
+            <div className="relative aspect-square w-[84%] max-w-[360px]">
               <SealRing />
               <motion.div
                 animate={{ scale: [1, 1.03, 1] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute inset-0 flex items-center justify-center"
               >
-                <div className="relative aspect-[644/559] w-[62%] max-w-[300px]">
+                <div className="relative aspect-[644/559] w-[74%] max-w-[340px]">
                   <Image
                     src="/marca/logo.png"
                     alt={siteConfig.nombre}
                     fill
-                    sizes="300px"
+                    sizes="340px"
                     className="object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
                     priority
                   />
