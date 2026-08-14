@@ -8,6 +8,7 @@ import { WhatsappFloat } from "@/components/whatsapp-float";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { ScrollAmbient } from "@/components/scroll-ambient";
+import { SlideNav } from "@/components/slide-nav";
 
 // El panel administrativo (/admin/**) tiene su propio shell (sidebar/topbar) y no debe
 // mostrar el nav, footer, WhatsApp flotante ni chatbot del sitio público.
@@ -32,6 +33,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         <SiteNav />
         {children}
         <SiteFooter />
+        <SlideNav />
         <WhatsappFloat />
         <ChatbotWidget />
       </div>

@@ -18,14 +18,23 @@ export default function Home() {
       <Hero
         media={
           <SectionVideo
-            src="videos/hero.mp4"
+            src="videos/abogado.mp4"
             poster="/marca/hero-building.jpg"
-            posterAlt="Oficina de SIE Jurídicos"
+            posterAlt="Abogado de SIE Jurídicos"
             className="h-full w-full object-cover"
           />
         }
       />
-      <Criterio />
+      <Criterio
+        media={
+          <SectionVideo
+            src="videos/balanza.mp4"
+            poster="/fondos/dmitrij-paskevic-YjVa-F9P9kk-unsplash.jpg"
+            posterAlt="Balanza de la justicia"
+            className="h-full w-full object-cover"
+          />
+        }
+      />
       <QuienesSomos />
       <AreasPractica />
       <TalentoHumano
@@ -44,7 +53,16 @@ export default function Home() {
       <BlogTeaser />
       <Newsletter />
       <Contacto />
-      <AgendarAsesoria />
+      <AgendarAsesoria
+        media={
+          <SectionVideo
+            src="videos/documentos.mp4"
+            poster="/marca/hero-building.jpg"
+            posterAlt="Documentos legales"
+            className="h-full w-full object-cover"
+          />
+        }
+      />
     </main>
   );
 }

@@ -1,14 +1,17 @@
-Sube aqui los archivos de video con estos nombres exactos (minusculas):
+Videos reales de la firma, ya en uso en el sitio:
 
-- hero.mp4       -> fondo del Hero (inicio de la home)
-- oficina.mp4    -> seccion "Talento Humano" (reemplaza la foto del edificio)
+- abogado.mp4     -> fondo del Hero (inicio de la home)
+- balanza.mp4     -> seccion "Cada caso se resuelve con el mismo criterio"
+- oficina.mp4     -> seccion "Talento Humano"
+- documentos.mp4  -> seccion "Agendar asesoria"
 
-Formato recomendado: MP4 (H.264), sin audio o silenciado, 1920x1080 o similar,
-peso liviano (idealmente menos de 15-20 MB cada uno, el sitio los reproduce en
-loop automatico y silenciado como fondo, no como video con controles).
+Si reemplazas alguno, mantén el mismo nombre de archivo para que el sitio lo
+detecte automaticamente (ver frontend/src/app/page.tsx y
+frontend/src/components/section-video.tsx). Si agregas uno nuevo con nombre
+distinto, hay que registrar la ruta en page.tsx.
 
-Mientras no subas un archivo con el nombre exacto, esa seccion sigue usando
-la foto actual como respaldo, no se rompe nada.
+Formato recomendado: MP4 (H.264), sin audio o silenciado, se reproduce en
+loop automatico y silenciado como fondo, no como video con controles.
 
-Despues de subir un archivo nuevo, reinicia el servidor de desarrollo
+Tras agregar o reemplazar un archivo, reinicia el servidor de desarrollo
 (detener y volver a correr "npm run dev") para que el sitio lo detecte.

@@ -1,17 +1,17 @@
 "use client";
 
-import Image from "next/image";
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-// Momento editorial de la home: la biblioteca real de la firma como fondo,
-// sin ningún objeto 3D flotando encima (el martillo se retiró a pedido
-// explícito del usuario, "pierde la elegancia del sitio"). El fondo se
-// mueve levemente con el scroll (parallax con Motion, no GSAP) para que la
-// sección no se sienta como una imagen estática pegada detrás del texto.
-export function Criterio() {
+// Momento editorial de la home: video real de la firma como fondo (antes una
+// foto de stock de una biblioteca genérica), sin ningún objeto 3D flotando
+// encima (el martillo se retiró a pedido explícito del usuario, "pierde la
+// elegancia del sitio"). El fondo se mueve levemente con el scroll
+// (parallax con Motion, no GSAP) para que la sección no se sienta como una
+// imagen estática pegada detrás del texto.
+export function Criterio({ media }: { media: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -22,13 +22,7 @@ export function Criterio() {
   return (
     <section ref={ref} className="snap-slide relative overflow-hidden py-28 md:py-40">
       <motion.div style={{ y }} className="absolute inset-[-8%]">
-        <Image
-          src="/fondos/dmitrij-paskevic-YjVa-F9P9kk-unsplash.jpg"
-          alt=""
-          fill
-          sizes="100vw"
-          className="object-cover"
-        />
+        {media}
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-b from-night/90 via-night/80 to-night/90" />
       <div

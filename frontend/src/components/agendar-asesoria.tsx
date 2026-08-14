@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { Spinner } from "@phosphor-icons/react";
@@ -14,8 +14,11 @@ type Estado = "idle" | "enviando" | "enviado";
 // Sección propia e independiente, a pedido explícito del usuario: "Agendar
 // asesoría" no comparte espacio ni intención con "Contacto" (ese es solo un
 // directorio de medios oficiales, ver contacto.tsx). Aquí vive el único
-// formulario que crea una solicitud real en el backend.
-export function AgendarAsesoria() {
+// formulario que crea una solicitud real en el backend. El video de fondo
+// queda detrás de todo con un velo oscuro; la tarjeta del formulario se
+// queda opaca (bg-paper) a propósito, para que los campos nunca pierdan
+// contraste sin importar qué esté pasando en el video.
+export function AgendarAsesoria({ media }: { media: ReactNode }) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [aceptaDatos, setAceptaDatos] = useState(false);
   const [aceptaMarketing, setAceptaMarketing] = useState(false);
@@ -59,8 +62,11 @@ export function AgendarAsesoria() {
   }
 
   return (
-    <section id="agendar" className="snap-slide section-seam py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="agendar" className="snap-slide section-seam relative overflow-hidden py-24 md:py-32">
+      <div className="absolute inset-0">{media}</div>
+      <div className="absolute inset-0 bg-gradient-to-r from-night/92 via-night/85 to-night/60" />
+
+      <div className="relative mx-auto max-w-7xl px-6">
         <div className="grid gap-14 md:grid-cols-12 md:gap-12">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -69,10 +75,10 @@ export function AgendarAsesoria() {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-4 md:self-center"
           >
-            <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
+            <h2 className="font-display text-3xl leading-tight tracking-tight text-night-ink md:text-4xl">
               Agendar asesoría
             </h2>
-            <p className="mt-4 max-w-sm text-base leading-relaxed text-ink-soft">
+            <p className="mt-4 max-w-sm text-base leading-relaxed text-night-ink/70">
               Cuéntanos tu caso y un abogado de SIE Jurídicos te contactará
               para agendar tu asesoría.
             </p>
