@@ -19,7 +19,7 @@ export function TrustedBy() {
 
   return (
     <section
-      className="snap-moment section-seam gradient-animate relative py-24 md:py-28"
+      className="snap-slide section-seam gradient-animate relative py-24 md:py-28"
       style={
         {
           // fondo y tokens de texto siempre claros aquí, sin importar el tema
@@ -32,6 +32,11 @@ export function TrustedBy() {
           "--color-ink": "#14130f",
           "--color-ink-soft": "#57544a",
           "--color-line": "#e7e3d8",
+          // el color heredado (no solo las custom properties) también se fija
+          // aquí: un <h2> u otro texto sin clase text-ink explícita hereda el
+          // "color" real de un antepasado (el body), y en modo oscuro ese
+          // color es claro, casi invisible sobre este fondo forzado a claro
+          color: "#14130f",
         } as CSSProperties
       }
     >
@@ -44,7 +49,7 @@ export function TrustedBy() {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-7"
           >
-            <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
+            <h2 className="font-display text-3xl leading-tight tracking-tight text-ink md:text-4xl">
               La confianza de empresas que ya nos eligieron.
             </h2>
             <p className="mt-3 max-w-md text-base leading-relaxed text-ink-soft">

@@ -46,7 +46,7 @@ function Contador({
 
 export function QuienesSomos() {
   return (
-    <section id="quienes-somos" className="section-seam py-24 md:py-36">
+    <section id="quienes-somos" className="snap-slide section-seam py-24 md:py-36">
       <div className="mx-auto max-w-7xl px-6">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}

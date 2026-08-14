@@ -20,7 +20,7 @@ export async function BlogTeaser() {
 
   if (articulos.length === 0) {
     return (
-      <section id="blog" className="section-seam py-24 md:py-32">
+      <section id="blog" className="snap-slide section-seam py-24 md:py-32">
         <div className="mx-auto max-w-7xl px-6">
           <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
             Blog jurídico
@@ -46,7 +46,7 @@ export async function BlogTeaser() {
   const [destacado, ...resto] = articulos;
 
   return (
-    <section id="blog" className="section-seam py-24 md:py-32">
+    <section id="blog" className="snap-slide section-seam py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <div className="flex items-end justify-between gap-4">
           <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">

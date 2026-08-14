@@ -64,15 +64,15 @@ function FotoFirma({ media }: { media: ReactNode }) {
         {media}
         <div className="absolute inset-0 bg-gradient-to-t from-night/55 via-transparent to-night/10" />
 
-        <div className="absolute -bottom-5 -left-5 flex h-20 w-20 items-center justify-center rounded-full bg-night p-2 shadow-[0_15px_35px_-10px_rgba(0,0,0,0.55)] sm:h-24 sm:w-24">
+        <div className="absolute -bottom-6 -left-6 flex h-24 w-24 items-center justify-center rounded-full bg-night p-2 shadow-[0_15px_35px_-10px_rgba(0,0,0,0.55)] sm:h-32 sm:w-32">
           <div className="relative flex h-full w-full items-center justify-center rounded-full">
             <SealRing delay={0.8} />
-            <div className="relative aspect-[644/559] w-[62%]">
+            <div className="relative aspect-[644/559] w-[64%]">
               <Image
                 src="/marca/logo.png"
                 alt={siteConfig.nombre}
                 fill
-                sizes="80px"
+                sizes="128px"
                 className="object-contain"
               />
             </div>
@@ -85,7 +85,7 @@ function FotoFirma({ media }: { media: ReactNode }) {
 
 export function Hero({ media }: { media: ReactNode }) {
   return (
-    <section className="snap-moment relative overflow-hidden pt-24">
+    <section className="snap-slide relative overflow-hidden pt-24 md:pt-0">
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-20 md:grid-cols-12 md:gap-8 md:pb-28">
         <div className="max-w-xl md:col-span-7">
           <motion.h1

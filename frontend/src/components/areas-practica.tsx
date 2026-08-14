@@ -78,7 +78,7 @@ export function AreasPractica() {
   return (
     <section
       id="areas"
-      className="section-seam gradient-animate relative py-24 md:py-32"
+      className="snap-slide section-seam gradient-animate relative py-24 md:py-32"
       style={{
         backgroundImage:
           "radial-gradient(110% 80% at 85% 0%, rgba(217,169,37,0.12), transparent 55%), radial-gradient(90% 80% at 5% 100%, rgba(217,169,37,0.09), transparent 55%), linear-gradient(175deg, var(--color-surface) 0%, var(--color-paper) 100%)",

@@ -1,19 +1,28 @@
 @import "tailwindcss";
 
 /* scroll tipo "slide" en desktop: CSS scroll-snap nativo, nunca scroll
-   hijack por JS (respeta rueda, trackpad, teclado y no atrapa al usuario).
-   "proximity" en vez de "mandatory" a propósito: solo ayuda a encajar cuando
-   el usuario ya está cerca de una sección "momento", nunca fuerza el salto.
+   hijack por JS (respeta rueda, trackpad, teclado y no atrapa al usuario:
+   "mandatory" solo obliga a encajar en el borde de sección más cercano
+   cuando el usuario deja de mover la rueda, nunca bloquea el scroll en sí).
    Solo en desktop: en móvil el snap por touch se siente roto casi siempre. */
 @media (min-width: 768px) {
   html {
-    scroll-snap-type: y proximity;
+    scroll-snap-type: y mandatory;
   }
 }
 
-.snap-moment {
+.snap-slide {
   scroll-snap-align: start;
-  scroll-margin-top: 5rem;
+  scroll-margin-top: 4.5rem;
+}
+
+@media (min-width: 768px) {
+  .snap-slide {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 }
 
 :root {
@@ -237,5 +246,15 @@ html[data-theme="dark"] .ambient-field {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* excepción deliberada: un carrusel horizontal de logos es decorativo y de
+     bajo riesgo vestibular (sin parallax, sin zoom, desplazamiento lateral
+     lento y constante). Congelarlo del todo le quita el sentido a la
+     sección (mostrar que son varias empresas), así que sigue en movimiento,
+     solo un poco más lento que la versión con movimiento completo. */
+  .animate-marquee {
+    animation-duration: 50s !important;
+    animation-iteration-count: infinite !important;
   }
 }

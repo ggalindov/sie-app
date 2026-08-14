@@ -59,7 +59,7 @@ export function AgendarAsesoria() {
   }
 
   return (
-    <section id="agendar" className="snap-moment section-seam py-24 md:py-32">
+    <section id="agendar" className="snap-slide section-seam py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-14 md:grid-cols-12 md:gap-12">
           <motion.div

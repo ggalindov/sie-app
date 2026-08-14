@@ -37,7 +37,7 @@ export function Testimonios() {
   ];
 
   return (
-    <section className="section-seam py-24 md:py-32">
+    <section className="snap-slide section-seam py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <motion.h2

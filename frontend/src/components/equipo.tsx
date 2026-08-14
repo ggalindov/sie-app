@@ -17,7 +17,7 @@ const mascara = {
 
 export function Equipo() {
   return (
-    <section id="equipo" className="section-seam py-24 md:py-32">
+    <section id="equipo" className="snap-slide section-seam py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}

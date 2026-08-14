@@ -22,11 +22,11 @@ export function SiteNav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40">
-        <motion.div
-          style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder } as CSSProperties}
-          className="nav-bar mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 backdrop-blur-xl md:px-10"
-        >
+      <motion.header
+        style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder } as CSSProperties}
+        className="nav-bar fixed inset-x-0 top-0 z-40 backdrop-blur-xl"
+      >
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link
             href="/"
             className="flex shrink-0 items-center gap-2.5 py-1"
@@ -98,8 +98,8 @@ export function SiteNav() {
               </AnimatePresence>
             </button>
           </div>
-        </motion.div>
-      </header>
+        </div>
+      </motion.header>
 
       <AnimatePresence>
         {open && (
