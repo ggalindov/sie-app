@@ -46,38 +46,67 @@ function Contador({
 
 export function QuienesSomos() {
   return (
-    <section id="quienes-somos" className="section-seam py-24 md:py-32">
+    <section id="quienes-somos" className="section-seam py-24 md:py-36">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="grid gap-16 md:grid-cols-12">
+        <motion.h2
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.7, ease: EASE }}
+          className="max-w-3xl text-balance font-display text-3xl leading-[1.1] tracking-tight md:text-5xl"
+        >
+          20 años de confianza y compromiso legal.
+        </motion.h2>
+
+        <div className="mt-14 grid gap-16 md:grid-cols-12">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.4 }}
+            viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="md:col-span-7"
+            className="space-y-5 text-base leading-relaxed text-ink-soft md:col-span-7 md:text-lg"
           >
-            <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
+            <p>
+              Hace más de 20 años iniciamos este camino con un propósito
+              claro: ofrecer asesoría jurídica seria, transparente y
+              comprometida con la justicia.
+            </p>
+            <p>
+              Con el paso del tiempo, hemos crecido junto a quienes han
+              confiado en nosotros, atendiendo historias, decisiones
+              importantes y también desafíos empresariales que requieren
+              respaldo legal sólido.
+            </p>
+            <p>
+              Nuestra forma de trabajar se basa en la claridad y la cercanía.
+              Por eso brindamos seguimiento constante a cada proceso, con
+              informes periódicos que permiten a nuestros clientes estar
+              informados y tranquilos. Creemos que el derecho no debe ser
+              confuso ni distante, y que cada caso merece atención
+              personalizada, explicaciones claras y un trato humano.
+            </p>
+
+            <p className="border-l-2 border-gold py-1 pl-5 font-display text-xl italic leading-snug text-ink md:text-2xl">
               Más que abogados, somos aliados.
-            </h2>
-            <div className="mt-6 max-w-xl space-y-4 text-base leading-relaxed text-ink-soft">
-              <p>
-                Hace más de 20 años iniciamos este camino con un propósito
-                claro: ofrecer asesoría jurídica seria, transparente y
-                comprometida con la justicia. Con el tiempo hemos crecido
-                junto a quienes han confiado en nosotros, acompañando
-                decisiones importantes y desafíos empresariales que requieren
-                respaldo legal sólido.
-              </p>
-              <p>
-                Creemos que el derecho no debe ser confuso ni distante. Por
-                eso brindamos seguimiento constante a cada proceso, con
-                informes periódicos que permiten a nuestros clientes estar
-                informados y tranquilos.
-              </p>
-            </div>
+            </p>
+
+            <p>
+              Acompañamos a personas en momentos clave de sus vidas y a
+              empresas en su desarrollo y protección jurídica. Muchas de
+              ellas nos han elegido durante años, no solo por nuestra
+              experiencia, sino por la confianza construida con el tiempo.
+            </p>
+            <p>
+              Hoy seguimos con la misma convicción: estar del lado de quienes
+              necesitan respaldo legal, con honestidad, profesionalismo y
+              compromiso real. En SIE Jurídicos trabajamos para que cada
+              persona y cada empresa se sientan seguras, escuchadas y bien
+              acompañadas. Aquí, el derecho tiene rostro humano y vocación de
+              servicio.
+            </p>
           </motion.div>
 
-          <div className="grid grid-cols-3 gap-4 self-center md:col-span-5 md:grid-cols-1 md:gap-6">
+          <div className="grid grid-cols-3 gap-4 self-start md:col-span-5 md:grid-cols-1 md:gap-6 md:pt-2">
             {stats.map((stat, i) => (
               <motion.div
                 key={stat.etiqueta}

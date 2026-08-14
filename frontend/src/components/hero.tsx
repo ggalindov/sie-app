@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type MouseEvent, useRef } from "react";
+import { type MouseEvent, type ReactNode, useRef } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import { ArrowRight } from "@phosphor-icons/react";
 import { siteConfig } from "@/lib/site-config";
@@ -21,15 +21,20 @@ function entry(delay = 0) {
   } as const;
 }
 
-function BrandCard() {
+// La foto/video real de la firma es el protagonista (así lo hacen los
+// bufetes reales: Lloreda Camacho, PGP, ALL Abogados), no un logo dorado
+// gigante brillando en 3D, eso es lo que hacía sentir el sitio "generado por
+// IA". El logo queda como una insignia pequeña y funcional sobre la foto,
+// igual que el sello circular que usa PGP sobre su oficina.
+function FotoFirma({ media }: { media: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const px = useMotionValue(0);
   const py = useMotionValue(0);
-  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [7, -7]), {
+  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [4, -4]), {
     stiffness: 200,
     damping: 22,
   });
-  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-7, 7]), {
+  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-4, 4]), {
     stiffness: 200,
     damping: 22,
   });
@@ -49,89 +54,71 @@ function BrandCard() {
 
   return (
     <motion.div
-      animate={{ y: [0, -10, 0] }}
-      transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
-      style={{ perspective: 1200 }}
+      ref={ref}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      style={{ rotateX, rotateY, transformStyle: "preserve-3d", perspective: 1200 }}
+      className="rounded-[2rem] bg-ink/5 p-2 shadow-[0_30px_80px_-30px_rgba(20,19,15,0.45)] ring-1 ring-ink/5"
     >
-      <motion.div
-        ref={ref}
-        onMouseMove={onMouseMove}
-        onMouseLeave={onMouseLeave}
-        style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        className="rounded-[2rem] bg-ink/5 p-2 shadow-[0_0_80px_-20px_rgba(217,169,37,0.3)] ring-1 ring-gold/15"
-      >
-        <div
-          className="gradient-animate relative aspect-square w-full overflow-hidden rounded-[1.6rem]"
-          style={{
-            backgroundImage:
-              "linear-gradient(150deg, #0a0906 0%, #171310 40%, #221c11 62%, #0a0906 100%)",
-          }}
-        >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="relative aspect-square w-[84%] max-w-[360px]">
-              <SealRing />
-              <motion.div
-                animate={{ scale: [1, 1.03, 1] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute inset-0 flex items-center justify-center"
-              >
-                <div className="relative aspect-[644/559] w-[74%] max-w-[340px]">
-                  <Image
-                    src="/marca/logo.png"
-                    alt={siteConfig.nombre}
-                    fill
-                    sizes="340px"
-                    className="object-contain drop-shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
-                    priority
-                  />
-                </div>
-              </motion.div>
+      <div className="relative aspect-[5/6] w-full overflow-hidden rounded-[1.6rem] bg-night">
+        {media}
+        <div className="absolute inset-0 bg-gradient-to-t from-night/55 via-transparent to-night/10" />
+
+        <div className="absolute -bottom-5 -left-5 flex h-20 w-20 items-center justify-center rounded-full bg-night p-2 shadow-[0_15px_35px_-10px_rgba(0,0,0,0.55)] sm:h-24 sm:w-24">
+          <div className="relative flex h-full w-full items-center justify-center rounded-full">
+            <SealRing delay={0.8} />
+            <div className="relative aspect-[644/559] w-[62%]">
+              <Image
+                src="/marca/logo.png"
+                alt={siteConfig.nombre}
+                fill
+                sizes="80px"
+                className="object-contain"
+              />
             </div>
           </div>
-
-          <div className="absolute inset-0 bg-gradient-to-t from-night/60 via-transparent to-transparent" />
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
 
-export function Hero() {
+export function Hero({ media }: { media: ReactNode }) {
   return (
-    <section className="relative overflow-hidden pt-24">
+    <section className="snap-moment relative overflow-hidden pt-24">
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-20 md:grid-cols-12 md:gap-8 md:pb-28">
         <div className="max-w-xl md:col-span-7">
           <motion.h1
             {...entry(0)}
-            className="text-balance font-display text-4xl leading-[1.08] tracking-tight md:text-6xl"
+            className="text-balance font-display text-5xl leading-[1.05] tracking-tight md:text-7xl"
           >
             Veinte años de experiencia legal, a tu lado.
           </motion.h1>
 
           <motion.p
             {...entry(0.12)}
-            className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft"
+            className="mt-7 max-w-md text-xl leading-relaxed text-ink-soft"
           >
             Asesoría jurídica clara y cercana para personas y empresas, con
             más de 800 casos ganados.
           </motion.p>
 
-          <motion.div {...entry(0.22)} className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
+          <motion.div {...entry(0.22)} className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
             <MagneticButton strength={0.4}>
               <Link
-                href="#contacto"
-                className="group inline-flex items-center gap-3 rounded-full bg-gold py-3.5 pl-7 pr-3 text-sm font-medium text-ink-fixed transition-transform duration-300 active:scale-[0.98]"
+                href="#agendar"
+                className="group inline-flex items-center gap-4 rounded-full bg-gold py-4 pl-9 pr-4 text-base font-medium text-ink-fixed transition-transform duration-300 active:scale-[0.98]"
               >
                 {siteConfig.ctaPrincipal}
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-fixed/10 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
-                  <ArrowRight className="h-4 w-4" weight="bold" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-fixed/10 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
+                  <ArrowRight className="h-5 w-5" weight="bold" />
                 </span>
               </Link>
             </MagneticButton>
 
             <Link
               href="#areas"
-              className="text-sm font-medium text-ink underline decoration-line decoration-2 underline-offset-4 transition-colors duration-300 hover:decoration-gold"
+              className="text-base font-medium text-ink underline decoration-line decoration-2 underline-offset-4 transition-colors duration-300 hover:decoration-gold"
             >
               Ver áreas de práctica
             </Link>
@@ -142,11 +129,11 @@ export function Hero() {
           {...entry(0.15)}
           className="relative mx-auto w-full max-w-sm md:col-span-5 md:col-start-8 md:max-w-none"
         >
-          <BrandCard />
+          <FotoFirma media={media} />
 
           <motion.div
             {...entry(0.5)}
-            className="absolute -bottom-6 -left-6 rounded-[1.5rem] bg-ink/5 p-1.5 ring-1 ring-ink/5 sm:-left-10"
+            className="absolute -top-5 -right-4 rounded-[1.5rem] bg-ink/5 p-1.5 ring-1 ring-ink/5 sm:-right-8"
           >
             <div className="rounded-[1.15rem] bg-surface px-6 py-5 shadow-[0_20px_45px_-15px_rgba(28,26,22,0.35)] ring-1 ring-line">
               <p className="font-display text-4xl leading-none text-ink">

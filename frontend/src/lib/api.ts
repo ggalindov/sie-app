@@ -161,4 +161,18 @@ export async function crearTestimonio(input: CrearTestimonioInput) {
   return res.json();
 }
 
+export type SuscribirNewsletterInput = {
+  nombre: string;
+  correo: string;
+};
+
+export async function suscribirNewsletter(input: SuscribirNewsletterInput) {
+  const res = await fetch(`${API_URL}/api/marketing/suscriptores`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+}
+
 export { ApiError };

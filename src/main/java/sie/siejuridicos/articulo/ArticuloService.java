@@ -12,6 +12,8 @@ import sie.siejuridicos.categoria.Categoria;
 import sie.siejuridicos.categoria.CategoriaRepository;
 import sie.siejuridicos.common.exception.ErroresBaseDatos;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
+import sie.siejuridicos.correo.EmailService;
+import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
 
 import java.text.Normalizer;
@@ -28,13 +30,19 @@ public class ArticuloService {
     private final ArticuloRepository articuloRepository;
     private final CategoriaRepository categoriaRepository;
     private final UsuarioInternoRepository usuarioInternoRepository;
+    private final SuscriptorMarketingRepository suscriptorMarketingRepository;
+    private final EmailService emailService;
 
     public ArticuloService(ArticuloRepository articuloRepository,
                             CategoriaRepository categoriaRepository,
-                            UsuarioInternoRepository usuarioInternoRepository) {
+                            UsuarioInternoRepository usuarioInternoRepository,
+                            SuscriptorMarketingRepository suscriptorMarketingRepository,
+                            EmailService emailService) {
         this.articuloRepository = articuloRepository;
         this.categoriaRepository = categoriaRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
+        this.suscriptorMarketingRepository = suscriptorMarketingRepository;
+        this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
@@ -97,6 +105,7 @@ public class ArticuloService {
                     .orElseThrow(() -> new RecursoNoEncontradoException("No existe la categoría con id " + request.idCategoria()));
             articulo.setCategoria(categoria);
         }
+        boolean yaEstabaPublicado = articulo.getEstado() == EstadoArticulo.PUBLICADO;
         articulo.setTitulo(request.titulo());
         articulo.setContenido(request.contenido());
         articulo.setResumen(request.resumen());
@@ -107,7 +116,14 @@ public class ArticuloService {
             // ya persistida, por eso se hace flush antes de invocarla.
             articuloRepository.saveAndFlush(articulo);
             try {
-                return ArticuloDetalleResponse.desde(articuloRepository.publicarArticulo(id));
+                Articulo publicado = articuloRepository.publicarArticulo(id);
+                // solo se notifica en la transición real a PUBLICADO, nunca en ediciones
+                // posteriores de un artículo que ya estaba publicado
+                if (!yaEstabaPublicado) {
+                    emailService.enviarNotificacionNuevoArticulo(
+                            publicado, suscriptorMarketingRepository.findByActivoTrueOrderByFechaSuscripcionDesc());
+                }
+                return ArticuloDetalleResponse.desde(publicado);
             } catch (DataAccessException ex) {
                 throw ErroresBaseDatos.traducir(ex);
             }

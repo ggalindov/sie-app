@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { motion } from "motion/react";
 import { empresasConfianza } from "@/lib/content";
 
@@ -18,11 +19,21 @@ export function TrustedBy() {
 
   return (
     <section
-      className="section-seam gradient-animate relative py-24 md:py-28"
-      style={{
-        backgroundImage:
-          "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.14), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.1), transparent 55%), linear-gradient(175deg, var(--color-surface) 0%, var(--color-paper) 100%)",
-      }}
+      className="snap-moment section-seam gradient-animate relative py-24 md:py-28"
+      style={
+        {
+          // fondo y tokens de texto siempre claros aquí, sin importar el tema
+          // activo: el truco de mix-blend-mode:multiply que "quita" el fondo
+          // blanco de los logos (ver más abajo) solo funciona sobre una
+          // superficie clara, y si el tema oscuro invirtiera --color-ink-soft
+          // a un tono claro, el texto se volvería ilegible sobre este fondo
+          backgroundImage:
+            "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.16), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.12), transparent 55%), linear-gradient(175deg, #ffffff 0%, #f4efe0 100%)",
+          "--color-ink": "#14130f",
+          "--color-ink-soft": "#57544a",
+          "--color-line": "#e7e3d8",
+        } as CSSProperties
+      }
     >
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-10 md:grid-cols-12 md:items-end">
@@ -61,7 +72,7 @@ export function TrustedBy() {
       </div>
 
       <div className="mt-16 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <div className="flex w-max animate-marquee items-center gap-8">
+        <div className="flex w-max animate-marquee items-center gap-16">
           {logos.map((empresa, i) => (
             <motion.div
               key={`${empresa.src}-${i}`}
@@ -72,14 +83,18 @@ export function TrustedBy() {
                 ease: "easeInOut",
                 delay: (i % 7) * 0.25,
               }}
-              className="flex h-44 w-80 shrink-0 items-center justify-center rounded-[1.75rem] bg-white p-9 shadow-[0_24px_55px_-20px_rgba(0,0,0,0.35)] ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:scale-105"
+              className="flex h-28 w-52 shrink-0 items-center justify-center transition-transform duration-300 hover:scale-110"
             >
+              {/* mix-blend-mode:multiply "quita" el fondo blanco cuadrado de
+                  los archivos originales (no hay herramienta de recorte/alfa
+                  disponible en este entorno): sobre el fondo claro de esta
+                  sección, el blanco se funde y solo queda visible el logo */}
               <Image
                 src={empresa.src}
                 alt={empresa.alt}
                 width={240}
                 height={130}
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain mix-blend-multiply"
               />
             </motion.div>
           ))}

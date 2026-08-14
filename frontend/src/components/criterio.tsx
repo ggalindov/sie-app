@@ -20,7 +20,7 @@ export function Criterio() {
   const y = useTransform(scrollYProgress, [0, 1], ["-8%", "8%"]);
 
   return (
-    <section ref={ref} className="relative overflow-hidden py-28 md:py-40">
+    <section ref={ref} className="snap-moment relative overflow-hidden py-28 md:py-40">
       <motion.div style={{ y }} className="absolute inset-[-8%]">
         <Image
           src="/fondos/dmitrij-paskevic-YjVa-F9P9kk-unsplash.jpg"

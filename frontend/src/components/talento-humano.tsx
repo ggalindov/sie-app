@@ -1,14 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { ArrowRight } from "@phosphor-icons/react";
 import { RevealImage } from "@/components/reveal-image";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export function TalentoHumano() {
+export function TalentoHumano({ media }: { media: ReactNode }) {
   return (
     <section className="section-seam py-24 md:py-32">
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2 md:gap-16">
@@ -20,13 +20,7 @@ export function TalentoHumano() {
           className="order-2 md:order-1"
         >
           <RevealImage className="aspect-[4/3] rounded-3xl ring-1 ring-line">
-            <Image
-              src="/marca/hero-building.jpg"
-              alt="Edificio corporativo de SIE Jurídicos"
-              width={800}
-              height={600}
-              className="h-full w-full object-cover"
-            />
+            {media}
           </RevealImage>
         </motion.div>
 

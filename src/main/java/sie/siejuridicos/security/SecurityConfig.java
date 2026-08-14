@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/articulos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categorias/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/chatbot/mensaje").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/marketing/suscriptores").permitAll()
                         .requestMatchers("/api/admin/usuarios/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN_GENERAL", "ABOGADO")
                         .anyRequest().authenticated()

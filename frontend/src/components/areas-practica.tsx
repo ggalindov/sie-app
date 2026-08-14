@@ -35,36 +35,42 @@ const paletas = [
     ink: "text-night-ink",
     icono: "text-gold",
     flecha: "text-night-ink/50",
+    texto: "text-night-ink/85",
   },
   {
     gradient: "linear-gradient(135deg, #a97c16 0%, #d9a925 50%, #f1cf6a 100%)",
     ink: "text-ink-fixed",
     icono: "text-ink-fixed",
     flecha: "text-ink-fixed/50",
+    texto: "text-ink-fixed/80",
   },
   {
     gradient: "linear-gradient(160deg, #221c12 0%, #3d321c 60%, #221c12 100%)",
     ink: "text-gold-pale",
     icono: "text-gold-pale",
     flecha: "text-gold-pale/60",
+    texto: "text-gold-pale/90",
   },
   {
     gradient: "linear-gradient(135deg, #171410 0%, #2a2317 100%)",
     ink: "text-gold-pale",
     icono: "text-gold",
     flecha: "text-gold-pale/60",
+    texto: "text-gold-pale/90",
   },
   {
     gradient: "linear-gradient(150deg, #4a3a12 0%, #a97c16 55%, #4a3a12 100%)",
     ink: "text-ink-fixed",
     icono: "text-ink-fixed",
     flecha: "text-ink-fixed/60",
+    texto: "text-ink-fixed/80",
   },
   {
     gradient: "linear-gradient(200deg, #120f09 0%, #3a2f16 55%, #0c0a07 100%)",
     ink: "text-night-ink",
     icono: "text-gold",
     flecha: "text-night-ink/50",
+    texto: "text-night-ink/85",
   },
 ];
 
@@ -89,7 +95,7 @@ export function AreasPractica() {
           Áreas de práctica
         </motion.h2>
 
-        <div className="mt-10 grid grid-cols-1 gap-4 lg:auto-rows-[190px] lg:grid-cols-4">
+        <div className="mt-10 grid grid-cols-1 gap-4 lg:auto-rows-[220px] lg:grid-cols-4">
           {areasPractica.map((area, i) => {
             const Icono = iconos[i];
             const destacada = i === 0;
@@ -121,26 +127,24 @@ export function AreasPractica() {
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
-                      className="flex h-12 w-12 items-center justify-center rounded-2xl bg-current/10 ring-1 ring-current/15"
+                      className="flex h-12 w-12 items-center justify-center rounded-2xl bg-current/10 ring-1 ring-current/20"
                     >
                       <Icono weight="light" className={`h-6 w-6 ${p.icono}`} />
                     </motion.span>
                     <ArrowUpRight
                       weight="bold"
-                      className={`h-5 w-5 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 ${p.flecha}`}
+                      className={`h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 ${p.flecha}`}
                     />
                   </div>
 
                   <div className="relative">
-                    <h3 className="font-display text-xl font-medium leading-snug">
+                    <h3 className="font-display text-xl font-semibold leading-snug">
                       {area.nombre}
                     </h3>
                     <p
-                      className={`mt-2 overflow-hidden text-sm leading-relaxed opacity-70 transition-all duration-300 ${
-                        destacada
-                          ? "line-clamp-3"
-                          : "max-h-0 opacity-0 group-hover:max-h-24 group-hover:opacity-70"
-                      }`}
+                      className={`mt-2 text-sm leading-relaxed ${
+                        destacada ? "line-clamp-3" : "line-clamp-2"
+                      } ${p.texto}`}
                     >
                       {area.resumen}
                     </p>

@@ -10,9 +10,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import sie.siejuridicos.articulo.Articulo;
+import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.solicitud.Solicitud;
 
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 
 // Cada método es @Async y atrapa sus propios errores: el envío de correo es un efecto
@@ -143,6 +146,33 @@ public class EmailService {
                 botonWhatsapp()
         );
         enviarHtml(solicitud.getCorreo(), "Recordatorio: tu cita es hoy - " + nombreFirma, cuerpo);
+    }
+
+    // Se dispara una sola vez, en la transición BORRADOR -> PUBLICADO (ver
+    // ArticuloService.actualizar), nunca en ediciones posteriores de un artículo
+    // ya publicado. Un correo por suscriptor, todos en el mismo hilo async: la
+    // lista de suscriptores del boletín es pequeña, no justifica una cola de
+    // envíos por separado.
+    @Async
+    public void enviarNotificacionNuevoArticulo(Articulo articulo, List<SuscriptorMarketing> suscriptores) {
+        String urlArticulo = sitioWeb + "/blog/" + articulo.getSlug();
+        String cuerpoBase = """
+                <p>Hola %s,</p>
+                <p>Publicamos un nuevo artículo en el blog jurídico de %s:</p>
+                <h2>%s</h2>
+                <p>%s</p>
+                <p><a href="%s">Leer el artículo completo</a></p>
+                """;
+        for (SuscriptorMarketing suscriptor : suscriptores) {
+            String cuerpo = cuerpoBase.formatted(
+                    escaparHtml(suscriptor.getNombre()),
+                    nombreFirma,
+                    escaparHtml(articulo.getTitulo()),
+                    articulo.getResumen() == null ? "" : escaparHtml(articulo.getResumen()),
+                    urlArticulo
+            );
+            enviarHtml(suscriptor.getCorreo(), "Nuevo artículo: " + articulo.getTitulo(), cuerpo);
+        }
     }
 
     private String botonWhatsapp() {

@@ -1,0 +1,14 @@
+Sube aqui los archivos de video con estos nombres exactos (minusculas):
+
+- hero.mp4       -> fondo del Hero (inicio de la home)
+- oficina.mp4    -> seccion "Talento Humano" (reemplaza la foto del edificio)
+
+Formato recomendado: MP4 (H.264), sin audio o silenciado, 1920x1080 o similar,
+peso liviano (idealmente menos de 15-20 MB cada uno, el sitio los reproduce en
+loop automatico y silenciado como fondo, no como video con controles).
+
+Mientras no subas un archivo con el nombre exacto, esa seccion sigue usando
+la foto actual como respaldo, no se rompe nada.
+
+Despues de subir un archivo nuevo, reinicia el servidor de desarrollo
+(detener y volver a correr "npm run dev") para que el sitio lo detecte.

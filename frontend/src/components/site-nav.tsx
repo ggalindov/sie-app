@@ -17,33 +17,30 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 export function SiteNav() {
   const [open, setOpen] = useState(false);
   const { scrollY } = useScroll();
-  const navTop = useTransform(scrollY, [0, 140], [22, 10]);
-  const navAlpha = useTransform(scrollY, [0, 140], [68, 94]);
+  const navAlpha = useTransform(scrollY, [0, 140], [0, 96]);
+  const navBorder = useTransform(scrollY, [0, 140], [0, 1]);
 
   return (
     <>
-      <motion.header
-        style={{ top: navTop }}
-        className="fixed inset-x-0 z-40 flex justify-center px-4"
-      >
+      <header className="fixed inset-x-0 top-0 z-40">
         <motion.div
-          style={{ "--nav-alpha": navAlpha } as CSSProperties}
-          className="nav-pill flex w-full max-w-3xl items-center justify-between gap-2 rounded-full border border-line py-2 pl-3 pr-2 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.3)] backdrop-blur-xl"
+          style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder } as CSSProperties}
+          className="nav-bar mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 backdrop-blur-xl md:px-10"
         >
           <Link
             href="/"
-            className="flex shrink-0 items-center gap-2 rounded-full py-1 pl-1 pr-2"
+            className="flex shrink-0 items-center gap-2.5 py-1"
             onClick={() => setOpen(false)}
           >
             <Image
               src="/marca/logo.png"
               alt={siteConfig.nombre}
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain"
+              width={30}
+              height={30}
+              className="h-[30px] w-[30px] object-contain"
               priority
             />
-            <span className="hidden font-display text-base font-semibold tracking-tight sm:inline">
+            <span className="font-display text-base font-semibold tracking-tight">
               {siteConfig.nombre}
             </span>
           </Link>
@@ -54,12 +51,12 @@ export function SiteNav() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-1">
-            <ThemeToggle className="hidden text-ink-soft hover:bg-paper hover:text-ink sm:flex" />
+          <div className="flex items-center gap-2">
+            <ThemeToggle className="hidden text-ink-soft hover:bg-ink/5 hover:text-ink sm:flex" />
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
               <Link
-                href="#contacto"
+                href="#agendar"
                 className="group flex items-center gap-2 rounded-full bg-gold py-2.5 pl-5 pr-2 text-sm font-medium text-ink-fixed transition-transform duration-300 active:scale-[0.98]"
               >
                 {siteConfig.ctaPrincipal}
@@ -102,7 +99,7 @@ export function SiteNav() {
             </button>
           </div>
         </motion.div>
-      </motion.header>
+      </header>
 
       <AnimatePresence>
         {open && (
@@ -138,7 +135,7 @@ export function SiteNav() {
               className="mt-10"
             >
               <Link
-                href="#contacto"
+                href="#agendar"
                 onClick={() => setOpen(false)}
                 className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-medium text-ink-fixed"
               >

@@ -65,7 +65,7 @@ export default async function AreaPage({ params }: PageProps<"/areas/[slug]">) {
             </span>
           </a>
           <Link
-            href="/#contacto"
+            href="/#agendar"
             className="group inline-flex items-center gap-3 rounded-full bg-gold py-3.5 pl-7 pr-3 text-sm font-medium text-ink transition-transform duration-300 active:scale-[0.98]"
           >
             {siteConfig.ctaPrincipal}

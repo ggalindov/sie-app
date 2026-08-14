@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* scroll tipo "slide" en desktop: CSS scroll-snap nativo, nunca scroll
+   hijack por JS (respeta rueda, trackpad, teclado y no atrapa al usuario).
+   "proximity" en vez de "mandatory" a propósito: solo ayuda a encajar cuando
+   el usuario ya está cerca de una sección "momento", nunca fuerza el salto.
+   Solo en desktop: en móvil el snap por touch se siente roto casi siempre. */
+@media (min-width: 768px) {
+  html {
+    scroll-snap-type: y proximity;
+  }
+}
+
+.snap-moment {
+  scroll-snap-align: start;
+  scroll-margin-top: 5rem;
+}
+
 :root {
   /* identidad "Tinta y Oro": base neutra fría casi blanca, no el crema/beige
      genérico de IA. Contraste frío y disciplinado en vez de una paleta
@@ -126,6 +142,16 @@ html[data-theme="dark"] .ambient-field {
    necesitar dos valores rgba hardcodeados en JS. --nav-alpha lo anima Motion. */
 .nav-pill {
   background-color: color-mix(in srgb, var(--color-surface) calc(var(--nav-alpha, 70) * 1%), transparent);
+}
+
+/* barra de nav integrada a la página (no una pill flotante tipo SaaS): nace
+   transparente sobre el Hero y gana superficie + un filo inferior sutil a
+   medida que se hace scroll, como el material translúcido de Apple, no un
+   borde duro fijo. --nav-alpha y --nav-border los anima Motion. */
+.nav-bar {
+  background-color: color-mix(in srgb, var(--color-surface) calc(var(--nav-alpha, 0) * 1%), transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--color-line) calc(var(--nav-border, 0) * 100%), transparent);
 }
 
 /* degradado animado reutilizable: para cualquier superficie que antes era un
