@@ -46,7 +46,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String correo = jwtService.extraerCorreo(token);
             if (correo != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = usuarioInternoDetailsService.loadUserByUsername(correo);
-                if (jwtService.esValido(token, userDetails)) {
+                // userDetails.isEnabled() se recalcula en cada request porque
+                // UsuarioInternoDetailsService consulta la base de datos, no el token: sin
+                // este chequeo, un JWT emitido antes de desactivar la cuenta (PATCH
+                // /api/admin/usuarios/{id}/activo) seguía siendo aceptado hasta su
+                // expiración natural (hasta 1h, ver app.jwt.expiration-ms), es decir
+                // desactivar a alguien no le revocaba el acceso de inmediato.
+                if (jwtService.esValido(token, userDetails) && userDetails.isEnabled()) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

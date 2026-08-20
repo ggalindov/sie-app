@@ -16,6 +16,14 @@ set DB_NAME=sie_juridicos
 set DB_USER=sie_user
 set DB_PASSWORD=secret
 
+rem Puerto local de Postgres: 5432 puede estar ocupado por el contenedor de otro
+rem proyecto tuyo en esta maquina (visto en vivo: "nativatrips-postgres"). POSTGRES_PORT
+rem controla el mapeo de compose.yaml y DB_PORT el que usa el propio backend para
+rem conectarse; deben ser el mismo numero. Cambia esto de vuelta a 5432 si liberas el
+rem puerto por tu cuenta.
+set POSTGRES_PORT=5433
+set DB_PORT=5433
+
 rem Alta del primer ADMIN_GENERAL (no hay registro publico, ver AdminBootstrapRunner)
 set ADMIN_BOOTSTRAP_EMAIL=admin@siejuridicos.com
 set ADMIN_BOOTSTRAP_PASSWORD=ClaveAdmin2026!

@@ -1,6 +1,7 @@
 package sie.siejuridicos.articulo.dto;
 
 import sie.siejuridicos.articulo.Articulo;
+import sie.siejuridicos.articulo.TipoContenido;
 import sie.siejuridicos.categoria.dto.CategoriaResponse;
 
 import java.time.LocalDateTime;
@@ -11,6 +12,8 @@ public record ArticuloResumenResponse(
         String titulo,
         String slug,
         String resumen,
+        String imagenUrl,
+        TipoContenido tipoContenido,
         CategoriaResponse categoria,
         String autorNombre,
         LocalDateTime fechaPublicacion,
@@ -22,6 +25,8 @@ public record ArticuloResumenResponse(
                 articulo.getTitulo(),
                 articulo.getSlug(),
                 articulo.getResumen(),
+                articulo.getImagenUrl(),
+                articulo.getTipoContenido(),
                 CategoriaResponse.desde(articulo.getCategoria()),
                 articulo.getAutor().getNombre(),
                 articulo.getFechaPublicacion(),

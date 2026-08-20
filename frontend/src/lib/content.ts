@@ -181,7 +181,7 @@ export type EmpresaConfianza = { src: string; alt: string };
 
 export const empresasConfianza: EmpresaConfianza[] = [
   { src: "/confianza/symaa.png", alt: "Symaa Ingeniería" },
-  { src: "/confianza/con.png", alt: "Connect Americas" },
+  { src: "/confianza/connect.png", alt: "Connect Americas" },
   { src: "/confianza/dy.png", alt: "Dypsion International" },
   { src: "/confianza/ck.png", alt: "CK" },
   { src: "/confianza/tec.png", alt: "Tecsai Ingeniería" },

@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.common.exception.ErroresBaseDatos;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
 import sie.siejuridicos.correo.EmailService;
-import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
+import sie.siejuridicos.marketing.SuscriptorMarketingService;
 import sie.siejuridicos.solicitud.dto.CrearSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
 
@@ -20,14 +20,14 @@ import java.util.List;
 public class SolicitudService {
 
     private final SolicitudRepository solicitudRepository;
-    private final SuscriptorMarketingRepository suscriptorMarketingRepository;
+    private final SuscriptorMarketingService suscriptorMarketingService;
     private final EmailService emailService;
 
     public SolicitudService(SolicitudRepository solicitudRepository,
-                             SuscriptorMarketingRepository suscriptorMarketingRepository,
+                             SuscriptorMarketingService suscriptorMarketingService,
                              EmailService emailService) {
         this.solicitudRepository = solicitudRepository;
-        this.suscriptorMarketingRepository = suscriptorMarketingRepository;
+        this.suscriptorMarketingService = suscriptorMarketingService;
         this.emailService = emailService;
     }
 
@@ -46,7 +46,7 @@ public class SolicitudService {
             );
 
             if (request.aceptaMarketing()) {
-                suscriptorMarketingRepository.suscribirSiNoExiste(request.nombre(), request.correo());
+                suscriptorMarketingService.suscribir(request.nombre(), request.correo());
             }
 
             emailService.enviarConfirmacionYPromocionSolicitud(creada);

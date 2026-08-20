@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Envelope, Article, Megaphone } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, Envelope, Article, Megaphone } from "@phosphor-icons/react";
 import { listarSolicitudes, listarArticulosAdmin, listarSuscriptoresMarketing, type Solicitud } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminCard, Badge } from "@/components/admin/ui";
@@ -20,8 +20,13 @@ export default function ResumenPage() {
   useEffect(() => {
     listarSolicitudes().then(setSolicitudes).catch(() => setSolicitudes([]));
     listarArticulosAdmin().then((a) => setTotalArticulos(a.length)).catch(() => setTotalArticulos(0));
-    listarSuscriptoresMarketing().then((s) => setTotalSuscriptores(s.length)).catch(() => setTotalSuscriptores(0));
-  }, []);
+    // Solo ADMIN_GENERAL tiene acceso a este endpoint (ver marketing/page.tsx): para un
+    // ABOGADO la llamada devolvía 403 y el catch mostraba "0 suscriptores", indistinguible
+    // de que de verdad no hubiera ninguno.
+    if (sesion?.rol === "ADMIN_GENERAL") {
+      listarSuscriptoresMarketing().then((s) => setTotalSuscriptores(s.length)).catch(() => setTotalSuscriptores(0));
+    }
+  }, [sesion]);
 
   const nuevas = solicitudes?.filter((s) => s.estado === "NUEVO").length ?? null;
   const contactadas = solicitudes?.filter((s) => s.estado === "CONTACTADO").length ?? null;
@@ -38,7 +43,9 @@ export default function ResumenPage() {
         <StatCard icono={Envelope} etiqueta="Solicitudes nuevas" valor={nuevas} href="/admin/solicitudes?estado=NUEVO" />
         <StatCard icono={Envelope} etiqueta="En contacto" valor={contactadas} href="/admin/solicitudes?estado=CONTACTADO" />
         <StatCard icono={Article} etiqueta="Artículos" valor={totalArticulos} href="/admin/articulos" />
-        <StatCard icono={Megaphone} etiqueta="Suscriptores marketing" valor={totalSuscriptores} href="/admin/marketing" />
+        {sesion?.rol === "ADMIN_GENERAL" && (
+          <StatCard icono={Megaphone} etiqueta="Suscriptores marketing" valor={totalSuscriptores} href="/admin/marketing" />
+        )}
       </div>
 
       <div className="mt-10">
@@ -90,8 +97,19 @@ function StatCard({
   href: string;
 }) {
   return (
-    <Link href={href} className="rounded-2xl bg-surface p-6 ring-1 ring-line transition-colors hover:bg-gold-pale/20">
-      <Icono weight="light" className="h-6 w-6 text-gold-deep" />
+    <Link
+      href={href}
+      className="group relative overflow-hidden rounded-2xl bg-surface p-6 ring-1 ring-line transition-all duration-300 hover:-translate-y-0.5 hover:ring-gold/30 hover:shadow-[0_16px_32px_-20px_rgba(20,19,15,0.35)]"
+    >
+      <div className="flex items-start justify-between">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold-pale/50 text-gold-deep transition-colors group-hover:bg-gold group-hover:text-ink-fixed">
+          <Icono weight="light" className="h-5 w-5" />
+        </span>
+        <ArrowUpRight
+          weight="bold"
+          className="h-4 w-4 text-ink-soft/40 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-gold-deep group-hover:opacity-100"
+        />
+      </div>
       <p className="mt-4 font-display text-3xl text-ink">{valor ?? "..."}</p>
       <p className="mt-1 text-sm text-ink-soft">{etiqueta}</p>
     </Link>

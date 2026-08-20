@@ -10,6 +10,7 @@ import {
   type EstadoTestimonio,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState } from "@/components/admin/ui";
+import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -23,12 +24,13 @@ const filtros: { label: string; valor: EstadoTestimonio | "TODOS" }[] = [
 ];
 
 export default function TestimoniosAdminPage() {
+  const { sesion } = useAuth();
   const [testimonios, setTestimonios] = useState<TestimonioAdmin[] | null>(null);
   const [filtro, setFiltro] = useState<EstadoTestimonio | "TODOS">("PENDIENTE");
 
   useEffect(() => {
-    cargar();
-  }, []);
+    if (sesion?.rol === "ADMIN_GENERAL") cargar();
+  }, [sesion]);
 
   function cargar() {
     listarTestimonios()
@@ -47,6 +49,15 @@ export default function TestimoniosAdminPage() {
   }
 
   const filtrados = testimonios?.filter((t) => filtro === "TODOS" || t.estado === filtro) ?? null;
+
+  if (sesion && sesion.rol !== "ADMIN_GENERAL") {
+    return (
+      <EmptyState
+        title="No tienes acceso a esta sección"
+        description="Solo el administrador general modera testimonios."
+      />
+    );
+  }
 
   return (
     <div>

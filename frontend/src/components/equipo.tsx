@@ -17,19 +17,19 @@ const mascara = {
 
 export function Equipo() {
   return (
-    <section id="equipo" className="snap-slide section-seam py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="equipo" className="snap-slide section-seam frame-fixed py-20">
+      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-10">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="max-w-lg font-display text-3xl leading-tight tracking-tight md:text-4xl"
+          className="max-w-lg shrink-0 font-display text-4xl leading-tight tracking-tight md:text-5xl"
         >
           Nuestro equipo
         </motion.h2>
 
-        <div className="mt-14 grid grid-cols-2 gap-x-6 gap-y-16 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:min-h-0 md:flex-1 md:content-center md:overflow-y-auto lg:grid-cols-4">
           {equipo.map((persona, i) => (
             <motion.div
               key={persona.nombre}
@@ -37,16 +37,12 @@ export function Equipo() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE }}
-              className={`group ${i % 2 === 1 ? "sm:mt-8" : ""}`}
+              className="card-edged group flex flex-col items-center px-4 py-5 text-center transition-transform duration-300 hover:-translate-y-1.5"
             >
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 4.5 + (i % 3) * 0.4, repeat: Infinity, ease: "easeInOut" }}
-                className="relative mx-auto aspect-square w-full max-w-[220px]"
-              >
+              <div className="relative aspect-square w-full max-w-[128px]">
                 <div
                   aria-hidden="true"
-                  className="absolute -inset-2 rounded-full"
+                  className="absolute -inset-2 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                   style={{
                     backgroundImage:
                       "conic-gradient(from 0deg, var(--color-gold-deep), var(--color-gold), var(--color-gold-deep))",
@@ -56,9 +52,9 @@ export function Equipo() {
                 <div className="absolute inset-[6px] overflow-hidden rounded-full">
                   <Image
                     src={persona.foto}
-                    alt={persona.nombre}
+                    alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 1024px) 220px, (min-width: 640px) 30vw, 45vw"
+                    sizes="(min-width: 1024px) 168px, (min-width: 640px) 25vw, 40vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -67,17 +63,17 @@ export function Equipo() {
                     className="equipo-foto object-cover"
                   />
                 </div>
-              </motion.div>
-
-              <div className="mt-5 text-center">
-                <p className="font-display text-base leading-snug">{persona.nombre}</p>
-                <p className="text-sm text-gold-deep">{persona.cargo}</p>
-                {persona.bio && (
-                  <p className="mx-auto mt-2 max-w-[220px] text-xs leading-relaxed text-ink-soft">
-                    {persona.bio}
-                  </p>
-                )}
               </div>
+
+              <p className="mt-3 font-display text-base leading-snug">{persona.nombre}</p>
+              <span className="mt-1.5 inline-block rounded-full bg-gold-pale/60 px-3 py-1 text-xs font-medium text-gold-deep">
+                {persona.cargo}
+              </span>
+              {persona.bio && (
+                <p className="mx-auto mt-2 max-w-[220px] text-xs leading-relaxed text-ink-soft">
+                  {persona.bio}
+                </p>
+              )}
             </motion.div>
           ))}
         </div>

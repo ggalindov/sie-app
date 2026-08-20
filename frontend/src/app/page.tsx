@@ -8,7 +8,6 @@ import { Equipo } from "@/components/equipo";
 import { Testimonios } from "@/components/testimonios";
 import { TrustedBy } from "@/components/trusted-by";
 import { BlogTeaser } from "@/components/blog-teaser";
-import { Newsletter } from "@/components/newsletter";
 import { Contacto } from "@/components/contacto";
 import { AgendarAsesoria } from "@/components/agendar-asesoria";
 
@@ -35,7 +34,16 @@ export default function Home() {
           />
         }
       />
-      <QuienesSomos />
+      <QuienesSomos
+        media={
+          <SectionVideo
+            src="videos/firma.mp4"
+            poster="/marca/hero-building.jpg"
+            posterAlt="Firma de documentos legales"
+            className="h-full w-full object-cover"
+          />
+        }
+      />
       <AreasPractica />
       <TalentoHumano
         media={
@@ -48,10 +56,18 @@ export default function Home() {
         }
       />
       <Equipo />
-      <Testimonios />
+      <Testimonios
+        media={
+          <SectionVideo
+            src="videos/abogada.mp4"
+            poster="/marca/hero-building.jpg"
+            posterAlt="Abogada de SIE Jurídicos"
+            className="h-full w-full object-cover"
+          />
+        }
+      />
       <TrustedBy />
       <BlogTeaser />
-      <Newsletter />
       <Contacto />
       <AgendarAsesoria
         media={

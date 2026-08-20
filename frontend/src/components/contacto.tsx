@@ -31,7 +31,7 @@ const canales = [
 // y con su propio flujo, a pedido explícito del usuario).
 export function Contacto() {
   return (
-    <section id="contacto" className="snap-slide section-seam bg-surface/90 py-24 md:py-32">
+    <section id="contacto" className="snap-slide section-seam bg-surface/90 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-14 md:grid-cols-12 md:gap-16">
           <motion.div
@@ -41,7 +41,7 @@ export function Contacto() {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-5"
           >
-            <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
+            <h2 className="font-display text-4xl leading-tight tracking-tight md:text-5xl">
               Contacto
             </h2>
             <p className="mt-4 max-w-md text-base leading-relaxed text-ink-soft">
@@ -127,17 +127,15 @@ export function Contacto() {
                     rel={canal.label === "Ubicación" ? "noopener noreferrer" : undefined}
                     className="group block"
                   >
-                    <div className="flex items-center gap-1.5 rounded-[1.75rem] bg-ink/5 p-1.5 ring-1 ring-ink/5 transition-transform duration-300 group-hover:-translate-x-1">
-                      <div className="flex w-full items-center gap-5 rounded-[1.4rem] bg-surface px-7 py-6 ring-1 ring-line">
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
-                          <Icono weight="light" className="h-6 w-6" />
-                        </span>
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
-                            {canal.label}
-                          </p>
-                          <p className="mt-1 text-lg font-medium text-ink">{canal.valor}</p>
-                        </div>
+                    <div className="card-edged flex w-full items-center gap-5 px-7 py-6 transition-transform duration-300 group-hover:-translate-x-1">
+                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
+                        <Icono weight="light" className="h-6 w-6" />
+                      </span>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
+                          {canal.label}
+                        </p>
+                        <p className="mt-1 text-lg font-medium text-ink">{canal.valor}</p>
                       </div>
                     </div>
                   </a>

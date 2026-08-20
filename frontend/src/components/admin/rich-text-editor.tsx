@@ -17,6 +17,13 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
+// Defensa en el cliente además de la restricción de protocols del LinkExtension: bloquea
+// "javascript:", "data:" u otros esquemas antes de que el comando de Tiptap los inserte,
+// para que el HTML guardado nunca dependa solo del filtro del propio editor.
+function esUrlSegura(url: string): boolean {
+  return /^https?:\/\//i.test(url.trim());
+}
+
 export function RichTextEditor({
   value,
   onChange,
@@ -30,7 +37,10 @@ export function RichTextEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit,
-      LinkExtension.configure({ openOnClick: false, autolink: true }),
+      // protocols restringido: sin esto, Tiptap acepta cualquier esquema en un enlace
+      // (incluido "javascript:"), que terminaría insertado tal cual en el HTML del
+      // artículo y ejecutándose en /blog vía dangerouslySetInnerHTML.
+      LinkExtension.configure({ openOnClick: false, autolink: true, protocols: ["http", "https", "mailto"] }),
       ImageExtension,
       Placeholder.configure({ placeholder: "Escribe el contenido del artículo..." }),
     ],
@@ -87,7 +97,12 @@ export function RichTextEditor({
           label="Enlace"
           onClick={() => {
             const url = window.prompt("URL del enlace");
-            if (url) editor.chain().focus().setLink({ href: url }).run();
+            if (!url) return;
+            if (!esUrlSegura(url)) {
+              window.alert("El enlace debe empezar por http:// o https://");
+              return;
+            }
+            editor.chain().focus().setLink({ href: url }).run();
           }}
         >
           <LinkSimple weight="bold" className="h-4 w-4" />
@@ -96,7 +111,12 @@ export function RichTextEditor({
           label="Insertar imagen (URL)"
           onClick={() => {
             const url = window.prompt("URL de la imagen");
-            if (url) editor.chain().focus().setImage({ src: url }).run();
+            if (!url) return;
+            if (!esUrlSegura(url)) {
+              window.alert("La imagen debe cargarse desde una URL que empiece por http:// o https://");
+              return;
+            }
+            editor.chain().focus().setImage({ src: url }).run();
           }}
         >
           <ImageSquare weight="bold" className="h-4 w-4" />

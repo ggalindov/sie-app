@@ -35,7 +35,11 @@ async function pedido<T>(
     },
   });
 
-  if (res.status === 401) {
+  // El 401 de /api/auth/login es un intento de login fallido (correo/contraseña
+  // incorrectos), no una sesión expirada: no hay ninguna sesión previa que "expirar" en
+  // esa ruta. El mensaje genérico de sesión expirada solo aplica a las demás rutas
+  // autenticadas, donde un 401 sí significa que el token ya no es válido.
+  if (res.status === 401 && path !== "/api/auth/login") {
     throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
   }
   if (!res.ok) {
@@ -43,6 +47,37 @@ async function pedido<T>(
   }
   if (res.status === 204) return undefined as T;
   return res.json();
+}
+
+// Descarga autenticada de un archivo binario (Excel, etc.): un <a href="..."> normal no
+// puede llevar el header Authorization, así que hay que pedirlo por fetch, convertir la
+// respuesta a blob, y disparar la descarga con un <a> temporal apuntando a un object URL.
+async function descargarArchivo(path: string, nombreSugerido: string): Promise<void> {
+  const token = obtenerToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (res.status === 401) {
+    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
+  }
+  if (!res.ok) {
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+
+  const disposicion = res.headers.get("Content-Disposition");
+  const coincidencia = disposicion?.match(/filename="?([^";]+)"?/);
+  const nombreArchivo = coincidencia?.[1] ?? nombreSugerido;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  document.body.appendChild(enlace);
+  enlace.click();
+  document.body.removeChild(enlace);
+  URL.revokeObjectURL(url);
 }
 
 // ---------- Auth ----------
@@ -115,9 +150,26 @@ export function agendarCita(id: number, fechaHora: string) {
   });
 }
 
+export function exportarSolicitudes(filtros?: {
+  estado?: EstadoSolicitud;
+  desde?: string;
+  hasta?: string;
+}): Promise<void> {
+  const params = new URLSearchParams();
+  if (filtros?.estado) params.set("estado", filtros.estado);
+  if (filtros?.desde) params.set("desde", filtros.desde);
+  if (filtros?.hasta) params.set("hasta", filtros.hasta);
+  const query = params.toString();
+  return descargarArchivo(
+    `/api/admin/solicitudes/exportar${query ? `?${query}` : ""}`,
+    "solicitudes.xlsx",
+  );
+}
+
 // ---------- Artículos ----------
 
 export type EstadoArticulo = "BORRADOR" | "PUBLICADO";
+export type TipoContenido = "BLOG" | "NOTICIA";
 
 export type ArticuloAdmin = {
   id: number;
@@ -125,6 +177,8 @@ export type ArticuloAdmin = {
   slug: string;
   contenido: string;
   resumen: string | null;
+  imagenUrl: string | null;
+  tipoContenido: TipoContenido;
   categoria: Categoria;
   autorNombre: string;
   estado: EstadoArticulo;
@@ -145,6 +199,8 @@ export type ArticuloInput = {
   titulo: string;
   contenido: string;
   resumen: string;
+  imagenUrl: string;
+  tipoContenido: TipoContenido;
   idCategoria: number;
   tiempoLecturaMin: number | null;
 };
@@ -212,6 +268,13 @@ export function listarSuscriptoresMarketing(): Promise<SuscriptorMarketing[]> {
   return pedido<SuscriptorMarketing[]>("/api/admin/marketing/suscriptores");
 }
 
+export function exportarSuscriptoresMarketing(): Promise<void> {
+  return descargarArchivo(
+    "/api/admin/marketing/suscriptores/exportar",
+    "suscriptores-marketing.xlsx",
+  );
+}
+
 // ---------- Testimonios ----------
 
 export type EstadoTestimonio = "PENDIENTE" | "APROBADO" | "RECHAZADO";
@@ -240,8 +303,113 @@ export function moderarTestimonio(id: number, nuevoEstado: EstadoTestimonio) {
   });
 }
 
+// ---------- Estadísticas ----------
+
+export type Estadisticas = {
+  solicitudesPorEstado: Record<EstadoSolicitud, number>;
+  solicitudesPorOrigen: Record<OrigenSolicitud, number>;
+  citasAgendadas: number;
+  citasProximas: number;
+  solicitudesUltimos7Dias: number;
+  testimoniosPorEstado: Record<EstadoTestimonio, number>;
+  conversacionesChatbotMesActual: number;
+  limiteMensualChatbot: number;
+  articulosPublicados: number;
+  articulosBorrador: number;
+  suscriptoresMarketingActivos: number;
+  usuariosInternosActivos: number;
+  usuariosPorRol: Record<"ADMIN_GENERAL" | "ABOGADO", number>;
+  visitantesMesActual: number;
+};
+
+export function obtenerEstadisticas(): Promise<Estadisticas> {
+  return pedido<Estadisticas>("/api/admin/estadisticas");
+}
+
 // ---------- Categorías (público, reusado en el panel) ----------
 
 export function listarCategorias(): Promise<Categoria[]> {
   return pedido<Categoria[]>("/api/categorias");
+}
+
+// ---------- Boletín diario automático ----------
+// Sin composición manual: se envía solo cuando se publica blog/noticias ese día
+// (ver BoletinDiarioScheduler en el backend). Este listado es solo el historial.
+
+export type BoletinEnviado = {
+  id: number;
+  cantidadPublicaciones: number;
+  cantidadDestinatarios: number;
+  fechaEnvio: string;
+};
+
+export function listarBoletines(): Promise<BoletinEnviado[]> {
+  return pedido<BoletinEnviado[]>("/api/admin/boletines");
+}
+
+// ---------- FAQ auto-alimentada ----------
+
+export type EstadoPreguntaFrecuente = "CANDIDATA" | "APROBADA" | "RECHAZADA";
+
+export type PreguntaFrecuenteAdmin = {
+  id: number;
+  preguntaEjemplo: string;
+  respuestaSugerida: string | null;
+  respuestaFinal: string | null;
+  conteo: number;
+  estado: EstadoPreguntaFrecuente;
+  fechaPrimeraVez: string;
+  fechaActualizacion: string;
+};
+
+export function listarFaqCandidatas(): Promise<PreguntaFrecuenteAdmin[]> {
+  return pedido<PreguntaFrecuenteAdmin[]>("/api/admin/faq");
+}
+
+export function moderarFaq(id: number, nuevoEstado: EstadoPreguntaFrecuente, respuesta?: string) {
+  return pedido<PreguntaFrecuenteAdmin>(`/api/admin/faq/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ nuevoEstado, respuesta }),
+  });
+}
+
+// ---------- Casos ----------
+
+export type EtapaCaso = "RADICADO" | "EN_ESTUDIO" | "EN_TRAMITE" | "AUDIENCIA_DILIGENCIA" | "RESUELTO";
+
+export type CasoAdmin = {
+  id: number;
+  nombreCliente: string;
+  correoCliente: string;
+  telefonoCliente: string | null;
+  categoriaNombre: string;
+  codigoUnico: string;
+  etapa: EtapaCaso;
+  notasInternas: string | null;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+};
+
+export function listarCasos(): Promise<CasoAdmin[]> {
+  return pedido<CasoAdmin[]>("/api/admin/casos");
+}
+
+export function crearCaso(input: {
+  nombreCliente: string;
+  correoCliente: string;
+  telefonoCliente?: string;
+  idCategoria: number;
+  notasInternas?: string;
+}): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>("/api/admin/casos", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function actualizarEtapaCaso(id: number, nuevaEtapa: EtapaCaso): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>(`/api/admin/casos/${id}/etapa`, {
+    method: "PATCH",
+    body: JSON.stringify({ nuevaEtapa }),
+  });
 }

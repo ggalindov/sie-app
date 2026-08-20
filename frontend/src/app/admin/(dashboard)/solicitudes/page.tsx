@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { CalendarPlus, X } from "@phosphor-icons/react";
+import { CalendarPlus, DownloadSimple, X } from "@phosphor-icons/react";
 import {
   listarSolicitudes,
   actualizarEstadoSolicitud,
   agendarCita,
+  exportarSolicitudes,
   ApiError,
   type Solicitud,
   type EstadoSolicitud,
@@ -49,6 +50,22 @@ export default function SolicitudesPage() {
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [modalCitaId, setModalCitaId] = useState<number | null>(null);
+  const [descargando, setDescargando] = useState(false);
+
+  async function onDescargar() {
+    setDescargando(true);
+    try {
+      await exportarSolicitudes({
+        estado: estadoFiltro || undefined,
+        desde: desde || undefined,
+        hasta: hasta || undefined,
+      });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo descargar el Excel.");
+    } finally {
+      setDescargando(false);
+    }
+  }
 
   const cargar = useCallback(() => {
     listarSolicitudes({
@@ -78,7 +95,20 @@ export default function SolicitudesPage() {
 
   return (
     <div>
-      <AdminPageHeader title="Solicitudes" description="Leads recibidos por el formulario y el chatbot." />
+      <AdminPageHeader
+        title="Solicitudes"
+        description="Leads recibidos por el formulario y el chatbot."
+        action={
+          <AdminButton
+            variant="secondary"
+            onClick={onDescargar}
+            disabled={descargando || !solicitudes?.length}
+          >
+            <DownloadSimple className="h-4 w-4" weight="light" />
+            {descargando ? "Generando..." : "Descargar Excel"}
+          </AdminButton>
+        }
+      />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <select

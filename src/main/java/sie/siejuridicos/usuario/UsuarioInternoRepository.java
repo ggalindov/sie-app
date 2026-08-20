@@ -9,4 +9,9 @@ public interface UsuarioInternoRepository extends JpaRepository<UsuarioInterno, 
     Optional<UsuarioInterno> findByCorreo(String correo);
 
     boolean existsByCorreo(String correo);
+
+    // usado por EstadisticasService: tamaño y composición del equipo interno
+    long countByActivoTrue();
+
+    long countByRolAndActivoTrue(RolUsuario rol);
 }

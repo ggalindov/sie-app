@@ -11,6 +11,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import sie.siejuridicos.articulo.Articulo;
+import sie.siejuridicos.articulo.TipoContenido;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.solicitud.Solicitud;
 
@@ -148,31 +149,120 @@ public class EmailService {
         enviarHtml(solicitud.getCorreo(), "Recordatorio: tu cita es hoy - " + nombreFirma, cuerpo);
     }
 
-    // Se dispara una sola vez, en la transición BORRADOR -> PUBLICADO (ver
-    // ArticuloService.actualizar), nunca en ediciones posteriores de un artículo
-    // ya publicado. Un correo por suscriptor, todos en el mismo hilo async: la
-    // lista de suscriptores del boletín es pequeña, no justifica una cola de
-    // envíos por separado.
+    // Boletín automático (ver ArticuloService.notificarPublicacion): se dispara de inmediato
+    // en la transición BORRADOR -> PUBLICADO, nunca en ediciones posteriores de un artículo
+    // ya publicado. Recibe una lista (hoy siempre de un solo artículo/noticia) en vez de un
+    // único Articulo para poder reutilizar la misma plantilla si en el futuro se agrupa más
+    // de una publicación en un solo envío.
     @Async
-    public void enviarNotificacionNuevoArticulo(Articulo articulo, List<SuscriptorMarketing> suscriptores) {
-        String urlArticulo = sitioWeb + "/blog/" + articulo.getSlug();
-        String cuerpoBase = """
-                <p>Hola %s,</p>
-                <p>Publicamos un nuevo artículo en el blog jurídico de %s:</p>
-                <h2>%s</h2>
-                <p>%s</p>
-                <p><a href="%s">Leer el artículo completo</a></p>
-                """;
-        for (SuscriptorMarketing suscriptor : suscriptores) {
-            String cuerpo = cuerpoBase.formatted(
-                    escaparHtml(suscriptor.getNombre()),
-                    nombreFirma,
+    public void enviarNotificacionPublicacion(List<Articulo> publicaciones, List<SuscriptorMarketing> suscriptores) {
+        StringBuilder listado = new StringBuilder();
+        for (Articulo articulo : publicaciones) {
+            String urlArticulo = sitioWeb + "/blog/" + articulo.getSlug();
+            String etiqueta = articulo.getTipoContenido() == TipoContenido.NOTICIA ? "Noticia" : "Blog";
+            listado.append("""
+                    <div style="margin-bottom:20px;">
+                    <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#a08a3c;">%s</p>
+                    <h3 style="margin:4px 0;">%s</h3>
+                    <p style="margin:0 0 4px;">%s</p>
+                    <a href="%s">Leer completo</a>
+                    </div>
+                    """.formatted(
+                    etiqueta,
                     escaparHtml(articulo.getTitulo()),
                     articulo.getResumen() == null ? "" : escaparHtml(articulo.getResumen()),
                     urlArticulo
-            );
-            enviarHtml(suscriptor.getCorreo(), "Nuevo artículo: " + articulo.getTitulo(), cuerpo);
+            ));
         }
+
+        String asunto = publicaciones.size() == 1
+                ? "Nueva publicación en " + nombreFirma
+                : publicaciones.size() + " publicaciones nuevas en " + nombreFirma;
+
+        for (SuscriptorMarketing suscriptor : suscriptores) {
+            String cuerpo = """
+                    <p>Hola %s,</p>
+                    <p>Acabamos de publicar esto en %s:</p>
+                    %s
+                    """.formatted(escaparHtml(suscriptor.getNombre()), nombreFirma, listado);
+            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo);
+        }
+    }
+
+    // Se dispara solo cuando la fila de suscriptores_marketing es realmente nueva (ver
+    // SuscriptorMarketingService.suscribir), sin importar si la persona llegó desde el
+    // formulario de "Newsletter" del home o desde el checkbox aceptaMarketing del
+    // formulario de Agendar asesoría: mismo destino, mismo correo de bienvenida.
+    @Async
+    public void enviarBienvenidaBoletin(String nombre, String correo) {
+        String cuerpo = """
+                <p>Hola %s,</p>
+                <p>Gracias por suscribirte al boletín de %s. A partir de ahora te avisaremos
+                por este medio cuando publiquemos artículos nuevos en nuestro blog jurídico y
+                cuando haya cambios normativos relevantes.</p>
+                <p>Como agradecimiento por suscribirte, tienes acceso a un descuento especial en
+                tu primera consulta con nosotros. En los próximos días te escribiremos a este
+                mismo correo con los detalles.</p>
+                <p>Si en algún momento deseas dejar de recibir estos correos, escríbenos y con
+                gusto te damos de baja.</p>
+                <p>Puedes conocer más sobre nuestro trabajo en <a href="%s">%s</a>.</p>
+                """.formatted(
+                escaparHtml(nombre),
+                nombreFirma, sitioWeb, sitioWeb
+        );
+        enviarHtml(correo, "Bienvenido al boletín de " + nombreFirma, cuerpo);
+    }
+
+    // Boletín mensual con resumen de cambios normativos (compuesto por el admin desde el
+    // panel, ver BoletinService): el cuerpo llega como texto plano desde un textarea, se
+    // escapa y se parte en párrafos por línea en blanco, igual que cualquier otro correo
+    // HTML de este servicio. Un correo por destinatario, todos en el mismo hilo async: la
+    // lista de suscriptores es pequeña (mismo razonamiento que enviarNotificacionNuevoArticulo).
+    @Async
+    public void enviarBoletin(String asunto, String cuerpoTexto, List<SuscriptorMarketing> destinatarios) {
+        String cuerpoHtml = escaparHtmlConParrafos(cuerpoTexto);
+        for (SuscriptorMarketing suscriptor : destinatarios) {
+            String cuerpo = """
+                    <p>Hola %s,</p>
+                    %s
+                    <p style="margin-top:24px;font-size:12px;color:#888;">Recibes este boletín porque estás
+                    suscrito a las novedades de %s. Si deseas dejar de recibirlo, escríbenos y con gusto te
+                    damos de baja.</p>
+                    """.formatted(escaparHtml(suscriptor.getNombre()), cuerpoHtml, nombreFirma);
+            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo);
+        }
+    }
+
+    private String escaparHtmlConParrafos(String texto) {
+        String[] parrafos = texto.trim().split("\\n\\s*\\n");
+        StringBuilder html = new StringBuilder();
+        for (String parrafo : parrafos) {
+            html.append("<p>").append(escaparHtml(parrafo.trim()).replace("\n", "<br>")).append("</p>");
+        }
+        return html.toString();
+    }
+
+    // Se envía una sola vez, al crear el caso desde el panel (ver CasoService.crear). Es la
+    // única forma en que el cliente recibe su código: no hay cuenta ni login, solo esta
+    // consulta por código en /consulta-caso (RF: "sin necesidad de crear cuenta").
+    @Async
+    public void enviarCodigoCaso(String nombreCliente, String correo, String codigoUnico, String tipoCaso) {
+        String cuerpo = """
+                <p>Hola %s,</p>
+                <p>Registramos tu caso de <strong>%s</strong> en %s. Puedes consultar el estado de tu
+                proceso en cualquier momento, sin necesidad de crear una cuenta, con este código:</p>
+                <p style="font-size:22px;font-weight:bold;letter-spacing:2px;margin:16px 0;">%s</p>
+                <p>Ingresa el código en <a href="%s/consulta-caso">%s/consulta-caso</a> para ver en qué
+                etapa va tu proceso.</p>
+                <p>Guarda este código, lo necesitarás para futuras consultas.</p>
+                """.formatted(
+                escaparHtml(nombreCliente),
+                escaparHtml(tipoCaso),
+                nombreFirma,
+                codigoUnico,
+                sitioWeb, sitioWeb
+        );
+        enviarHtml(correo, "Tu código de consulta de caso - " + nombreFirma, cuerpo);
     }
 
     private String botonWhatsapp() {

@@ -24,8 +24,9 @@ public class ArticuloPublicoController {
     @GetMapping
     public ResponseEntity<List<ArticuloResumenResponse>> listar(
             @RequestParam(required = false) Long categoria,
+            @RequestParam(required = false) TipoContenido tipo,
             @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(articuloService.listarPublicados(categoria, q));
+        return ResponseEntity.ok(articuloService.listarPublicados(categoria, tipo, q));
     }
 
     @GetMapping("/{slug}")

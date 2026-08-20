@@ -4,16 +4,31 @@
    hijack por JS (respeta rueda, trackpad, teclado y no atrapa al usuario:
    "mandatory" solo obliga a encajar en el borde de sección más cercano
    cuando el usuario deja de mover la rueda, nunca bloquea el scroll en sí).
-   Solo en desktop: en móvil el snap por touch se siente roto casi siempre. */
+   Solo en desktop: en móvil el snap por touch se siente roto casi siempre.
+   Además, solo en la home (clase .snap-inicio en <html>, ver SiteChrome): las
+   demás páginas públicas (/blog, /consulta-caso, /preguntas-frecuentes, un
+   artículo individual...) no tienen ninguna .snap-slide, así que con
+   "mandatory" global el único punto de encaje que quedaba en esas páginas era
+   el footer (.snap-footer, que SÍ vive en todas las páginas): el navegador
+   forzaba el scroll de vuelta ahí sin dejar ver el resto del contenido (bug
+   real, reportado por el usuario en /blog). Al depender de esta clase, el
+   snap solo actúa donde de verdad hay secciones .snap-slide que encajar. */
 @media (min-width: 768px) {
-  html {
+  html.snap-inicio {
     scroll-snap-type: y mandatory;
   }
 }
 
 .snap-slide {
   scroll-snap-align: start;
-  scroll-margin-top: 4.5rem;
+  /* --nav-height lo mide site-nav.tsx en vivo (ResizeObserver) y lo publica
+     en <html>: el encaje del scroll-snap queda exacto sin importar cuánto
+     cambie el nav, en vez de perseguir un número en rem a mano */
+  scroll-margin-top: var(--nav-height, 5.5rem);
+  /* fuerza a que el snap nunca se salte una sección con un scroll rápido
+     (el comportamiento por defecto, "normal", puede saltarse puntos de
+     encaje intermedios con gestos de rueda/trackpad fuertes) */
+  scroll-snap-stop: always;
 }
 
 @media (min-width: 768px) {
@@ -22,6 +37,20 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+  }
+}
+
+/* El footer viene después de la última .snap-slide pero vive bajo el mismo
+   html { scroll-snap-type: y mandatory }. Sin su propio punto de encaje, el
+   snap "mandatory" lo rechaza al soltar la rueda/trackpad ahí y devuelve el
+   scroll a la sección anterior (bug real: el usuario nunca lograba quedarse
+   viendo el footer en desktop). align: end en vez de start porque el footer
+   casi siempre mide menos que 100dvh: end asegura que su borde inferior
+   quede pegado al fondo del viewport al encajar, mostrando el footer
+   completo en vez de dejar un hueco vacío debajo. */
+@media (min-width: 768px) {
+  .snap-footer {
+    scroll-snap-align: end;
   }
 }
 
@@ -236,6 +265,171 @@ html[data-theme="dark"] .ambient-field {
 
 .animate-marquee {
   animation: marquee 34s linear infinite;
+}
+
+/* el Hero ahora es video a pantalla completa (oscuro) de borde a borde, así
+   que el nav -que nace transparente sobre él- necesita texto claro al
+   principio y texto oscuro una vez que gana superficie sólida al hacer
+   scroll. --nav-ink (0 a 100) lo anima Motion en el mismo rango que
+   --nav-alpha, y aquí se mezcla el color en vez de tener dos clases fijas. */
+.nav-text-crossfade {
+  color: color-mix(
+    in srgb,
+    var(--color-night-ink) calc(100% - var(--nav-ink, 0) * 1%),
+    var(--color-ink) calc(var(--nav-ink, 0) * 1%)
+  );
+}
+
+/* Áreas de práctica: índice editorial en vez de bento de tarjetas de color
+   (ese patrón se sentía "SaaS genérico"). Cada fila lleva un filo izquierdo
+   que solo aparece al hover, con el acento propio del área vía --area-accent
+   inline: mantiene la idea de "un acento distinto por área" sin volver a un
+   fondo de color plano completo. */
+.area-row {
+  border-left: 3px solid transparent;
+  background-color: color-mix(in srgb, var(--area-accent, transparent) 5%, transparent);
+  transition: border-color 350ms cubic-bezier(0.16, 1, 0.3, 1), background-color 350ms ease;
+}
+
+.area-row:hover {
+  border-left-color: var(--area-accent, var(--color-gold-deep));
+  background-color: color-mix(in srgb, var(--area-accent, transparent) 11%, transparent);
+}
+
+.area-icon {
+  background-color: color-mix(in srgb, var(--area-accent, var(--color-gold-deep)) 16%, var(--color-surface));
+  transition: background-color 350ms ease;
+}
+
+/* Secciones de contenido largo (Quienes Somos, Blog+Boletín): en vez de
+   dejar que el contenido estire la sección más allá de una pantalla (lo que
+   rompe el encaje del scroll-snap), la sección mide exactamente el alto
+   visible bajo el nav y el contenido que no cabe se desplaza con su propio
+   scroll interno. No se usa una utilidad arbitraria de Tailwind con
+   calc()+var() porque su parser de valores arbitrarios no soporta bien la
+   coma dentro del var(...,fallback). */
+@media (min-width: 768px) {
+  .frame-fixed {
+    /* min-height:100dvh heredado de .snap-slide ganaría sobre un height
+       menor (min-height siempre gana sobre height cuando height < min-height,
+       por spec), así que hay que anularlo aquí también */
+    min-height: 0;
+    height: calc(100dvh - var(--nav-height, 5.5rem));
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.area-row:hover .area-icon {
+  background-color: color-mix(in srgb, var(--area-accent, var(--color-gold-deep)) 28%, var(--color-surface));
+}
+
+/* --- Identidad visual nueva (segunda pasada de rediseño) --- */
+
+/* Botón primario: en vez de solo atenuar opacidad al hover, un barrido de
+   color entra desde la izquierda, como una firma que se traza. La sombra
+   crece con el barrido para dar sensación de elevación real, no solo color. */
+.btn-sweep {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-shadow: 0 14px 30px -14px rgba(169, 124, 22, 0.55);
+  transition: box-shadow 450ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(100deg, var(--color-gold-deep), var(--color-gold));
+  transform: translateX(-102%);
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-sweep:hover::before {
+  transform: translateX(0);
+}
+
+.btn-sweep:hover {
+  box-shadow: 0 20px 40px -14px rgba(169, 124, 22, 0.7);
+}
+
+/* Botón oscuro (sobre superficies claras): mismo barrido, tono tinta. */
+.btn-sweep-ink {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.btn-sweep-ink::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-gold-deep);
+  transform: translateX(-102%);
+  transition: transform 450ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-sweep-ink:hover::before {
+  transform: translateX(0);
+}
+
+/* Botón "sello": reemplaza la píldora + insignia circular con flecha (el patrón de
+   botón más reconocible de plantilla genérica de IA) por una forma que viene del
+   mundo del propio sitio, papelería legal, no de un kit de UI: un rectángulo de
+   esquina apenas redondeada con un segundo filo dorado detrás, desplazado como una
+   ficha o un sello estampado con un pequeño desnivel. El desnivel se cierra al pasar
+   el mouse y casi desaparece al hacer clic, como si el sello se asentara sobre el
+   papel. Sin insignia circular para la flecha: el ícono va directo junto al texto. */
+.cta-boton {
+  position: relative;
+  border-radius: 0.625rem;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cta-boton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  border: 1.5px solid var(--color-gold-deep);
+  transform: translate(7px, 7px);
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cta-boton:hover::after {
+  transform: translate(3.5px, 3.5px);
+}
+
+.cta-boton:active {
+  transform: translate(2px, 2px);
+}
+
+.cta-boton:active::after {
+  transform: translate(0, 0);
+}
+
+/* "Caja de información" nueva: reemplaza el double-bezel anidado por un
+   filo superior en degradado dorado (como el sello de un documento legal),
+   sin envoltura extra. Radios más cerrados, sombra difusa en vez de anillo. */
+.card-edged {
+  position: relative;
+  border-radius: 1.25rem;
+  background: var(--color-surface);
+  box-shadow: 0 24px 50px -28px rgba(20, 19, 15, 0.4);
+}
+
+.card-edged::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: linear-gradient(90deg, var(--color-gold-deep), var(--color-gold) 55%, var(--color-gold-pale));
 }
 
 @media (prefers-reduced-motion: reduce) {

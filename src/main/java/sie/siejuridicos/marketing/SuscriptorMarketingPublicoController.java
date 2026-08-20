@@ -16,15 +16,15 @@ import sie.siejuridicos.marketing.dto.SuscribirNewsletterRequest;
 @RequestMapping("/api/marketing/suscriptores")
 public class SuscriptorMarketingPublicoController {
 
-    private final SuscriptorMarketingRepository suscriptorMarketingRepository;
+    private final SuscriptorMarketingService suscriptorMarketingService;
 
-    public SuscriptorMarketingPublicoController(SuscriptorMarketingRepository suscriptorMarketingRepository) {
-        this.suscriptorMarketingRepository = suscriptorMarketingRepository;
+    public SuscriptorMarketingPublicoController(SuscriptorMarketingService suscriptorMarketingService) {
+        this.suscriptorMarketingService = suscriptorMarketingService;
     }
 
     @PostMapping
     public ResponseEntity<Void> suscribir(@Valid @RequestBody SuscribirNewsletterRequest request) {
-        suscriptorMarketingRepository.suscribirSiNoExiste(request.nombre(), request.correo());
+        suscriptorMarketingService.suscribir(request.nombre(), request.correo());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }

@@ -36,6 +36,13 @@ public class Articulo {
 
     private String resumen;
 
+    @Column(name = "imagen_url")
+    private String imagenUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_contenido", nullable = false)
+    private TipoContenido tipoContenido = TipoContenido.BLOG;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_categoria", nullable = false)
     private Categoria categoria;
@@ -96,6 +103,22 @@ public class Articulo {
 
     public void setResumen(String resumen) {
         this.resumen = resumen;
+    }
+
+    public String getImagenUrl() {
+        return imagenUrl;
+    }
+
+    public void setImagenUrl(String imagenUrl) {
+        this.imagenUrl = imagenUrl;
+    }
+
+    public TipoContenido getTipoContenido() {
+        return tipoContenido;
+    }
+
+    public void setTipoContenido(TipoContenido tipoContenido) {
+        this.tipoContenido = tipoContenido;
     }
 
     public Categoria getCategoria() {

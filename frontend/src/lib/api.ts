@@ -6,11 +6,15 @@ export type Categoria = {
   slug: string;
 };
 
+export type TipoContenido = "BLOG" | "NOTICIA";
+
 export type ArticuloResumen = {
   id: number;
   titulo: string;
   slug: string;
   resumen: string | null;
+  imagenUrl: string | null;
+  tipoContenido: TipoContenido;
   categoria: Categoria;
   autorNombre: string;
   fechaPublicacion: string;
@@ -95,10 +99,12 @@ export async function getCategorias(): Promise<Categoria[]> {
 
 export async function getArticulos(params?: {
   categoria?: number;
+  tipo?: TipoContenido;
   q?: string;
 }): Promise<ArticuloResumen[]> {
   const search = new URLSearchParams();
   if (params?.categoria) search.set("categoria", String(params.categoria));
+  if (params?.tipo) search.set("tipo", params.tipo);
   if (params?.q) search.set("q", params.q);
   const query = search.toString();
 
@@ -171,6 +177,52 @@ export async function suscribirNewsletter(input: SuscribirNewsletterInput) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+}
+
+export type PreguntaFrecuente = {
+  id: number;
+  pregunta: string;
+  respuesta: string;
+};
+
+export async function getFaq(): Promise<PreguntaFrecuente[]> {
+  const res = await fetch(`${API_URL}/api/faq`, {
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+  return res.json();
+}
+
+export type EtapaCaso =
+  | "RADICADO"
+  | "EN_ESTUDIO"
+  | "EN_TRAMITE"
+  | "AUDIENCIA_DILIGENCIA"
+  | "RESUELTO";
+
+export type CasoConsulta = {
+  codigoUnico: string;
+  tipoCaso: string;
+  etapa: EtapaCaso;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+};
+
+export async function consultarCaso(codigo: string): Promise<CasoConsulta> {
+  const res = await fetch(
+    `${API_URL}/api/casos/consulta?codigo=${encodeURIComponent(codigo)}`,
+  );
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+  return res.json();
+}
+
+export async function registrarVisita(visitanteId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/analitica/visita`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ visitanteId }),
   });
   if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
 }

@@ -15,17 +15,23 @@ public interface ArticuloRepository extends JpaRepository<Articulo, Long> {
 
     boolean existsBySlug(String slug);
 
-    // filtro por categoría y búsqueda de palabra clave (RF-10) usando el índice
-    // de texto completo (columna generada `busqueda`) creado en V3.
+    // filtro por categoría, tipo (blog/noticia) y búsqueda de palabra clave (RF-10) usando
+    // el índice de texto completo (columna generada `busqueda`) creado en V3.
     @Query(value = "SELECT a.* FROM articulos a " +
             "WHERE a.estado = 'PUBLICADO' " +
             "AND (:idCategoria IS NULL OR a.id_categoria = :idCategoria) " +
+            "AND (:tipoContenido IS NULL OR a.tipo_contenido = :tipoContenido) " +
             "AND (:busqueda IS NULL OR a.busqueda @@ plainto_tsquery('spanish', :busqueda)) " +
             "ORDER BY a.fecha_publicacion DESC",
             nativeQuery = true)
-    List<Articulo> buscarPublicados(@Param("idCategoria") Long idCategoria, @Param("busqueda") String busqueda);
+    List<Articulo> buscarPublicados(@Param("idCategoria") Long idCategoria,
+                                     @Param("tipoContenido") String tipoContenido,
+                                     @Param("busqueda") String busqueda);
 
     // invoca fn_publicar_articulo (V9): valida integridad y publica en una sola operación transaccional
     @Query(value = "SELECT * FROM fn_publicar_articulo(:id)", nativeQuery = true)
     Articulo publicarArticulo(@Param("id") Long id);
+
+    // usado por EstadisticasService para el resumen del panel administrativo
+    long countByEstado(EstadoArticulo estado);
 }

@@ -4,11 +4,12 @@ import { motion } from "motion/react";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-// Mascota simple y geométrica del chatbot ("Siebot"), no una ilustración
-// decorativa suelta: reutiliza la balanza del logo real de la marca como
-// "cara", así el personaje se siente parte de la identidad y no un clip-art
-// genérico pegado encima. Toda la animación es Motion (el widget del chat ya
-// usa Motion, nunca se mezcla con GSAP en el mismo árbol).
+// Mascota del chatbot ("Siebot"): antes era una carita sonriente genérica, sin
+// ninguna seña de que fuera "de abogado" ni de la firma. Los anteojos redondos y el
+// corbatín (dibujados a mano en SVG, misma disciplina que mascota-escudo.tsx de
+// /cuida-tu-marca) son las dos señas mínimas que la vuelven reconocible como una
+// mascota de abogado de un vistazo, incluso a 32px. Toda la animación es Motion (el
+// widget del chat ya usa Motion, nunca se mezcla con GSAP en el mismo árbol).
 export function SiebotMascot({
   size = 32,
   pensando = false,
@@ -18,14 +19,23 @@ export function SiebotMascot({
 }) {
   return (
     <motion.div
-      animate={{ y: [0, -3, 0], rotate: pensando ? [0, -4, 4, 0] : [0, 0] }}
+      animate={{
+        y: pensando ? [0, -3, 0] : [0, 2, -14, 1, 0],
+        scaleY: pensando ? 1 : [1, 0.88, 1.16, 0.94, 1],
+        scaleX: pensando ? 1 : [1, 1.08, 0.9, 1.04, 1],
+        rotate: pensando ? [0, -4, 4, 0] : [0, 0],
+      }}
       transition={{
-        y: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
+        y: pensando
+          ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+          : { duration: 1.9, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.55, 0.8, 1], repeatDelay: 0.5 },
+        scaleY: { duration: 1.9, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.55, 0.8, 1], repeatDelay: 0.5 },
+        scaleX: { duration: 1.9, repeat: Infinity, ease: "easeInOut", times: [0, 0.25, 0.55, 0.8, 1], repeatDelay: 0.5 },
         rotate: pensando
           ? { duration: 1.1, repeat: Infinity, ease: "easeInOut" }
           : { duration: 0 },
       }}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, transformOrigin: "50% 100%" }}
       className="relative shrink-0"
     >
       <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true">
@@ -54,6 +64,16 @@ export function SiebotMascot({
           <circle cx="41" cy="28" r="4" fill="var(--color-ink-fixed)" />
         </motion.g>
 
+        {/* anteojos redondos: el marco no parpadea, solo la pupila detrás de cada
+            lente (el mismo grupo de arriba) */}
+        <g fill="none" stroke="var(--color-ink-fixed)" strokeWidth="2" strokeLinecap="round" opacity="0.9">
+          <circle cx="23" cy="28" r="7.5" />
+          <circle cx="41" cy="28" r="7.5" />
+          <path d="M30.5 27h3" />
+          <path d="M15.5 25.5c-2.5 0-3.5 1.5-3.5 3.5" />
+          <path d="M48.5 25.5c2.5 0 3.5 1.5 3.5 3.5" />
+        </g>
+
         {/* sonrisa */}
         <path
           d="M22 40c3.5 4 16.5 4 20 0"
@@ -62,6 +82,14 @@ export function SiebotMascot({
           strokeLinecap="round"
           fill="none"
         />
+
+        {/* corbatín: la seña más directa de "mascota de abogado", en vez de un
+            personaje genérico sin ninguna referencia al gremio */}
+        <g transform="translate(32, 50)">
+          <path d="M-9 -4 L-1.5 0 L-9 4 Z" fill="var(--color-ink-fixed)" />
+          <path d="M9 -4 L1.5 0 L9 4 Z" fill="var(--color-ink-fixed)" />
+          <circle cx="0" cy="0" r="2.4" fill="var(--color-gold-deep)" stroke="var(--color-ink-fixed)" strokeWidth="1" />
+        </g>
       </svg>
 
       {/* punto de estado, como un indicador "en línea" */}

@@ -34,10 +34,15 @@ export function SectionVideo({
     );
   }
 
+  // ruta absoluta siempre (con "/" inicial): un src relativo resuelve contra
+  // la URL de la página actual, no contra la raíz del sitio, y puede romperse
+  // si este componente se usa desde una ruta anidada
+  const rutaVideo = src.startsWith("/") ? src : `/${src}`;
+
   return (
     <video
       className={className}
-      src={src}
+      src={rutaVideo}
       poster={poster}
       autoPlay
       muted

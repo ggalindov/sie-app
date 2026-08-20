@@ -1,0 +1,138 @@
+# Stack completo de producción: Postgres + backend + frontend + Caddy (proxy reverso con
+# HTTPS automático vía Let's Encrypt). Uso: ver DEPLOY.md.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# No incluye pgAdmin a propósito (es una herramienta de desarrollo; correrla 24/7 en el
+# VPS solo gastaría RAM sin necesidad — para administrar la base de datos en producción,
+# usa un túnel SSH puntual hacia el puerto de Postgres cuando de verdad lo necesites).
+#
+# "name" fijo es imprescindible, no cosmético: sin él, Compose deriva el nombre del
+# proyecto del nombre de la carpeta, que es el mismo para compose.yaml (el stack de
+# desarrollo). En una máquina donde ambos archivos coexisten (como al verificar esto
+# antes de un despliegue real), eso hace que Compose trate ambos stacks como EL MISMO
+# proyecto y reutilice/recree contenedores y volúmenes del otro — en verificación se
+# confirmó en vivo que esto reemplaza el contenedor de Postgres de desarrollo por uno
+# con la config de producción (mismo volumen de datos, así que no hay pérdida de
+# información, pero sí se pierde el mapeo de puerto hacia el host y el backend de
+# desarrollo se queda sin poder conectarse hasta recrearlo de nuevo con compose.yaml).
+name: sie-juridicos-prod
+
+services:
+  postgres:
+    image: 'postgres:16-alpine'
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - sie_juridicos_data:/var/lib/postgresql/data
+    networks:
+      - sie_red
+    mem_limit: ${POSTGRES_MEM_LIMIT:-384m}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: &default-logging
+      driver: json-file
+      options:
+        # Rotación de logs: sin esto, un contenedor de larga duración puede llenar el
+        # disco del VPS solo con su propio stdout/stderr acumulado durante meses.
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_HOST=postgres
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_BOOTSTRAP_EMAIL=${ADMIN_BOOTSTRAP_EMAIL}
+      - ADMIN_BOOTSTRAP_PASSWORD=${ADMIN_BOOTSTRAP_PASSWORD}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - MAIL_ADMIN=${MAIL_ADMIN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - FIRMA_WHATSAPP_URL=${FIRMA_WHATSAPP_URL}
+      - FIRMA_SITIO_WEB=https://${DOMAIN}
+      - CORS_ALLOWED_ORIGINS=https://${DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sie_red
+    mem_limit: ${BACKEND_MEM_LIMIT:-512m}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/api/salud"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging: *default-logging
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sie_red
+    mem_limit: ${FRONTEND_MEM_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging: *default-logging
+
+  caddy:
+    image: 'caddy:2-alpine'
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - sie_red
+    mem_limit: ${CADDY_MEM_LIMIT:-128m}
+    logging: *default-logging
+
+networks:
+  # Subred fija (no la que Docker asignaría al azar) para que
+  # server.tomcat.remoteip.trusted-proxies en application-prod.properties pueda confiar
+  # en "vengo de esta red interna" sin tener que confiar en cualquier IP.
+  sie_red:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  sie_juridicos_data:
+  caddy_data:
+  caddy_config:

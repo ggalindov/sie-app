@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type MouseEvent, type ReactNode, useRef } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import { type ReactNode } from "react";
+import { motion, useScroll, useTransform } from "motion/react";
 import { ArrowRight } from "@phosphor-icons/react";
 import { siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
@@ -21,129 +21,76 @@ function entry(delay = 0) {
   } as const;
 }
 
-// La foto/video real de la firma es el protagonista (así lo hacen los
-// bufetes reales: Lloreda Camacho, PGP, ALL Abogados), no un logo dorado
-// gigante brillando en 3D, eso es lo que hacía sentir el sitio "generado por
-// IA". El logo queda como una insignia pequeña y funcional sobre la foto,
-// igual que el sello circular que usa PGP sobre su oficina.
-function FotoFirma({ media }: { media: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const px = useMotionValue(0);
-  const py = useMotionValue(0);
-  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [4, -4]), {
-    stiffness: 200,
-    damping: 22,
-  });
-  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-4, 4]), {
-    stiffness: 200,
-    damping: 22,
-  });
-
-  function onMouseMove(e: MouseEvent<HTMLDivElement>) {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    px.set((e.clientX - rect.left) / rect.width - 0.5);
-    py.set((e.clientY - rect.top) / rect.height - 0.5);
-  }
-
-  function onMouseLeave() {
-    px.set(0);
-    py.set(0);
-  }
-
-  return (
-    <motion.div
-      ref={ref}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d", perspective: 1200 }}
-      className="rounded-[2rem] bg-ink/5 p-2 shadow-[0_30px_80px_-30px_rgba(20,19,15,0.45)] ring-1 ring-ink/5"
-    >
-      <div className="relative aspect-[5/6] w-full overflow-hidden rounded-[1.6rem] bg-night">
-        {media}
-        <div className="absolute inset-0 bg-gradient-to-t from-night/55 via-transparent to-night/10" />
-
-        <div className="absolute -bottom-6 -left-6 flex h-24 w-24 items-center justify-center rounded-full bg-night p-2 shadow-[0_15px_35px_-10px_rgba(0,0,0,0.55)] sm:h-32 sm:w-32">
-          <div className="relative flex h-full w-full items-center justify-center rounded-full">
-            <SealRing delay={0.8} />
-            <div className="relative aspect-[644/559] w-[64%]">
-              <Image
-                src="/marca/logo.png"
-                alt={siteConfig.nombre}
-                fill
-                sizes="128px"
-                className="object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
+// Segunda pasada de identidad: la bienvenida ya no es un split texto/tarjeta,
+// es un momento de marca a pantalla completa, como abre una firma real
+// (Lloreda Camacho, CABA): video de la firma de fondo edge-to-edge, un velo
+// para legibilidad, y el sello/logo como protagonista, grande y centrado,
+// no una insignia pequeña en la esquina de una tarjeta.
 export function Hero({ media }: { media: ReactNode }) {
+  const { scrollYProgress } = useScroll();
+  const y = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
+
   return (
-    <section className="snap-slide relative overflow-hidden pt-24 md:pt-0">
-      <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-20 md:grid-cols-12 md:gap-8 md:pb-28">
-        <div className="max-w-xl md:col-span-7">
-          <motion.h1
-            {...entry(0)}
-            className="text-balance font-display text-5xl leading-[1.05] tracking-tight md:text-7xl"
-          >
-            Veinte años de experiencia legal, a tu lado.
-          </motion.h1>
+    <section className="snap-slide relative overflow-hidden">
+      <motion.div style={{ y }} className="absolute inset-[-10%_0_0_0]">
+        {media}
+      </motion.div>
+      <div className="absolute inset-0 bg-gradient-to-b from-night/75 via-night/45 to-night/85" />
+      <div className="absolute inset-0 bg-gradient-to-t from-night via-night/10 to-transparent" />
 
-          <motion.p
-            {...entry(0.12)}
-            className="mt-7 max-w-md text-xl leading-relaxed text-ink-soft"
-          >
-            Asesoría jurídica clara y cercana para personas y empresas, con
-            más de 800 casos ganados.
-          </motion.p>
-
-          <motion.div {...entry(0.22)} className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
-            <MagneticButton strength={0.4}>
-              <Link
-                href="#agendar"
-                className="group inline-flex items-center gap-4 rounded-full bg-gold py-4 pl-9 pr-4 text-base font-medium text-ink-fixed transition-transform duration-300 active:scale-[0.98]"
-              >
-                {siteConfig.ctaPrincipal}
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-fixed/10 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-px">
-                  <ArrowRight className="h-5 w-5" weight="bold" />
-                </span>
-              </Link>
-            </MagneticButton>
-
-            <Link
-              href="#areas"
-              className="text-base font-medium text-ink underline decoration-line decoration-2 underline-offset-4 transition-colors duration-300 hover:decoration-gold"
-            >
-              Ver áreas de práctica
-            </Link>
-          </motion.div>
-        </div>
-
+      <div className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-6 pb-16 pt-32 text-center md:pt-24">
         <motion.div
-          {...entry(0.15)}
-          className="relative mx-auto w-full max-w-sm md:col-span-5 md:col-start-8 md:max-w-none"
+          {...entry(0)}
+          className="relative flex h-36 w-36 items-center justify-center rounded-full bg-night-ink/10 ring-1 ring-night-ink/25 backdrop-blur-md sm:h-44 sm:w-44 md:h-52 md:w-52"
         >
-          <FotoFirma media={media} />
+          <SealRing delay={0.6} />
+          <div className="relative aspect-[644/559] w-[74%]">
+            <Image
+              src="/marca/logo.png"
+              alt={siteConfig.nombre}
+              fill
+              sizes="208px"
+              priority
+              className="object-contain"
+            />
+          </div>
+        </motion.div>
 
-          <motion.div
-            {...entry(0.5)}
-            className="absolute -top-5 -right-4 rounded-[1.5rem] bg-ink/5 p-1.5 ring-1 ring-ink/5 sm:-right-8"
+        <motion.h1
+          {...entry(0.12)}
+          className="mt-9 text-balance font-display text-5xl leading-[1.04] tracking-tight text-night-ink md:text-7xl lg:text-8xl"
+        >
+          Veinte años de experiencia legal, a tu lado.
+        </motion.h1>
+
+        <motion.p
+          {...entry(0.24)}
+          className="mt-6 max-w-xl text-balance text-lg leading-relaxed text-night-ink/75 md:text-xl"
+        >
+          Asesoría jurídica clara y cercana para personas y empresas, con
+          más de 800 casos ganados.
+        </motion.p>
+
+        <motion.div {...entry(0.34)} className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+          <MagneticButton strength={0.4}>
+            <Link
+              href="#agendar"
+              className="cta-boton group inline-flex items-center gap-3 rounded-lg bg-gold px-7 py-4 text-base font-medium text-ink-fixed active:scale-[0.98]"
+            >
+              {siteConfig.ctaPrincipal}
+              <ArrowRight
+                weight="bold"
+                className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+              />
+            </Link>
+          </MagneticButton>
+
+          <Link
+            href="#areas"
+            className="text-base font-medium text-night-ink underline decoration-night-ink/30 decoration-2 underline-offset-4 transition-colors duration-300 hover:decoration-gold"
           >
-            <div className="rounded-[1.15rem] bg-surface px-6 py-5 shadow-[0_20px_45px_-15px_rgba(28,26,22,0.35)] ring-1 ring-line">
-              <p className="font-display text-4xl leading-none text-ink">
-                +800
-              </p>
-              <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-ink-soft">
-                Casos ganados
-              </p>
-            </div>
-          </motion.div>
+            Ver áreas de práctica
+          </Link>
         </motion.div>
       </div>
     </section>

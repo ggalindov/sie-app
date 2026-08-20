@@ -1,0 +1,19 @@
+# Mantiene el contexto de build pequeño y rápido: Docker sube TODO lo que no esté aquí
+# al daemon antes de empezar a construir, incluido node_modules y target/ si no se excluyen.
+target/
+frontend/
+.git/
+.idea/
+*.iml
+.vscode/
+postman/
+*.md
+run.bat
+run.local.bat
+backend-run.log
+.dockerignore
+Dockerfile
+docker-compose*.yml
+compose.yaml
+Caddyfile
+.env*

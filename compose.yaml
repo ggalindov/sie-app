@@ -6,7 +6,11 @@ services:
       - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secret}'
       - 'POSTGRES_USER=${POSTGRES_USER:-sie_user}'
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      # Solo localhost: sin el prefijo 127.0.0.1, Docker publica en 0.0.0.0 por defecto,
+      # es decir Postgres queda alcanzable desde cualquier otro equipo en la misma red
+      # (relevante en un portátil de desarrollo en wifi compartida/de oficina). La app
+      # sigue conectándose igual, vía jdbc:postgresql://localhost:5432.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - 'sie_juridicos_data:/var/lib/postgresql/data'
 
@@ -16,7 +20,9 @@ services:
       - 'PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-pgadmin@siejuridicos.com}'
       - 'PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin123}'
     ports:
-      - '${PGADMIN_PORT:-5050}:80'
+      # Mismo motivo que Postgres arriba: pgAdmin no debería quedar alcanzable fuera de
+      # esta máquina.
+      - '127.0.0.1:${PGADMIN_PORT:-5050}:80'
     volumes:
       - 'pgadmin_data:/var/lib/pgadmin'
       - './pgadmin/servers.json:/pgadmin4/servers.json:ro'

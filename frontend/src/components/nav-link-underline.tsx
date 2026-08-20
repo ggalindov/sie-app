@@ -46,7 +46,7 @@ export function NavLinkUnderline({
       onClick={onClick}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      className="relative rounded-full px-4 py-2 text-sm text-ink-soft transition-colors duration-300 hover:text-ink"
+      className="nav-text-crossfade relative rounded-full px-4 py-2 text-sm opacity-80 transition-opacity duration-300 hover:!text-gold-deep hover:opacity-100"
     >
       {label}
       <span className="pointer-events-none absolute inset-x-4 bottom-1.5 h-px overflow-hidden">

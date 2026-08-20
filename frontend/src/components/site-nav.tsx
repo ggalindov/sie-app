@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
 import { List, X, WhatsappLogo } from "@phosphor-icons/react";
 import { navLinks, siteConfig } from "@/lib/site-config";
@@ -19,30 +19,58 @@ export function SiteNav() {
   const { scrollY } = useScroll();
   const navAlpha = useTransform(scrollY, [0, 140], [0, 96]);
   const navBorder = useTransform(scrollY, [0, 140], [0, 1]);
+  const navInk = useTransform(scrollY, [0, 140], [0, 100]);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Mide la altura real del nav (en vez de asumir un número fijo en rem) y
+  // la publica como --nav-height en <html>: el "encaje" del scroll-snap
+  // (.snap-slide usa esta variable en scroll-margin-top) queda siempre
+  // exacto, sin importar cuánto cambie el logo o el contenido del nav.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const actualizar = () => {
+      document.documentElement.style.setProperty("--nav-height", `${el.offsetHeight}px`);
+    };
+    actualizar();
+    const observer = new ResizeObserver(actualizar);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // El menú móvil es un overlay a pantalla completa sin <dialog>/base-ui detrás (a
+  // diferencia de los modales del sitio, que ya cierran con Escape de fábrica): sin este
+  // listener, la única forma de cerrarlo era encontrar el botón X con el mouse.
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   return (
     <>
       <motion.header
-        style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder } as CSSProperties}
+        ref={headerRef}
+        style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder, "--nav-ink": navInk } as CSSProperties}
         className="nav-bar fixed inset-x-0 top-0 z-40 backdrop-blur-xl"
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link
             href="/"
-            className="flex shrink-0 items-center gap-2.5 py-1"
+            className="flex shrink-0 items-center py-1"
             onClick={() => setOpen(false)}
           >
             <Image
               src="/marca/logo.png"
               alt={siteConfig.nombre}
-              width={30}
-              height={30}
-              className="h-[30px] w-[30px] object-contain"
+              width={52}
+              height={45}
+              className="h-11 w-auto object-contain md:h-12"
               priority
             />
-            <span className="font-display text-base font-semibold tracking-tight">
-              {siteConfig.nombre}
-            </span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -52,17 +80,18 @@ export function SiteNav() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle className="hidden text-ink-soft hover:bg-ink/5 hover:text-ink sm:flex" />
+            <ThemeToggle className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
               <Link
                 href="#agendar"
-                className="group flex items-center gap-2 rounded-full bg-gold py-2.5 pl-5 pr-2 text-sm font-medium text-ink-fixed transition-transform duration-300 active:scale-[0.98]"
+                className="cta-boton group flex items-center gap-2 rounded-lg bg-gold py-2.5 pl-5 pr-4 text-sm font-medium text-ink-fixed active:scale-[0.98]"
               >
                 {siteConfig.ctaPrincipal}
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-fixed/10 transition-transform duration-300 group-hover:translate-x-0.5">
-                  <WhatsappLogo weight="fill" className="h-3.5 w-3.5" />
-                </span>
+                <WhatsappLogo
+                  weight="fill"
+                  className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5"
+                />
               </Link>
             </MagneticButton>
 
@@ -71,7 +100,7 @@ export function SiteNav() {
               aria-label={open ? "Cerrar menú" : "Abrir menú"}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink md:hidden"
+              className="nav-text-crossfade relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full md:hidden"
             >
               <AnimatePresence initial={false} mode="wait">
                 {open ? (
@@ -137,7 +166,7 @@ export function SiteNav() {
               <Link
                 href="#agendar"
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-medium text-ink-fixed"
+                className="cta-boton inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 text-sm font-medium text-ink-fixed"
               >
                 {siteConfig.ctaPrincipal}
               </Link>

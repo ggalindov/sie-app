@@ -42,8 +42,8 @@ export default function ArticulosPage() {
   return (
     <div>
       <AdminPageHeader
-        title="Blog"
-        description="Artículos publicados y borradores."
+        title="Blog y Noticias"
+        description="Artículos y noticias, publicados y en borrador."
         action={
           <Link href="/admin/articulos/nuevo">
             <AdminButton>
@@ -66,6 +66,7 @@ export default function ArticulosPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-ink">{a.titulo}</p>
                   <Badge tone={a.estado === "PUBLICADO" ? "success" : "neutral"}>{a.estado}</Badge>
+                  {a.tipoContenido === "NOTICIA" && <Badge tone="gold">Noticia</Badge>}
                 </div>
                 <p className="mt-1 text-xs text-ink-soft">
                   {a.categoria.nombre} · {a.autorNombre} · {formatearFecha(a.fechaCreacion)}
@@ -75,7 +76,7 @@ export default function ArticulosPage() {
               <div className="flex shrink-0 items-center gap-2">
                 {a.estado === "PUBLICADO" && (
                   <a
-                    href={`http://localhost:3000/blog/${a.slug}`}
+                    href={`/blog/${a.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5"

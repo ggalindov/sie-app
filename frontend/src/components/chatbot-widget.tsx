@@ -20,11 +20,25 @@ export function ChatbotWidget() {
   const [conversacionId, setConversacionId] = useState<number | null>(null);
   const [texto, setTexto] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [burbuja, setBurbuja] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [mensajes, cargando]);
+
+  // Siebot se asoma con un saludo a los pocos segundos de cargar la página,
+  // para que la mascota tenga presencia propia y no solo viva escondida
+  // dentro del botón del chat. Se oculta sola y no vuelve a insistir si el
+  // visitante ya abrió el chat.
+  useEffect(() => {
+    const aparecer = setTimeout(() => setBurbuja(true), 3200);
+    const desaparecer = setTimeout(() => setBurbuja(false), 9200);
+    return () => {
+      clearTimeout(aparecer);
+      clearTimeout(desaparecer);
+    };
+  }, []);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -63,9 +77,26 @@ export function ChatbotWidget() {
 
   return (
     <>
+      <AnimatePresence>
+        {burbuja && !open && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.9 }}
+            transition={{ duration: 0.35, ease: EASE }}
+            className="fixed bottom-24 left-6 z-40 max-w-[220px] rounded-2xl rounded-bl-sm bg-surface px-4 py-3 text-sm text-ink shadow-[0_20px_45px_-15px_rgba(28,26,22,0.4)] ring-1 ring-line"
+          >
+            ¡Hola! Soy Siebot 👋 ¿Te ayudo con tu caso?
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          setBurbuja(false);
+        }}
         aria-label={open ? "Cerrar chat" : "Abrir chat"}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -81,7 +112,7 @@ export function ChatbotWidget() {
             </motion.span>
           ) : (
             <motion.span key="chat" initial={{ rotate: 90, opacity: 0, scale: 0.6 }} animate={{ rotate: 0, opacity: 1, scale: 1 }} exit={{ rotate: -90, opacity: 0, scale: 0.6 }} transition={{ duration: 0.25 }}>
-              <SiebotMascot size={38} />
+              <SiebotMascot size={42} />
             </motion.span>
           )}
         </AnimatePresence>

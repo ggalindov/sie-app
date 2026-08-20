@@ -25,4 +25,15 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long>, Jpa
 
     // usado por el job diario de recordatorios (RecordatorioCitaScheduler)
     List<Solicitud> findByFechaCitaBetweenAndRecordatorioEnviadoFalse(LocalDateTime desde, LocalDateTime hasta);
+
+    // usado por EstadisticasService para el resumen del panel administrativo
+    long countByEstado(EstadoSolicitud estado);
+
+    long countByOrigen(OrigenSolicitud origen);
+
+    long countByFechaCitaIsNotNull();
+
+    long countByFechaCitaAfter(LocalDateTime momento);
+
+    long countByFechaCreacionAfter(LocalDateTime momento);
 }

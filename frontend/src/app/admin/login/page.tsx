@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Spinner } from "@phosphor-icons/react";
-import { login as loginRequest } from "@/lib/admin-api";
+import { ArrowLeft, Spinner } from "@phosphor-icons/react";
+import { login as loginRequest, ApiError } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
@@ -35,15 +36,27 @@ export default function LoginPage() {
       const respuesta = await loginRequest(correo, contrasena);
       login(respuesta.token);
       router.push("/admin");
-    } catch {
-      setError("Correo o contraseña incorrectos.");
+    } catch (err) {
+      // Muestra el mensaje real del backend cuando existe (p. ej. "Demasiados intentos
+      // fallidos, intenta en 13 minuto(s)" de un bloqueo por fuerza bruta): con un
+      // mensaje genérico fijo, un admin real bloqueado no tendría forma de saber que
+      // no es un simple error de tipeo, ni cuánto debe esperar.
+      setError(err instanceof ApiError ? err.message : "Correo o contraseña incorrectos.");
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-night px-6">
+    <div className="relative flex min-h-screen items-center justify-center bg-night px-6">
+      <Link
+        href="/"
+        className="absolute left-6 top-6 flex items-center gap-2 text-sm text-night-ink/60 transition-colors hover:text-night-ink"
+      >
+        <ArrowLeft className="h-4 w-4" weight="bold" />
+        Volver al inicio
+      </Link>
+
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center">
           <Image
@@ -96,7 +109,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={enviando}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
+            className="cta-boton flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-3.5 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
           >
             {enviando && <Spinner className="h-4 w-4 animate-spin" weight="bold" />}
             {enviando ? "Ingresando" : "Ingresar"}

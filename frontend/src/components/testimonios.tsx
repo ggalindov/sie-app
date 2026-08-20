@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { Quotes, Star } from "@phosphor-icons/react";
 import { testimonios as testimoniosBase } from "@/lib/content";
@@ -9,7 +9,7 @@ import { TestimonioFormModal } from "@/components/testimonio-form-modal";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export function Testimonios() {
+export function Testimonios({ media }: { media: ReactNode }) {
   const [aprobados, setAprobados] = useState<TestimonioPublico[]>([]);
   const [modalAbierto, setModalAbierto] = useState(false);
 
@@ -37,15 +37,18 @@ export function Testimonios() {
   ];
 
   return (
-    <section className="snap-slide section-seam py-24 md:py-32">
-      <div className="mx-auto max-w-6xl px-6">
+    <section className="snap-slide section-seam relative overflow-hidden py-20 md:py-28">
+      <div className="absolute inset-0">{media}</div>
+      <div className="absolute inset-0 bg-gradient-to-b from-night/93 via-night/88 to-night/93" />
+
+      <div className="relative mx-auto max-w-6xl px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="font-display text-3xl leading-tight tracking-tight md:text-4xl"
+            className="font-display text-4xl leading-tight tracking-tight text-night-ink md:text-5xl"
           >
             Lo que dicen nuestros clientes
           </motion.h2>
@@ -57,7 +60,7 @@ export function Testimonios() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="rounded-full border border-line px-5 py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:border-gold-deep hover:text-gold-deep active:scale-[0.97]"
+            className="btn-sweep-ink rounded-lg border border-night-ink/25 px-5 py-2.5 text-sm font-medium text-night-ink transition-colors duration-200 hover:border-gold-deep hover:text-ink-fixed active:scale-[0.97]"
           >
             Deja tu testimonio
           </motion.button>
@@ -71,7 +74,7 @@ export function Testimonios() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.4 }}
               transition={{ duration: 0.7, delay: 0.08 * i, ease: EASE }}
-              className="flex flex-col rounded-3xl bg-surface/95 p-8 ring-1 ring-line md:p-10"
+              className="card-edged flex flex-col bg-surface/97 p-8 md:p-10"
             >
               <div className="flex items-center justify-between">
                 <motion.span

@@ -10,9 +10,12 @@ import sie.siejuridicos.articulo.dto.ArticuloResumenResponse;
 import sie.siejuridicos.articulo.dto.CrearArticuloRequest;
 import sie.siejuridicos.categoria.Categoria;
 import sie.siejuridicos.categoria.CategoriaRepository;
+import sie.siejuridicos.boletin.BoletinEnviado;
+import sie.siejuridicos.boletin.BoletinEnviadoRepository;
 import sie.siejuridicos.common.exception.ErroresBaseDatos;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
 import sie.siejuridicos.correo.EmailService;
+import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
 
@@ -31,24 +34,28 @@ public class ArticuloService {
     private final CategoriaRepository categoriaRepository;
     private final UsuarioInternoRepository usuarioInternoRepository;
     private final SuscriptorMarketingRepository suscriptorMarketingRepository;
+    private final BoletinEnviadoRepository boletinEnviadoRepository;
     private final EmailService emailService;
 
     public ArticuloService(ArticuloRepository articuloRepository,
                             CategoriaRepository categoriaRepository,
                             UsuarioInternoRepository usuarioInternoRepository,
                             SuscriptorMarketingRepository suscriptorMarketingRepository,
+                            BoletinEnviadoRepository boletinEnviadoRepository,
                             EmailService emailService) {
         this.articuloRepository = articuloRepository;
         this.categoriaRepository = categoriaRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.suscriptorMarketingRepository = suscriptorMarketingRepository;
+        this.boletinEnviadoRepository = boletinEnviadoRepository;
         this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
-    public List<ArticuloResumenResponse> listarPublicados(Long idCategoria, String busqueda) {
+    public List<ArticuloResumenResponse> listarPublicados(Long idCategoria, TipoContenido tipoContenido, String busqueda) {
         String terminoBusqueda = (busqueda == null || busqueda.isBlank()) ? null : busqueda.trim();
-        return articuloRepository.buscarPublicados(idCategoria, terminoBusqueda).stream()
+        String tipo = tipoContenido == null ? null : tipoContenido.name();
+        return articuloRepository.buscarPublicados(idCategoria, tipo, terminoBusqueda).stream()
                 .map(ArticuloResumenResponse::desde)
                 .toList();
     }
@@ -86,6 +93,8 @@ public class ArticuloService {
         articulo.setSlug(generarSlugUnico(request.titulo()));
         articulo.setContenido(request.contenido());
         articulo.setResumen(request.resumen());
+        articulo.setImagenUrl(request.imagenUrl());
+        articulo.setTipoContenido(request.tipoContenido());
         articulo.setCategoria(categoria);
         articulo.setAutor(usuarioInternoRepository.getReferenceById(autorId));
         articulo.setTiempoLecturaMin(request.tiempoLecturaMin());
@@ -109,6 +118,8 @@ public class ArticuloService {
         articulo.setTitulo(request.titulo());
         articulo.setContenido(request.contenido());
         articulo.setResumen(request.resumen());
+        articulo.setImagenUrl(request.imagenUrl());
+        articulo.setTipoContenido(request.tipoContenido());
         articulo.setTiempoLecturaMin(request.tiempoLecturaMin());
 
         if (request.estado() == EstadoArticulo.PUBLICADO) {
@@ -117,11 +128,12 @@ public class ArticuloService {
             articuloRepository.saveAndFlush(articulo);
             try {
                 Articulo publicado = articuloRepository.publicarArticulo(id);
-                // solo se notifica en la transición real a PUBLICADO, nunca en ediciones
-                // posteriores de un artículo que ya estaba publicado
+                // Solo se notifica en la transición real a PUBLICADO, nunca en ediciones
+                // posteriores de un artículo que ya estaba publicado. El aviso es inmediato
+                // (no un resumen diario acumulado): apenas se publica un blog o una noticia,
+                // sale el correo a los suscriptores activos.
                 if (!yaEstabaPublicado) {
-                    emailService.enviarNotificacionNuevoArticulo(
-                            publicado, suscriptorMarketingRepository.findByActivoTrueOrderByFechaSuscripcionDesc());
+                    notificarPublicacion(publicado);
                 }
                 return ArticuloDetalleResponse.desde(publicado);
             } catch (DataAccessException ex) {
@@ -131,6 +143,19 @@ public class ArticuloService {
 
         articulo.setEstado(EstadoArticulo.BORRADOR);
         return ArticuloDetalleResponse.desde(articuloRepository.save(articulo));
+    }
+
+    private void notificarPublicacion(Articulo publicado) {
+        List<SuscriptorMarketing> destinatarios = suscriptorMarketingRepository.findByActivoTrueOrderByFechaSuscripcionDesc();
+        if (destinatarios.isEmpty()) {
+            return;
+        }
+        emailService.enviarNotificacionPublicacion(List.of(publicado), destinatarios);
+
+        BoletinEnviado registro = new BoletinEnviado();
+        registro.setCantidadPublicaciones(1);
+        registro.setCantidadDestinatarios(destinatarios.size());
+        boletinEnviadoRepository.save(registro);
     }
 
     @Transactional

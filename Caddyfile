@@ -1,0 +1,32 @@
+# Caddy hace TODO el trabajo de "servidor web" que en otros stacks se reparte entre
+# nginx + certbot: HTTPS automático (emite y renueva el certificado de Let's Encrypt
+# solo, sin cron ni configuración extra) y proxy reverso con compresión, en un archivo
+# de unas pocas líneas. DOMAIN se sustituye desde .env.prod (ver docker-compose.prod.yml).
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	# El backend vive bajo /api/** en todas sus rutas (ver SecurityConfig), así que
+	# "handle" (no "handle_path") es correcto aquí: preserva el prefijo /api al reenviar,
+	# en vez de quitarlo.
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	# Cabeceras que ya pone Next.js (ver next.config.ts) no se duplican aquí: Caddy solo
+	# agrega lo que le corresponde a él como borde TLS.
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10mb
+			roll_keep 3
+		}
+	}
+}

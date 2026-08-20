@@ -75,7 +75,7 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-4 md:self-center"
           >
-            <h2 className="font-display text-3xl leading-tight tracking-tight text-night-ink md:text-4xl">
+            <h2 className="font-display text-4xl leading-tight tracking-tight text-night-ink md:text-5xl">
               Agendar asesoría
             </h2>
             <p className="mt-4 max-w-sm text-base leading-relaxed text-night-ink/70">
@@ -199,7 +199,7 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
                   <button
                     type="submit"
                     disabled={estado === "enviando"}
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-gold py-4 text-sm font-medium text-ink-fixed transition-opacity duration-300 disabled:opacity-60 sm:w-auto sm:px-10"
+                    className="cta-boton flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-4 text-sm font-medium text-ink-fixed disabled:opacity-60 sm:w-auto sm:px-10"
                   >
                     {estado === "enviando" && (
                       <Spinner className="h-4 w-4 animate-spin" weight="bold" />

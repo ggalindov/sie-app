@@ -6,6 +6,9 @@ import { Toaster } from "sonner";
 import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
+// De vuelta a la pareja original (Playfair Display + Manrope), a pedido explícito del
+// usuario tras probar Fraunces, Bodoni Moda y Libre Caslon Display sin que ninguna
+// convenciera. Identidad tipográfica base del proyecto.
 const playfair = Playfair_Display({
   variable: "--font-display",
   subsets: ["latin"],

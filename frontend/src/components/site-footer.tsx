@@ -5,13 +5,14 @@ import {
   InstagramLogo,
   LinkedinLogo,
   EnvelopeSimple,
+  LockSimple,
 } from "@phosphor-icons/react/dist/ssr";
 import { navLinks, siteConfig } from "@/lib/site-config";
 import { areasPractica } from "@/lib/content";
 
 export function SiteFooter() {
   return (
-    <footer className="bg-night text-night-ink">
+    <footer className="snap-footer bg-night text-night-ink">
       <div className="mx-auto max-w-7xl px-6 py-16 md:py-20">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
@@ -83,6 +84,18 @@ export function SiteFooter() {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                href="/preguntas-frecuentes"
+                className="text-night-ink/80 transition-colors hover:text-gold"
+              >
+                Preguntas frecuentes
+              </Link>
+              <Link
+                href="/consulta-caso"
+                className="text-night-ink/80 transition-colors hover:text-gold"
+              >
+                Consultar mi caso
+              </Link>
             </nav>
           </div>
 
@@ -109,7 +122,17 @@ export function SiteFooter() {
             © {new Date().getFullYear()} {siteConfig.nombre}. Todos los
             derechos reservados.
           </p>
-          <p>Tratamiento de datos personales conforme a la Ley 1581 de 2012.</p>
+          <div className="flex items-center gap-4">
+            <p>Tratamiento de datos personales conforme a la Ley 1581 de 2012.</p>
+            <Link
+              href="/admin/login"
+              aria-label="Acceso interno para administradores y abogados"
+              title="Acceso interno"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-night-ink/30 transition-colors hover:bg-night-ink/10 hover:text-gold"
+            >
+              <LockSimple weight="light" className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

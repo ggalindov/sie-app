@@ -31,7 +31,7 @@ export function TalentoHumano({ media }: { media: ReactNode }) {
           transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
           className="order-1 md:order-2"
         >
-          <h2 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
+          <h2 className="font-display text-4xl leading-tight tracking-tight md:text-5xl">
             Impulsa tu empresa con el talento ideal.
           </h2>
           <p className="mt-5 max-w-md text-base leading-relaxed text-ink-soft">
@@ -41,12 +41,13 @@ export function TalentoHumano({ media }: { media: ReactNode }) {
           </p>
           <Link
             href="#contacto"
-            className="group mt-7 inline-flex items-center gap-3 rounded-full bg-ink py-3.5 pl-7 pr-3 text-sm font-medium text-paper transition-transform duration-300 active:scale-[0.98]"
+            className="btn-sweep-ink group mt-7 inline-flex items-center gap-3 rounded-lg bg-ink px-6 py-3.5 text-sm font-medium text-paper transition-colors duration-300 active:scale-[0.98] hover:text-ink-fixed"
           >
             Solicitar información
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-paper/15 transition-transform duration-300 group-hover:translate-x-0.5">
-              <ArrowRight className="h-4 w-4" weight="bold" />
-            </span>
+            <ArrowRight
+              weight="bold"
+              className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+            />
           </Link>
         </motion.div>
       </div>

@@ -19,6 +19,6 @@ export const navLinks = [
   { href: "#quienes-somos", label: "La firma" },
   { href: "#areas", label: "Áreas de práctica" },
   { href: "#equipo", label: "Equipo" },
-  { href: "/blog", label: "Blog" },
+  { href: "/blog", label: "Blog y Noticias" },
   { href: "#contacto", label: "Contacto" },
 ] as const;

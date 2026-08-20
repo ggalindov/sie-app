@@ -4,7 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .env
+.env.prod
 run.local.bat
+backend-run.log
 
 ### STS ###
 .apt_generated

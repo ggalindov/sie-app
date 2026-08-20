@@ -1,8 +1,11 @@
-Videos reales de la firma, ya en uso en el sitio:
+Videos reales de la firma, ya en uso en el sitio (intercalados entre secciones):
 
-- abogado.mp4     -> fondo del Hero (inicio de la home)
+- abogado.mp4     -> fondo del Hero, a pantalla completa (inicio de la home)
 - balanza.mp4     -> seccion "Cada caso se resuelve con el mismo criterio"
+- firma.mp4       -> tarjeta de video en "Quienes somos" (junto a las cifras)
 - oficina.mp4     -> seccion "Talento Humano"
+- abogada.mp4     -> fondo de "Lo que dicen nuestros clientes" (testimonios)
+- visaules.mp4    -> fondo sutil de la tarjeta de boletin/newsletter
 - documentos.mp4  -> seccion "Agendar asesoria"
 
 Si reemplazas alguno, mantén el mismo nombre de archivo para que el sitio lo

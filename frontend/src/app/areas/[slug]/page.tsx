@@ -57,21 +57,23 @@ export default async function AreaPage({ params }: PageProps<"/areas/[slug]">) {
             rel="noopener noreferrer"
             // texto en tinta oscura, no blanca: blanco sobre este verde da ~2:1 de
             // contraste (falla WCAG AA); con tinta oscura sube a ~8:1.
-            className="group inline-flex items-center gap-3 rounded-full bg-[#25D366] py-3.5 pl-7 pr-3 text-sm font-medium text-ink transition-transform duration-300 active:scale-[0.98]"
+            className="cta-boton group inline-flex items-center gap-3 rounded-lg bg-[#25D366] px-6 py-3.5 text-sm font-medium text-ink transition-transform duration-300 active:scale-[0.98]"
           >
             Escríbenos por WhatsApp
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/10 transition-transform duration-300 group-hover:translate-x-0.5">
-              <WhatsappLogo weight="fill" className="h-4 w-4" />
-            </span>
+            <WhatsappLogo
+              weight="fill"
+              className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+            />
           </a>
           <Link
             href="/#agendar"
-            className="group inline-flex items-center gap-3 rounded-full bg-gold py-3.5 pl-7 pr-3 text-sm font-medium text-ink transition-transform duration-300 active:scale-[0.98]"
+            className="cta-boton group inline-flex items-center gap-3 rounded-lg bg-gold px-6 py-3.5 text-sm font-medium text-ink transition-transform duration-300 active:scale-[0.98]"
           >
             {siteConfig.ctaPrincipal}
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/10 transition-transform duration-300 group-hover:translate-x-0.5">
-              <ArrowRight className="h-4 w-4" weight="bold" />
-            </span>
+            <ArrowRight
+              weight="bold"
+              className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+            />
           </Link>
         </div>
 

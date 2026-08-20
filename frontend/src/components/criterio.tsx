@@ -40,7 +40,7 @@ export function Criterio({ media }: { media: ReactNode }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.5 }}
           transition={{ duration: 0.8, ease: EASE }}
-          className="text-balance font-display text-3xl leading-[1.15] text-night-ink md:text-5xl"
+          className="text-balance font-display text-4xl leading-[1.08] text-night-ink md:text-6xl"
         >
           Cada caso se resuelve con el mismo criterio: veinte años de
           experiencia.

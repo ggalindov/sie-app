@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import type { CSSProperties } from "react";
 import { motion } from "motion/react";
 import { empresasConfianza } from "@/lib/content";
 
@@ -13,32 +12,24 @@ const cifras = [
   { valor: "7", etiqueta: "Empresas aliadas" },
 ];
 
-// único marquee de la página (regla: máximo uno por página)
+// único marquee de la página (regla: máximo uno por página). Los logos
+// originales tienen fondo blanco cuadrado (no hay alfa real, ver CLAUDE.md),
+// así que en vez de una tarjeta blanca dura, cada uno se apoya en un halo
+// radial blanco que se desvanece sin borde: mix-blend-multiply funde ese
+// halo (no el fondo oscuro de la sección) con el logo, así el blanco de
+// origen desaparece y el resultado se siente "sin fondo" incluso sobre un
+// fondo oscuro. La franja aislada (isolation) evita que el blend se filtre
+// hacia el degradado de la sección.
 export function TrustedBy() {
   const logos = [...empresasConfianza, ...empresasConfianza];
 
   return (
     <section
-      className="snap-slide section-seam gradient-animate relative py-24 md:py-28"
-      style={
-        {
-          // fondo y tokens de texto siempre claros aquí, sin importar el tema
-          // activo: el truco de mix-blend-mode:multiply que "quita" el fondo
-          // blanco de los logos (ver más abajo) solo funciona sobre una
-          // superficie clara, y si el tema oscuro invirtiera --color-ink-soft
-          // a un tono claro, el texto se volvería ilegible sobre este fondo
-          backgroundImage:
-            "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.16), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.12), transparent 55%), linear-gradient(175deg, #ffffff 0%, #f4efe0 100%)",
-          "--color-ink": "#14130f",
-          "--color-ink-soft": "#57544a",
-          "--color-line": "#e7e3d8",
-          // el color heredado (no solo las custom properties) también se fija
-          // aquí: un <h2> u otro texto sin clase text-ink explícita hereda el
-          // "color" real de un antepasado (el body), y en modo oscuro ese
-          // color es claro, casi invisible sobre este fondo forzado a claro
-          color: "#14130f",
-        } as CSSProperties
-      }
+      className="snap-slide section-seam gradient-animate relative overflow-hidden py-20 md:py-24"
+      style={{
+        backgroundImage:
+          "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.18), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.14), transparent 55%), linear-gradient(160deg, #0a0906 0%, #1c1811 55%, #0a0906 100%)",
+      }}
     >
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-10 md:grid-cols-12 md:items-end">
@@ -49,10 +40,10 @@ export function TrustedBy() {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-7"
           >
-            <h2 className="font-display text-3xl leading-tight tracking-tight text-ink md:text-4xl">
+            <h2 className="font-display text-4xl leading-tight tracking-tight text-night-ink md:text-5xl">
               La confianza de empresas que ya nos eligieron.
             </h2>
-            <p className="mt-3 max-w-md text-base leading-relaxed text-ink-soft">
+            <p className="mt-3 max-w-md text-base leading-relaxed text-night-ink/65">
               Compañías de distintos sectores confían en SIE Jurídicos para
               respaldar sus decisiones legales, año tras año.
             </p>
@@ -68,8 +59,8 @@ export function TrustedBy() {
                 transition={{ duration: 0.6, delay: 0.08 * i, ease: EASE }}
                 className="text-center md:text-right"
               >
-                <p className="font-display text-3xl text-gold-deep md:text-4xl">{c.valor}</p>
-                <p className="mt-1 text-xs leading-snug text-ink-soft">{c.etiqueta}</p>
+                <p className="font-display text-4xl text-gold md:text-5xl">{c.valor}</p>
+                <p className="mt-1 text-xs leading-snug text-night-ink/60">{c.etiqueta}</p>
               </motion.div>
             ))}
           </div>
@@ -77,29 +68,35 @@ export function TrustedBy() {
       </div>
 
       <div className="mt-16 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <div className="flex w-max animate-marquee items-center gap-16">
+        <div className="flex w-max animate-marquee items-center gap-8">
           {logos.map((empresa, i) => (
             <motion.div
               key={`${empresa.src}-${i}`}
-              animate={{ y: [0, -8, 0] }}
+              animate={{ y: [0, -6, 0] }}
               transition={{
                 duration: 4 + (i % 4) * 0.4,
                 repeat: Infinity,
                 ease: "easeInOut",
                 delay: (i % 7) * 0.25,
               }}
-              className="flex h-28 w-52 shrink-0 items-center justify-center transition-transform duration-300 hover:scale-110"
+              style={{ isolation: "isolate" }}
+              className="relative flex h-48 w-96 shrink-0 items-center justify-center transition-transform duration-300 hover:scale-[1.05]"
             >
-              {/* mix-blend-mode:multiply "quita" el fondo blanco cuadrado de
-                  los archivos originales (no hay herramienta de recorte/alfa
-                  disponible en este entorno): sobre el fondo claro de esta
-                  sección, el blanco se funde y solo queda visible el logo */}
+              <div
+                aria-hidden="true"
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "radial-gradient(60% 65% at 50% 50%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.75) 45%, transparent 75%)",
+                  filter: "blur(4px)",
+                }}
+              />
               <Image
                 src={empresa.src}
                 alt={empresa.alt}
-                width={240}
-                height={130}
-                className="h-full w-full object-contain mix-blend-multiply"
+                width={340}
+                height={180}
+                className="relative h-[72%] w-[80%] object-contain mix-blend-multiply"
               />
             </motion.div>
           ))}
