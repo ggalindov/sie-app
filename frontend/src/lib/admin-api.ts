@@ -1,4 +1,4 @@
-import { obtenerToken } from "@/lib/auth";
+import { borrarToken, obtenerToken } from "@/lib/auth";
 import type { Categoria } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
@@ -40,6 +40,14 @@ async function pedido<T>(
   // esa ruta. El mensaje genérico de sesión expirada solo aplica a las demás rutas
   // autenticadas, donde un 401 sí significa que el token ya no es válido.
   if (res.status === 401 && path !== "/api/auth/login") {
+    // Antes, cada página solo mostraba el mensaje en un toast y se quedaba ahí: el
+    // token viejo seguía en localStorage y la página seguía intentando (y fallando)
+    // peticiones hasta que el admin saliera manualmente. Centralizado aquí en vez de
+    // en cada página, para que no dependa de que cada una lo implemente por su cuenta.
+    borrarToken();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/admin/login")) {
+      window.location.href = "/admin/login";
+    }
     throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
   }
   if (!res.ok) {

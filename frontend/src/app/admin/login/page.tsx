@@ -48,10 +48,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-night px-6">
+    <div className="relative flex min-h-screen items-center justify-center bg-paper px-6">
       <Link
         href="/"
-        className="absolute left-6 top-6 flex items-center gap-2 text-sm text-night-ink/60 transition-colors hover:text-night-ink"
+        className="absolute left-6 top-6 flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" weight="bold" />
         Volver al inicio
@@ -66,15 +66,15 @@ export default function LoginPage() {
             height={56}
             className="h-14 w-14 object-contain"
           />
-          <h1 className="mt-4 font-display text-2xl text-night-ink">
+          <h1 className="mt-4 font-display text-2xl text-ink">
             Panel administrativo
           </h1>
-          <p className="mt-1 text-sm text-night-ink/60">SIE Jurídicos</p>
+          <p className="mt-1 text-sm text-ink-soft">SIE Jurídicos</p>
         </div>
 
         <form onSubmit={onSubmit} className="mt-10 space-y-4">
           <div className="space-y-2">
-            <label htmlFor="correo" className="text-sm font-medium text-night-ink/80">
+            <label htmlFor="correo" className="text-sm font-medium text-ink-soft">
               Correo
             </label>
             <input
@@ -84,13 +84,13 @@ export default function LoginPage() {
               autoFocus
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
-              className="w-full rounded-xl border border-night-ink/15 bg-night-ink/5 px-4 py-3 text-sm text-night-ink placeholder:text-night-ink/30 focus:border-gold focus:outline-none"
+              className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink placeholder:text-ink-soft/50 focus:border-gold-deep focus:outline-none"
               placeholder="tucorreo@siejuridicos.com"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="contrasena" className="text-sm font-medium text-night-ink/80">
+            <label htmlFor="contrasena" className="text-sm font-medium text-ink-soft">
               Contraseña
             </label>
             <input
@@ -99,17 +99,17 @@ export default function LoginPage() {
               required
               value={contrasena}
               onChange={(e) => setContrasena(e.target.value)}
-              className="w-full rounded-xl border border-night-ink/15 bg-night-ink/5 px-4 py-3 text-sm text-night-ink placeholder:text-night-ink/30 focus:border-gold focus:outline-none"
+              className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink placeholder:text-ink-soft/50 focus:border-gold-deep focus:outline-none"
               placeholder="••••••••"
             />
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             type="submit"
             disabled={enviando}
-            className="cta-boton flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-3.5 text-sm font-medium text-ink transition-opacity disabled:opacity-60"
+            className="cta-boton flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-3.5 text-sm font-medium text-ink-fixed transition-opacity disabled:opacity-60"
           >
             {enviando && <Spinner className="h-4 w-4 animate-spin" weight="bold" />}
             {enviando ? "Ingresando" : "Ingresar"}

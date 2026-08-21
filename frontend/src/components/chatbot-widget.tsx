@@ -172,6 +172,7 @@ export function ChatbotWidget() {
               <input
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
+                aria-label="Escribe tu mensaje"
                 placeholder="Escribe tu mensaje"
                 className="flex-1 rounded-full border border-line bg-paper px-4 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:border-gold-deep focus:outline-none"
               />

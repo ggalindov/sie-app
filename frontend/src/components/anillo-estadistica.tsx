@@ -1,62 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { motion, useInView, useMotionValue } from "motion/react";
 import { animate } from "motion";
-
-gsap.registerPlugin(ScrollTrigger);
+import { AnilloSeal } from "@/components/anillo-seal";
 
 // Reemplaza las tres barras oscuras apiladas (idénticas entre sí, el patrón de
 // "stat card" más visto en cualquier plantilla genérica) por un sello que se traza
-// solo al entrar en pantalla, como el que ya usa el logo del Hero (SealRing) pero
-// aislado en su propio componente para poder disparar cada uno con su propio
-// ScrollTrigger en vez de un delay fijo al montar. El número sigue contando con
-// Motion (igual que antes); el trazo del anillo es GSAP puro, nunca en el mismo
-// bloque de JSX que anima con Motion (regla dura del proyecto).
-function Anillo({ trigger }: { trigger: React.RefObject<HTMLDivElement | null> }) {
-  const circuloRef = useRef<SVGCircleElement>(null);
-
-  useEffect(() => {
-    if (!circuloRef.current || !trigger.current) return;
-    const ctx = gsap.context(() => {
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const largo = circuloRef.current!.getTotalLength();
-
-      if (reduce) {
-        gsap.set(circuloRef.current, { strokeDashoffset: 0 });
-        return;
-      }
-
-      gsap.set(circuloRef.current, { strokeDasharray: largo, strokeDashoffset: largo });
-      gsap.to(circuloRef.current, {
-        strokeDashoffset: 0,
-        duration: 1.4,
-        ease: "power3.inOut",
-        scrollTrigger: { trigger: trigger.current, start: "top 85%" },
-      });
-    });
-    return () => ctx.revert();
-  }, [trigger]);
-
-  return (
-    <svg viewBox="0 0 100 100" aria-hidden="true" className="absolute inset-0 h-full w-full -rotate-90">
-      <circle cx="50" cy="50" r="45" fill="none" stroke="var(--color-line)" strokeWidth="1.25" />
-      <circle
-        ref={circuloRef}
-        cx="50"
-        cy="50"
-        r="45"
-        fill="none"
-        stroke="var(--color-gold)"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
+// solo al entrar en pantalla, como el que ya usa el logo del Hero (SealRing). El trazo
+// del anillo vive aislado en anillo-seal.tsx (GSAP puro, con su propio ScrollTrigger
+// por instancia); aquí solo se compone como hijo, nunca en el mismo bloque de JSX que
+// anima con Motion (regla dura del proyecto: GSAP y Motion nunca en el mismo
+// componente). El número sigue contando con Motion.
 function Contador({ numero, prefijo, sufijo }: { numero: number; prefijo: string; sufijo: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const enVista = useInView(ref, { once: true, amount: 0.6 });
@@ -107,7 +62,7 @@ export function AnilloEstadistica({
       className="flex flex-col items-center text-center"
     >
       <div className="relative flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center sm:h-24 sm:w-24">
-        <Anillo trigger={contenedorRef} />
+        <AnilloSeal trigger={contenedorRef} />
         <p className="relative font-display text-xl leading-none text-ink sm:text-2xl">
           <Contador numero={numero} prefijo={prefijo} sufijo={sufijo} />
         </p>

@@ -81,7 +81,7 @@ export function AdminButton({
   const variants = {
     // cta-boton (globals.css): mismo filo desplazado tipo sello que ya usa el sitio
     // público, en vez de la píldora + insignia circular genérica de antes.
-    primary: "cta-boton bg-gold text-ink shadow-[0_10px_24px_-12px_rgba(169,124,22,0.6)]",
+    primary: "cta-boton bg-gold text-ink-fixed shadow-[0_10px_24px_-12px_rgba(169,124,22,0.6)]",
     secondary: "bg-ink text-paper hover:bg-ink/85",
     ghost: "bg-ink/5 text-ink hover:bg-ink/10",
     danger: "bg-red-50 text-red-700 hover:bg-red-100",

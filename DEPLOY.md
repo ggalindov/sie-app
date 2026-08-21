@@ -6,9 +6,15 @@ Postgres directamente en el VPS.
 
 ## 1. Requisitos del VPS
 
-- Un VPS Linux (Ubuntu 22.04/24.04 recomendado). Con 1 vCPU / 1-2 GB de RAM alcanza
-  cómodo para el tráfico esperado de este sitio; los límites de memoria de cada
-  contenedor ya están ajustados para eso (ver `.env.prod.example`).
+- Un VPS Linux (Ubuntu 22.04/24.04 recomendado), **2 vCPU / 2 GB de RAM como mínimo
+  real**. Los `mem_limit` de los 4 contenedores (Postgres 384m + backend 640m +
+  frontend 256m + Caddy 128m ≈ 1.4 GB) ya son un piso, no cuentan el sistema operativo
+  ni el propio daemon de Docker (~250-400m adicionales), y el primer `--build` corre
+  `npm run build` (Turbopack) y `mvnw package` **sin** ningún límite de memoria propio —
+  cada uno puede necesitar 1 GB+ libre solo para el build. Si el VPS es de 1 GB,
+  aprovisiona swap ANTES del primer build (`fallocate -l 2G /swapfile && chmod 600
+  /swapfile && mkswap /swapfile && swapon /swapfile`, y agrégalo a `/etc/fstab` para que
+  persista tras reiniciar) o el build puede morir por falta de memoria sin un error claro.
 - [Docker](https://docs.docker.com/engine/install/) y el plugin `docker compose`
   instalados (`docker compose version` debe funcionar).
 - Un dominio (o subdominio) con un registro DNS **A** apuntando a la IP pública del VPS.
@@ -30,6 +36,20 @@ cp .env.prod.example .env.prod
 Edita `.env.prod` y completa **todos** los valores (dominio, contraseñas, JWT_SECRET,
 credenciales SMTP, API key de Anthropic). Cada variable está documentada en el propio
 archivo. No subas `.env.prod` a git — ya está en `.gitignore`.
+
+Restringe los permisos del archivo (queda con contraseñas y llaves en texto plano):
+
+```bash
+chmod 600 .env.prod
+```
+
+Antes de levantar el stack, confirma que no quedó ningún valor de ejemplo sin
+reemplazar (si este comando imprime algo, ese valor real es el que ya está publicado en
+el propio repositorio de ejemplo — no lo dejes así):
+
+```bash
+grep -n "cambia-esto\|cambiar-este" .env.prod
+```
 
 ## 3. Levantar el stack
 
@@ -54,7 +74,11 @@ docker compose -f docker-compose.prod.yml ps
 ```
 
 Los cuatro servicios (`postgres`, `backend`, `frontend`, `caddy`) deben aparecer como
-`healthy` o `running`. Si alguno falla:
+`healthy` o `running`. Todos tienen `restart: unless-stopped`: si uno falla al arrancar
+(una migración rota, una variable mal puesta), Docker lo va a reiniciar en bucle sin
+avisar a nadie — el estado en `ps` para ese contenedor va a leer `Restarting`. Vale la
+pena correr este comando manualmente después de cada despliegue, o apuntar un monitor
+externo de uptime a `https://tudominio.com/api/salud`. Si alguno falla:
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f backend   # o frontend / caddy / postgres

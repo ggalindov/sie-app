@@ -16,7 +16,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/blog/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const articulo = await getArticuloPorSlug(slug);
+  const articulo = await getArticuloPorSlug(slug).catch(() => null);
   if (!articulo) return {};
   return {
     title: articulo.titulo,
@@ -28,7 +28,9 @@ export default async function ArticuloPage({
   params,
 }: PageProps<"/blog/[slug]">) {
   const { slug } = await params;
-  const articulo = await getArticuloPorSlug(slug);
+  // Igual que en blog/page.tsx: si el backend está caído, se trata como "no
+  // encontrado" (página 404 propia) en vez de tumbar la página al error.tsx genérico.
+  const articulo = await getArticuloPorSlug(slug).catch(() => null);
 
   if (!articulo) notFound();
 

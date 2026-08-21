@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Image from "next/image";
+import { VideoLazyPlay } from "@/components/video-lazy-play";
 
 // Server Component a propósito (sin "use client"): comprueba en disco si el
 // archivo de video ya existe en /public antes de renderizar nada, así nunca
@@ -39,16 +40,5 @@ export function SectionVideo({
   // si este componente se usa desde una ruta anidada
   const rutaVideo = src.startsWith("/") ? src : `/${src}`;
 
-  return (
-    <video
-      className={className}
-      src={rutaVideo}
-      poster={poster}
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="metadata"
-    />
-  );
+  return <VideoLazyPlay src={rutaVideo} poster={poster} className={className} />;
 }

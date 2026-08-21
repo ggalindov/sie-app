@@ -45,6 +45,14 @@ EXPOSE 8080
 # interna cuesta más de lo que ahorra; SerialGC es el recomendado oficialmente por
 # OpenJDK para exactamente este perfil de máquina. JAVA_OPTS queda como variable de
 # entorno editable por si hay que afinar esto sin reconstruir la imagen.
-ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0 -XX:MaxMetaspaceSize=160m -Xss512k -Djava.security.egd=file:/dev/./urandom"
+#
+# CORREGIDO tras auditoría: con el límite por defecto del contenedor (512m, ver
+# BACKEND_MEM_LIMIT en docker-compose.prod.yml), la combinación anterior de
+# MaxRAMPercentage=75% (384m de heap) + MaxMetaspaceSize=160m ya sumaba 544m, por encima
+# del límite duro de cgroup, ANTES de contar stacks de hilos, code cache del JIT o
+# buffers directos de Tomcat. Un mem_limit excedido es un OOM-kill duro del contenedor
+# (el kernel lo mata, no hay degradación suave). Bajado a 60%/128m: 512*0.6=307m de heap
+# + 128m de metaspace = 435m, dejando ~77m de colchón real para el resto de la JVM.
+ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=40.0 -XX:MaxMetaspaceSize=128m -Xss512k -Djava.security.egd=file:/dev/./urandom"
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

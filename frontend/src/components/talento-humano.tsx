@@ -41,7 +41,7 @@ export function TalentoHumano({ media }: { media: ReactNode }) {
           </p>
           <Link
             href="#contacto"
-            className="btn-sweep-ink group mt-7 inline-flex items-center gap-3 rounded-lg bg-ink px-6 py-3.5 text-sm font-medium text-paper transition-colors duration-300 active:scale-[0.98] hover:text-ink-fixed"
+            className="cta-boton group mt-7 inline-flex items-center gap-3 rounded-lg bg-ink px-6 py-3.5 text-sm font-medium text-paper transition-colors duration-300 active:scale-[0.98] hover:text-ink-fixed"
           >
             Solicitar información
             <ArrowRight

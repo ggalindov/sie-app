@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 // Gráficas propias en SVG (sin librería externa): donut con arcos redondeados y gauge
 // radial, con tooltip al pasar el mouse/tocar y leyenda con el valor siempre visible

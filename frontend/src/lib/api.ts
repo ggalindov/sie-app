@@ -1,4 +1,18 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// Este módulo se usa tanto desde componentes cliente (navegador) como desde Server
+// Components (SSR: listado y detalle de blog, categorías). NEXT_PUBLIC_API_URL se
+// hornea en el bundle en build time con el dominio público (https://tudominio.com/api,
+// ver docker-compose.prod.yml) — correcto para el navegador, pero usarlo también desde
+// el servidor hace que el contenedor frontend salga a Internet, pase por Caddy/DNS/TLS
+// y vuelva a entrar al contenedor backend para cada render de servidor, en vez de
+// hablarle directo por la red interna de Docker. Si el certificado aún no se emitió
+// (DNS recién propagado) o Caddy tiene un hipo, el SSR del blog fallaba con backend y
+// frontend perfectamente sanos. API_URL_INTERNAL (variable normal, no NEXT_PUBLIC_: se
+// lee en tiempo de ejecución en el servidor, nunca llega al bundle del navegador) apunta
+// directo a http://backend:8080 dentro de la red sie_red cuando existe.
+const API_URL =
+  typeof window === "undefined"
+    ? (process.env.API_URL_INTERNAL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080")
+    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080");
 
 export type Categoria = {
   id: number;

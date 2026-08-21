@@ -72,7 +72,7 @@ services:
         condition: service_healthy
     networks:
       - sie_red
-    mem_limit: ${BACKEND_MEM_LIMIT:-512m}
+    mem_limit: ${BACKEND_MEM_LIMIT:-640m}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/api/salud"]
       interval: 30s
@@ -88,6 +88,12 @@ services:
       args:
         NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
     restart: unless-stopped
+    environment:
+      # Variable normal (sin prefijo NEXT_PUBLIC_): solo la lee el servidor en tiempo de
+      # ejecución, nunca llega al bundle del navegador. Los renders de servidor (listado
+      # y detalle del blog) le hablan directo al backend por la red interna en vez de
+      # salir a Internet y volver a entrar vía Caddy en cada request (ver lib/api.ts).
+      - API_URL_INTERNAL=http://backend:8080
     depends_on:
       backend:
         condition: service_healthy
@@ -115,8 +121,10 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - sie_red
     mem_limit: ${CADDY_MEM_LIMIT:-128m}
