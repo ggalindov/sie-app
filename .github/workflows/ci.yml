@@ -1,0 +1,68 @@
+name: CI
+
+# Red de seguridad para cambios futuros: build + pruebas reales en cada push/PR a
+# master, con un Postgres real en el propio runner (los tests de seguridad usan
+# @SpringBootTest, necesitan una base de datos de verdad, no un mock).
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sie_juridicos
+          POSTGRES_USER: sie_user
+          POSTGRES_PASSWORD: secret_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sie_user -d sie_juridicos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: sie_juridicos
+      DB_USER: sie_user
+      DB_PASSWORD: secret_ci
+      # Secreto de pruebas, nunca el real: JwtService solo rechaza el valor de ejemplo
+      # o uno demasiado corto cuando el perfil "prod" está activo, que no es el caso aquí.
+      JWT_SECRET: secreto-de-integracion-continua-nunca-usar-en-produccion-real
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Compilar
+        run: ./mvnw -B -q compile
+      - name: Correr pruebas
+        run: ./mvnw -B test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Auditoría de dependencias
+        run: npm audit --omit=dev --audit-level=high
+      - name: Build de produccion
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://ci-build-placeholder.invalid/api

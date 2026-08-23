@@ -4,6 +4,15 @@ Guía paso a paso para llevar SIE Jurídicos a un VPS nuevo. Todo el stack (Post
 backend, frontend, HTTPS) corre con Docker Compose; no hay que instalar Java, Node ni
 Postgres directamente en el VPS.
 
+**Estado verificado**: `docker compose -f docker-compose.prod.yml build` (backend y
+frontend) y `up -d` de `postgres` + `backend` + `frontend` se probaron de verdad en
+local (no solo revisados en papel) — Postgres queda `healthy`, el backend arranca con
+el perfil `prod`, corre Flyway, crea el `ADMIN_GENERAL` inicial y responde en
+`/api/salud` y `/api/categorias` con datos reales; el frontend sirve `200` en `/`. Lo
+único que no se puede probar sin un dominio real apuntando por DNS es Caddy emitiendo
+el certificado HTTPS de Let's Encrypt (paso 3-4 más abajo) — esa parte queda pendiente
+de confirmar en el VPS real, el resto del stack ya está probado end-to-end.
+
 ## 1. Requisitos del VPS
 
 - Un VPS Linux (Ubuntu 22.04/24.04 recomendado), **2 vCPU / 2 GB de RAM como mínimo
@@ -30,12 +39,20 @@ Postgres directamente en el VPS.
 ```bash
 git clone <url-del-repositorio> sie-juridicos
 cd sie-juridicos
-cp .env.prod.example .env.prod
 ```
 
-Edita `.env.prod` y completa **todos** los valores (dominio, contraseñas, JWT_SECRET,
-credenciales SMTP, API key de Anthropic). Cada variable está documentada en el propio
-archivo. No subas `.env.prod` a git — ya está en `.gitignore`.
+Genera `.env.prod` de una de estas dos formas:
+
+- **Recomendado**: `bash scripts/generar-env-prod.sh` — genera `DB_PASSWORD`,
+  `JWT_SECRET` y `ADMIN_BOOTSTRAP_PASSWORD` como secretos aleatorios reales (nunca un
+  valor de ejemplo que alguien tenga que acordarse de reemplazar), pide de forma
+  interactiva los datos que sí requieren una cuenta real (dominio, SMTP, Anthropic) y
+  deja el archivo con `chmod 600` desde el inicio.
+- **Manual**: `cp .env.prod.example .env.prod` y edítalo a mano completando **todos**
+  los valores (dominio, contraseñas, JWT_SECRET, credenciales SMTP, API key de
+  Anthropic). Cada variable está documentada en el propio archivo.
+
+En cualquiera de los dos casos, no subas `.env.prod` a git — ya está en `.gitignore`.
 
 Restringe los permisos del archivo (queda con contraseñas y llaves en texto plano):
 

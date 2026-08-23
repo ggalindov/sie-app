@@ -10,10 +10,27 @@ WORKDIR /build
 # Docker reutiliza esta capa en rebuilds futuros y no vuelve a descargar todo Maven Central.
 COPY mvnw pom.xml ./
 COPY .mvn/ .mvn/
-RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
+
+# Maven Central (y a veces el propio DNS del build) tiene baches transitorios reales
+# ("Try again" / resolución intermitente), independientes del contenido del pom. Un
+# reintento simple con backoff evita que un build de producción entero falle por un
+# solo hipo de red de unos segundos. MAVEN_OPTS con retryHandler ataca el mismo
+# problema a nivel de conexión HTTP individual (una descarga que se corta a la mitad),
+# el bucle de shell ataca el caso de que el intento completo falle.
+ENV MAVEN_OPTS="-Dmaven.wagon.http.retryHandler.count=5 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120"
+RUN chmod +x mvnw && \
+    for intento in 1 2 3; do \
+        ./mvnw -B -q dependency:go-offline && break; \
+        echo "dependency:go-offline falló (intento $intento/3), reintentando en 10s..."; \
+        sleep 10; \
+    done
 
 COPY src/ src/
-RUN ./mvnw -B -q -DskipTests package && \
+RUN for intento in 1 2 3; do \
+        ./mvnw -B -q -DskipTests package && break; \
+        echo "mvn package falló (intento $intento/3), reintentando en 10s..."; \
+        sleep 10; \
+    done && \
     mv target/*.jar app.jar
 
 # ---
