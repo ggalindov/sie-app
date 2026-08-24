@@ -7,6 +7,7 @@ target/
 .env.prod
 run.local.bat
 backend-run.log
+backend_run.log
 
 ### STS ###
 .apt_generated
