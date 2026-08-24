@@ -235,7 +235,7 @@ public class EmailService {
                     %s
                     %s
                     """.formatted(escaparHtml(suscriptor.getNombre()), nombreFirma, listado, firmaCierre());
-            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo);
+            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
         }
     }
 
@@ -263,7 +263,7 @@ public class EmailService {
                 nombreFirma, sitioWeb, COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
-        enviarHtml(correo, "Bienvenido al boletín de " + nombreFirma, cuerpo);
+        enviarHtml(correo, "Bienvenido al boletín de " + nombreFirma, cuerpo, true);
     }
 
     // Boletín mensual con resumen de cambios normativos (compuesto por el admin desde el
@@ -282,7 +282,7 @@ public class EmailService {
                     suscrito a las novedades de %s. Si deseas dejar de recibirlo, escríbenos y con gusto te
                     damos de baja.</p>
                     """.formatted(escaparHtml(suscriptor.getNombre()), cuerpoHtml, COLOR_PIE_TEXTO_TENUE, nombreFirma);
-            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo);
+            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
         }
     }
 
@@ -428,6 +428,17 @@ public class EmailService {
     }
 
     private void enviarHtml(String destinatario, String asunto, String cuerpoHtml) {
+        enviarHtml(destinatario, asunto, cuerpoHtml, false);
+    }
+
+    // esBoletin=true agrega la cabecera List-Unsubscribe: Gmail y otros proveedores
+    // aplican reglas de "remitente masivo" a cualquier correo con apariencia de boletín
+    // (HTML con plantilla repetida, mismo remitente, múltiples destinatarios similares) y
+    // penalizan en la bandeja de spam a quien no la incluya. Solo aplica a los envíos que
+    // de verdad son boletín/novedades (enviarBoletin, enviarNotificacionPublicacion,
+    // enviarBienvenidaBoletin): un correo transaccional 1:1 (confirmación de solicitud,
+    // de cita, código de caso) no la necesita y no se beneficia de ella.
+    private void enviarHtml(String destinatario, String asunto, String cuerpoHtml, boolean esBoletin) {
         try {
             MimeMessage mensaje = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mensaje, MimeMessageHelper.MULTIPART_MODE_RELATED, "UTF-8");
@@ -438,10 +449,18 @@ public class EmailService {
             // rota, mostrando "SIE JURÃ­DICOS" en la bandeja del destinatario).
             helper.setFrom(remitente, nombreFirma);
             helper.setTo(destinatario);
+            // Un remitente coherente entre "From" y "Reply-To" (misma cuenta ya usada
+            // para las notificaciones al admin) es una señal más de legitimidad para los
+            // filtros de spam, además de ser simplemente lo correcto: si alguien responde,
+            // la respuesta debe llegar a una bandeja que sí se revisa.
+            helper.setReplyTo(correoAdmin);
             helper.setSubject(asunto);
             helper.setText(plantilla(asunto, cuerpoHtml), true);
             helper.addInline(CID_LOGO, logoResource, "image/png");
             helper.addInline(CID_SELLO, selloResource, "image/png");
+            if (esBoletin) {
+                mensaje.addHeader("List-Unsubscribe", "<mailto:" + correoAdmin + "?subject=Baja%20del%20bolet%C3%ADn>");
+            }
             mailSender.send(mensaje);
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.warn("No se pudo enviar el correo '{}' a {}: {}", asunto, destinatario, ex.getMessage());
