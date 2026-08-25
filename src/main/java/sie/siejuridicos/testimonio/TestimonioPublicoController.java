@@ -8,9 +8,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import sie.siejuridicos.common.seguridad.CampoTrampa;
 import sie.siejuridicos.testimonio.dto.CrearTestimonioRequest;
 import sie.siejuridicos.testimonio.dto.TestimonioResponse;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -25,6 +27,12 @@ public class TestimonioPublicoController {
 
     @PostMapping
     public ResponseEntity<TestimonioResponse> crear(@Valid @RequestBody CrearTestimonioRequest request) {
+        if (CampoTrampa.esBot(request.sitioWeb())) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(new TestimonioResponse(
+                    0L, request.nombre(), request.empresa(), request.cargo(), request.cita(),
+                    request.calificacion(), LocalDateTime.now()
+            ));
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(testimonioService.crear(request));
     }
 

@@ -5,6 +5,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import { EnvelopeSimple, Gift, PaperPlaneTilt, Spinner, X } from "@phosphor-icons/react";
 import { suscribirNewsletter, ApiError } from "@/lib/api";
+import { CampoTrampa } from "@/components/campo-trampa";
 
 const CLAVE_LOCALSTORAGE = "sie-newsletter-popup-visto";
 const RETRASO_MS = 2500;
@@ -40,6 +41,7 @@ export function NewsletterPopup() {
       await suscribirNewsletter({
         nombre: String(data.get("nombre") ?? ""),
         correo: String(data.get("correo") ?? ""),
+        sitioWeb: String(data.get("sitioWeb") ?? ""),
       });
       setEstado("enviado");
       toast.success("Listo, revisa tu correo para conocer el detalle de tu descuento.");
@@ -84,6 +86,7 @@ export function NewsletterPopup() {
             </p>
           ) : (
             <form onSubmit={onSubmit} className="mt-6 space-y-3">
+              <CampoTrampa />
               <input
                 name="nombre"
                 required

@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import sie.siejuridicos.common.seguridad.CampoTrampa;
 import sie.siejuridicos.marketing.dto.SuscribirNewsletterRequest;
 
 // Suscripción directa al boletín (sección "Newsletter" de la home), distinta
@@ -24,6 +25,9 @@ public class SuscriptorMarketingPublicoController {
 
     @PostMapping
     public ResponseEntity<Void> suscribir(@Valid @RequestBody SuscribirNewsletterRequest request) {
+        if (CampoTrampa.esBot(request.sitioWeb())) {
+            return ResponseEntity.status(HttpStatus.CREATED).build();
+        }
         suscriptorMarketingService.suscribir(request.nombre(), request.correo());
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }

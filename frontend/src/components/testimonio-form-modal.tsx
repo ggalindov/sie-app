@@ -5,6 +5,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { Star, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { crearTestimonio, ApiError } from "@/lib/api";
+import { CampoTrampa } from "@/components/campo-trampa";
 
 type Estado = "idle" | "enviando" | "enviado";
 
@@ -56,6 +57,7 @@ export function TestimonioFormModal({
         cita: String(data.get("cita") ?? ""),
         calificacion,
         correo: String(data.get("correo") ?? ""),
+        sitioWeb: String(data.get("sitioWeb") ?? ""),
       });
       setEstado("enviado");
       form.reset();
@@ -102,6 +104,7 @@ export function TestimonioFormModal({
               </Dialog.Description>
 
               <form onSubmit={onSubmit} className="mt-6 space-y-4">
+                <CampoTrampa />
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((valor) => (
                     <button

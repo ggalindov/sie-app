@@ -31,6 +31,9 @@ public record CrearSolicitudRequest(
         boolean aceptaTratamientoDatos,
 
         // Consentimiento independiente y explícito para marketing (no implícito en aceptaTratamientoDatos)
-        boolean aceptaMarketing
+        boolean aceptaMarketing,
+
+        // Honeypot (ver CampoTrampa): un humano real nunca llena este campo porque no lo ve.
+        String sitioWeb
 ) {
 }

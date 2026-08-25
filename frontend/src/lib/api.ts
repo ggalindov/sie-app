@@ -48,6 +48,9 @@ export type CrearSolicitudInput = {
   mensaje: string;
   aceptaTratamientoDatos: boolean;
   aceptaMarketing: boolean;
+  // Honeypot (ver CampoTrampa en backend y frontend/src/components/campo-trampa.tsx):
+  // siempre vacío en un envío real, nunca se pide al usuario que lo llene.
+  sitioWeb?: string;
 };
 
 export type TurnoChat = {
@@ -83,6 +86,8 @@ export type CrearTestimonioInput = {
   cita: string;
   calificacion: number;
   correo: string;
+  // Honeypot, ver CrearSolicitudInput.sitioWeb.
+  sitioWeb?: string;
 };
 
 class ApiError extends Error {
@@ -184,6 +189,8 @@ export async function crearTestimonio(input: CrearTestimonioInput) {
 export type SuscribirNewsletterInput = {
   nombre: string;
   correo: string;
+  // Honeypot, ver CrearSolicitudInput.sitioWeb.
+  sitioWeb?: string;
 };
 
 export async function suscribirNewsletter(input: SuscribirNewsletterInput) {

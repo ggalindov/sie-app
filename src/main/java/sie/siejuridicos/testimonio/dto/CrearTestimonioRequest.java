@@ -29,6 +29,9 @@ public record CrearTestimonioRequest(
 
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "El correo no tiene un formato válido")
-        String correo
+        String correo,
+
+        // Honeypot (ver CampoTrampa): un humano real nunca llena este campo porque no lo ve.
+        String sitioWeb
 ) {
 }

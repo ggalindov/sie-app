@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Spinner } from "@phosphor-icons/react";
 import { crearSolicitud, ApiError } from "@/lib/api";
 import { siteConfig } from "@/lib/site-config";
+import { CampoTrampa } from "@/components/campo-trampa";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -45,6 +46,7 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
         mensaje: String(data.get("mensaje") ?? ""),
         aceptaTratamientoDatos: aceptaDatos,
         aceptaMarketing,
+        sitioWeb: String(data.get("sitioWeb") ?? ""),
       });
       setEstado("enviado");
       form.reset();
@@ -109,6 +111,7 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
                 </div>
               ) : (
                 <form onSubmit={onSubmit} className="space-y-6">
+                  <CampoTrampa />
                   <div className="space-y-2">
                     <label htmlFor="nombre" className="text-sm font-medium text-ink">
                       Nombre completo
