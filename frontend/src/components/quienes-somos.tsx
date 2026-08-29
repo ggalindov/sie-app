@@ -92,7 +92,13 @@ export function QuienesSomos({ media }: { media: ReactNode }) {
               </RevealImage>
             </motion.div>
 
-            <div className="flex items-start justify-around gap-2 border-t border-line pt-7 sm:justify-start sm:gap-8">
+            {/* justify-center (no justify-around) en móvil a propósito: con
+                distribución "around" el primer y último anillo quedaban justo
+                debajo de los botones flotantes fijos (chatbot a la izquierda,
+                WhatsApp a la derecha), tapando el número. Centrados con gap
+                fijo, los tres quedan lejos de ambos bordes sin importar el
+                ancho de pantalla. */}
+            <div className="flex items-start justify-center gap-5 border-t border-line pt-7 sm:justify-start sm:gap-8">
               {stats.map((stat, i) => (
                 <AnilloEstadistica
                   key={stat.etiqueta}
