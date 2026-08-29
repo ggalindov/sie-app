@@ -40,10 +40,18 @@ export function Criterio({ media }: { media: ReactNode }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.5 }}
           transition={{ duration: 0.8, ease: EASE }}
-          className="text-balance font-display text-4xl leading-[1.08] text-night-ink md:text-6xl"
+          className="text-balance leading-[1.05] text-night-ink"
         >
-          Cada caso se resuelve con el mismo criterio: veinte años de
-          experiencia.
+          <span className="font-display text-2xl font-light italic text-night-ink/75 md:text-3xl">
+            Cada caso se resuelve con el mismo criterio:
+          </span>
+          <br />
+          <span className="font-display text-5xl font-medium tracking-tight text-gold md:text-7xl">
+            veinte años
+          </span>{" "}
+          <span className="font-display text-4xl font-normal text-night-ink md:text-6xl">
+            de experiencia.
+          </span>
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 24 }}

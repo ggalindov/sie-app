@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CaretLeft, CaretRight, Quotes, Star } from "@phosphor-icons/react";
+import { Quotes, Star } from "@phosphor-icons/react";
 import { testimonios as testimoniosBase } from "@/lib/content";
 import { getTestimoniosAprobados, type TestimonioPublico } from "@/lib/api";
 import { TestimonioFormModal } from "@/components/testimonio-form-modal";
@@ -90,13 +90,15 @@ type TestimonioItem = {
   calificacion: number;
 };
 
-// Carrusel de una tarjeta a la vez: la sección de testimonios no puede crecer
-// verticalmente cada vez que se aprueba uno nuevo desde el panel (antes era una
-// grilla de 2 columnas que se alargaba sin límite). El contenedor mantiene una
-// altura mínima fija y el contenido cambia por transición, nunca por layout.
+// Carrusel de una tarjeta a la vez, completamente automático: la sección de
+// testimonios no puede crecer verticalmente cada vez que se aprueba uno nuevo
+// desde el panel (antes era una grilla de 2 columnas que se alargaba sin
+// límite). Sin controles manuales a propósito (pedido explícito: "que no
+// sea con flechas") — el fundido entre testimonios es puro (solo opacidad,
+// sin desplazamiento horizontal) para que se sienta como una transición de
+// diapositivas, no como un carrusel deslizante.
 function CarruselTestimonios({ testimonios }: { testimonios: TestimonioItem[] }) {
   const [indice, setIndice] = useState(0);
-  const [direccion, setDireccion] = useState(1);
   const [enPausa, setEnPausa] = useState(false);
   const total = testimonios.length;
   const reducirMovimiento = useRef(false);
@@ -105,19 +107,11 @@ function CarruselTestimonios({ testimonios }: { testimonios: TestimonioItem[] })
     reducirMovimiento.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  const avanzar = useCallback(
-    (delta: number) => {
-      setDireccion(delta);
-      setIndice((i) => (i + delta + total) % total);
-    },
-    [total],
-  );
-
   useEffect(() => {
     if (total <= 1 || enPausa || reducirMovimiento.current) return;
-    const id = window.setInterval(() => avanzar(1), INTERVALO_AUTOPLAY_MS);
+    const id = window.setInterval(() => setIndice((i) => (i + 1) % total), INTERVALO_AUTOPLAY_MS);
     return () => window.clearInterval(id);
-  }, [avanzar, enPausa, total]);
+  }, [enPausa, total]);
 
   if (total === 0) return null;
 
@@ -132,14 +126,13 @@ function CarruselTestimonios({ testimonios }: { testimonios: TestimonioItem[] })
       onBlur={() => setEnPausa(false)}
     >
       <div className="relative min-h-[320px] overflow-hidden md:min-h-[280px]">
-        <AnimatePresence mode="wait" custom={direccion}>
+        <AnimatePresence mode="wait">
           <motion.blockquote
             key={indice}
-            custom={direccion}
-            initial={{ opacity: 0, x: 48 * direccion }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -48 * direccion }}
-            transition={{ duration: 0.5, ease: EASE }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.9, ease: EASE }}
             aria-live="polite"
             className="card-edged flex min-h-[320px] flex-col bg-surface/97 p-8 md:min-h-[280px] md:p-10"
           >
@@ -167,42 +160,15 @@ function CarruselTestimonios({ testimonios }: { testimonios: TestimonioItem[] })
       </div>
 
       {total > 1 && (
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={() => avanzar(-1)}
-            aria-label="Testimonio anterior"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-night-ink/25 text-night-ink transition-colors duration-200 hover:border-gold hover:text-gold active:scale-[0.95]"
-          >
-            <CaretLeft weight="bold" className="h-4 w-4" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            {testimonios.map((t, i) => (
-              <button
-                key={`${t.nombre}-${i}`}
-                type="button"
-                onClick={() => {
-                  setDireccion(i > indice ? 1 : -1);
-                  setIndice(i);
-                }}
-                aria-label={`Ir al testimonio ${i + 1} de ${total}`}
-                aria-current={i === indice}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === indice ? "w-6 bg-gold" : "w-2 bg-night-ink/25 hover:bg-night-ink/40"
-                }`}
-              />
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => avanzar(1)}
-            aria-label="Siguiente testimonio"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-night-ink/25 text-night-ink transition-colors duration-200 hover:border-gold hover:text-gold active:scale-[0.95]"
-          >
-            <CaretRight weight="bold" className="h-4 w-4" />
-          </button>
+        <div className="mt-6 flex items-center justify-center gap-2" aria-hidden="true">
+          {testimonios.map((t, i) => (
+            <span
+              key={`${t.nombre}-${i}`}
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                i === indice ? "w-6 bg-gold" : "w-1.5 bg-night-ink/20"
+              }`}
+            />
+          ))}
         </div>
       )}
     </div>

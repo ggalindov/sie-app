@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { equipo } from "@/lib/content";
+import { Dialog } from "@base-ui/react/dialog";
+import { X } from "@phosphor-icons/react";
+import { equipo, type MiembroEquipo } from "@/lib/content";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -16,6 +19,8 @@ const mascara = {
 };
 
 export function Equipo() {
+  const [seleccionado, setSeleccionado] = useState<MiembroEquipo | null>(null);
+
   return (
     <section id="equipo" className="snap-slide section-seam frame-fixed py-20">
       <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-10">
@@ -29,10 +34,16 @@ export function Equipo() {
           Nuestro equipo
         </motion.h2>
 
+        {/* Solo foto y nombre en la grilla: mantiene todas las tarjetas a la
+            misma altura sin importar si esa persona ya tiene bio publicada o
+            no. El detalle completo (cargo + bio, cuando existe) vive en el
+            popup, no en la tarjeta. */}
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:min-h-0 md:flex-1 md:content-center md:overflow-y-auto lg:grid-cols-4">
           {equipo.map((persona, i) => (
-            <motion.div
+            <motion.button
               key={persona.nombre}
+              type="button"
+              onClick={() => setSeleccionado(persona)}
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.3 }}
@@ -66,18 +77,69 @@ export function Equipo() {
               </div>
 
               <p className="mt-3 font-display text-base leading-snug">{persona.nombre}</p>
-              <span className="mt-1.5 inline-block rounded-full bg-gold-pale/60 px-3 py-1 text-xs font-medium text-gold-deep">
+              <span className="mt-1 text-xs font-medium tracking-wide text-gold-deep">
                 {persona.cargo}
               </span>
-              {persona.bio && (
-                <p className="mx-auto mt-2 max-w-[220px] text-xs leading-relaxed text-ink-soft">
-                  {persona.bio}
-                </p>
-              )}
-            </motion.div>
+            </motion.button>
           ))}
         </div>
       </div>
+
+      <Dialog.Root
+        open={seleccionado !== null}
+        onOpenChange={(next) => !next && setSeleccionado(null)}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-50 bg-night/70 backdrop-blur-sm transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+          <Dialog.Popup className="fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md -translate-y-1/2 rounded-[1.75rem] bg-paper p-7 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] ring-1 ring-line transition-all duration-300 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 sm:p-9">
+            <Dialog.Close
+              aria-label="Cerrar"
+              className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5 hover:text-ink"
+            >
+              <X className="h-4 w-4" />
+            </Dialog.Close>
+
+            {seleccionado && (
+              <div className="flex flex-col items-center text-center">
+                <div className="relative aspect-square w-32">
+                  <div className="absolute inset-0 rounded-full bg-paper ring-1 ring-line" />
+                  <div className="absolute inset-[6px] overflow-hidden rounded-full">
+                    <Image
+                      src={seleccionado.foto}
+                      alt={`${seleccionado.nombre}, ${seleccionado.cargo}`}
+                      fill
+                      sizes="128px"
+                      style={{
+                        ...mascara,
+                        objectPosition: seleccionado.posicion ?? "50% 32%",
+                        ["--foto-zoom" as string]: seleccionado.zoom ?? 1,
+                      }}
+                      className="equipo-foto object-cover"
+                    />
+                  </div>
+                </div>
+
+                <Dialog.Title className="mt-5 font-display text-2xl leading-snug">
+                  {seleccionado.nombre}
+                </Dialog.Title>
+                <span className="mt-1.5 inline-block rounded-full bg-gold-pale/60 px-3 py-1 text-xs font-medium text-gold-deep">
+                  {seleccionado.cargo}
+                </span>
+
+                {seleccionado.bio ? (
+                  <Dialog.Description className="mt-4 text-sm leading-relaxed text-ink-soft">
+                    {seleccionado.bio}
+                  </Dialog.Description>
+                ) : (
+                  <Dialog.Description className="mt-4 text-sm leading-relaxed text-ink-soft">
+                    Parte del equipo jurídico de SIE Jurídicos.
+                  </Dialog.Description>
+                )}
+              </div>
+            )}
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </section>
   );
 }
