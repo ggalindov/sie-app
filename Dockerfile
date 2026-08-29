@@ -50,7 +50,7 @@ USER sie
 # internos (se evaluó y se descartó a propósito usar Spring Boot Actuator completo, ver
 # CLAUDE.md, por la superficie de ataque que agrega).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD wget -q -O /dev/null http://localhost:8080/api/salud || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/api/salud || exit 1
 
 EXPOSE 8080
 

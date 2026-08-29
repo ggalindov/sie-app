@@ -44,7 +44,11 @@ COPY --from=build /app/public ./public
 USER sie
 EXPOSE 3000
 
+# 127.0.0.1, no "localhost": esta imagen resuelve "localhost" solo a ::1
+# (IPv6) en /etc/hosts, y el servidor de Next.js standalone solo escucha en
+# IPv4 (0.0.0.0) -- con "localhost" el healthcheck fallaba con "Connection
+# refused" pese a que el servidor sí estaba arriba y respondiendo.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget -q -O /dev/null http://localhost:3000/ || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1
 
 CMD ["node", "server.js"]
