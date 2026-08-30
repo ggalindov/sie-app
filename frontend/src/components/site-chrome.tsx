@@ -8,6 +8,7 @@ import { WhatsappFloat } from "@/components/whatsapp-float";
 import { ChatbotWidget } from "@/components/chatbot-widget";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { ScrollAmbient } from "@/components/scroll-ambient";
+import { ScrollSectionBlur } from "@/components/scroll-section-blur";
 import { SlideNav } from "@/components/slide-nav";
 import { NewsletterPopup } from "@/components/newsletter-popup";
 import { VisitorTracker } from "@/components/visitor-tracker";
@@ -63,6 +64,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         <VisitorTracker />
         <ScrollAmbient />
         <ScrollProgress />
+        {esInicio && <ScrollSectionBlur />}
         <SiteNav />
         {children}
         <SiteFooter />
