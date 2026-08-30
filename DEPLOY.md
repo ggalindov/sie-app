@@ -118,13 +118,29 @@ despliegues).
 
 ## 6. Respaldo de la base de datos
 
+Respaldo manual puntual:
+
 ```bash
 docker compose -f docker-compose.prod.yml exec postgres \
   pg_dump -U <DB_USER> <DB_NAME> > respaldo-$(date +%F).sql
 ```
 
-Considera automatizar esto con un cron en el VPS que corra ese comando y suba el
-resultado a almacenamiento externo (no dejar los respaldos únicamente en el mismo VPS).
+**Respaldo automático diario** (recomendado, ya incluido): `scripts/respaldo-db.sh`
+genera un respaldo comprimido cada noche y conserva los últimos 7 días automáticamente,
+borrando el resto. Instalación (una sola vez, en el VPS):
+
+```bash
+chmod +x scripts/respaldo-db.sh
+crontab -e
+# agrega esta línea (respaldo diario a las 3:00 am hora del servidor):
+0 3 * * * /root/sie-juridicos/scripts/respaldo-db.sh >> /root/respaldos-db/respaldo.log 2>&1
+```
+
+**Limitación real a tener presente**: estos respaldos viven únicamente en el disco del
+mismo VPS. Si el VPS se pierde por completo (falla de disco, cuenta suspendida), los
+respaldos se pierden con él. Para protección real ante ese escenario, hay que subirlos
+también a almacenamiento externo (S3, Backblaze B2, un bucket de otro proveedor) — eso
+requiere credenciales de ese servicio externo que hay que gestionar aparte.
 
 ## 7. Administrar la base de datos manualmente (opcional)
 
