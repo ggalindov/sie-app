@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { WhatsappFloat } from "@/components/whatsapp-float";
@@ -24,7 +24,17 @@ export function SiteChrome({ children }: { children: ReactNode }) {
   // la home, la única página con secciones .snap-slide de punta a punta. Sin este
   // interruptor, "mandatory" quedaba activo también en /blog, /consulta-caso, etc., y el
   // único punto de encaje que encontraba ahí (el footer) atrapaba el scroll.
-  useEffect(() => {
+  //
+  // useLayoutEffect, no useEffect: bug real reportado por el usuario -- al navegar desde
+  // la home hacia /areas/[slug] (u otra página sin .snap-slide), la página nueva abría
+  // encajada hasta el pie de página en vez de arriba. useEffect corre DESPUÉS de que el
+  // navegador ya pintó la página nueva; durante esa única pintada, snap-inicio seguía
+  // presente en <html> con la página nueva ya visible, y el motor nativo de scroll-snap
+  // "mandatory" del navegador la encajaba de inmediato en el único punto de anclaje que
+  // encontraba ahí (.snap-footer, presente en todas las páginas). Quitar la clase un
+  // instante después ya no deshace ese salto. useLayoutEffect corre de forma síncrona
+  // antes de la pintada, así que la clase queda correcta desde el primer frame visible.
+  useLayoutEffect(() => {
     document.documentElement.classList.toggle("snap-inicio", esInicio);
     return () => {
       document.documentElement.classList.remove("snap-inicio");
