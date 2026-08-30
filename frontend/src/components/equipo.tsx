@@ -24,39 +24,55 @@ export function Equipo() {
   return (
     <section id="equipo" className="snap-slide section-seam frame-fixed py-20">
       <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-10">
-        <motion.h2
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.7, ease: EASE }}
-          className="max-w-lg shrink-0 font-display text-4xl leading-tight tracking-tight md:text-5xl"
-        >
-          Nuestro equipo
-        </motion.h2>
+        <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <motion.h2
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="max-w-lg font-display text-4xl leading-tight tracking-tight md:text-5xl"
+          >
+            Nuestro equipo
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
+            className="max-w-sm text-sm text-ink-soft sm:text-right"
+          >
+            Ocho personas, un mismo criterio: cada caso lo lleva alguien que responde por su nombre.
+          </motion.p>
+        </div>
 
         {/* Solo foto y nombre en la grilla: mantiene todas las tarjetas a la
             misma altura sin importar si esa persona ya tiene bio publicada o
             no. El detalle completo (cargo + bio, cuando existe) vive en el
             popup, no en la tarjeta. */}
-        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 md:min-h-0 md:flex-1 md:content-center md:overflow-y-auto lg:grid-cols-4">
+        <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 md:min-h-0 md:flex-1 md:content-center md:gap-6 md:overflow-y-auto lg:grid-cols-4">
           {equipo.map((persona, i) => (
             <motion.button
               key={persona.nombre}
               type="button"
               onClick={() => setSeleccionado(persona)}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 34, scale: 0.94, filter: "blur(6px)" }}
+              whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE }}
-              className="card-edged group flex flex-col items-center px-4 py-5 text-center transition-transform duration-300 hover:-translate-y-1.5"
+              transition={{ duration: 0.7, delay: 0.09 * i, ease: EASE }}
+              whileHover={{ y: -6 }}
+              className="card-edged group flex flex-col items-center px-4 py-7 text-center"
             >
-              <div className="relative aspect-square w-full max-w-[128px]">
-                <div
+              <div className="relative aspect-square w-full max-w-[168px]">
+                <motion.div
                   aria-hidden="true"
-                  className="absolute -inset-2 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  className="absolute -inset-2.5 rounded-full opacity-0 group-hover:opacity-100"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
                   style={{
                     backgroundImage:
-                      "conic-gradient(from 0deg, var(--color-gold-deep), var(--color-gold), var(--color-gold-deep))",
+                      "conic-gradient(from 0deg, var(--color-gold-deep), var(--color-gold), var(--color-gold-pale), var(--color-gold-deep))",
+                    transitionProperty: "opacity",
+                    transitionDuration: "400ms",
                   }}
                 />
                 <div className="absolute inset-0 rounded-full bg-paper" />
@@ -65,7 +81,7 @@ export function Equipo() {
                     src={persona.foto}
                     alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 1024px) 168px, (min-width: 640px) 25vw, 40vw"
+                    sizes="(min-width: 1024px) 200px, (min-width: 640px) 30vw, 45vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -76,8 +92,9 @@ export function Equipo() {
                 </div>
               </div>
 
-              <p className="mt-3 font-display text-base leading-snug">{persona.nombre}</p>
-              <span className="mt-1 text-xs font-medium tracking-wide text-gold-deep">
+              <p className="mt-4 font-display text-lg leading-snug">{persona.nombre}</p>
+              <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
+                <span className="h-1 w-1 rounded-full bg-gold-deep" />
                 {persona.cargo}
               </span>
             </motion.button>

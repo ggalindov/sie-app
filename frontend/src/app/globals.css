@@ -377,32 +377,27 @@ html[data-theme="dark"] .ambient-field {
   transform: translateX(0);
 }
 
-/* Botón "sello": reemplaza la píldora + insignia circular con flecha (el patrón de
-   botón más reconocible de plantilla genérica de IA) por una forma que viene del
-   mundo del propio sitio, papelería legal, no de un kit de UI: un rectángulo de
-   esquina apenas redondeada con un segundo filo dorado detrás, desplazado como una
-   ficha o un sello estampado con un pequeño desnivel. El desnivel se cierra al pasar
-   el mouse y casi desaparece al hacer clic, como si el sello se asentara sobre el
-   papel. Sin insignia circular para la flecha: el ícono va directo junto al texto. */
+/* Botón principal del sitio: superficie dorada limpia (sin el doble filo
+   desplazado de versiones anteriores -- a tamaño real se veía como una línea
+   suelta mal alineada, no como un sello) con un brillo continuo y sutil que
+   recorre el dorado cada pocos segundos, como el reflejo sobre metal pulido,
+   y una elevación suave al pasar el mouse. */
 .cta-boton {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
   border-radius: 0.625rem;
-  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 12px 28px -14px rgba(169, 124, 22, 0.55);
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Brillo continuo y sutil: una franja de luz que recorre el dorado cada pocos
-   segundos, como el reflejo sobre un sello metálico real. Vive en su propio
-   pseudo-elemento (no toca el ::after del borde desplazado) y se mueve solo
-   cambiando background-position, así que no necesita overflow:hidden en el
-   botón -- eso habría recortado el borde desplazado, que a propósito sobresale
-   7px fuera de la caja. */
 .cta-boton::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  border-radius: inherit;
   background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.65) 50%, transparent 60%);
   background-size: 260% 100%;
   background-position: 200% 0;
@@ -427,27 +422,14 @@ html[data-theme="dark"] .ambient-field {
   }
 }
 
-.cta-boton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  border: 1.5px solid var(--color-gold-deep);
-  transform: translate(7px, 7px);
-  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.cta-boton:hover::after {
-  transform: translate(3.5px, 3.5px);
+.cta-boton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px -14px rgba(169, 124, 22, 0.7);
 }
 
 .cta-boton:active {
-  transform: translate(2px, 2px);
-}
-
-.cta-boton:active::after {
-  transform: translate(0, 0);
+  transform: translateY(0);
+  box-shadow: 0 8px 18px -12px rgba(169, 124, 22, 0.5);
 }
 
 /* "Caja de información" nueva: reemplaza el double-bezel anidado por un
