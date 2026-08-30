@@ -10,6 +10,7 @@ import { navLinks, siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NavLinkUnderline } from "@/components/nav-link-underline";
+import { HelpMenu } from "@/components/help-menu";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -91,6 +92,8 @@ export function SiteNav() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <HelpMenu className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
+
             <Link
               href="/admin/login"
               aria-label="Acceso interno para administradores y abogados"
@@ -191,6 +194,7 @@ export function SiteNav() {
                 {siteConfig.ctaPrincipal}
               </Link>
               <div className="mt-6 flex items-center gap-2">
+                <HelpMenu align="left" className="text-night-ink/70 hover:bg-night-ink/10 hover:text-night-ink" />
                 <ThemeToggle className="text-night-ink/70 hover:bg-night-ink/10 hover:text-night-ink" />
                 <Link
                   href="/admin/login"
