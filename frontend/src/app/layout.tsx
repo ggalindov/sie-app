@@ -103,8 +103,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           // eslint-disable-next-line react/no-danger -- JSON.stringify de un objeto propio, no de entrada de usuario
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* Oscuro por defecto (pedido explícito): antes, sin preferencia guardada, se
+            seguía el prefers-color-scheme del sistema operativo del visitante. Ahora el
+            único caso que cae a claro es que la persona ya haya elegido "light" a mano
+            con el interruptor de tema (queda en localStorage) -- ya no importa el tema
+            del sistema operativo. */}
         <Script id="theme-init" strategy="beforeInteractive">
-          {"(function(){try{var s=localStorage.getItem('sie-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.setAttribute('data-theme', d?'dark':'light');}catch(e){}})();"}
+          {"(function(){try{var s=localStorage.getItem('sie-theme');var d=s!=='light';document.documentElement.setAttribute('data-theme', d?'dark':'light');}catch(e){}})();"}
         </Script>
         <MotionConfig reducedMotion="user">
           <SiteChrome>{children}</SiteChrome>

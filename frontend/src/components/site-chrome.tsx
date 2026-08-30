@@ -12,6 +12,7 @@ import { SlideNav } from "@/components/slide-nav";
 import { NewsletterPopup } from "@/components/newsletter-popup";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import { CuidaMarcaFloat } from "@/components/cuida-marca-float";
+import { LoadingScreen } from "@/components/loading-screen";
 
 // El panel administrativo (/admin/**) tiene su propio shell (sidebar/topbar) y no debe
 // mostrar el nav, footer, WhatsApp flotante ni chatbot del sitio público.
@@ -47,6 +48,12 @@ export function SiteChrome({ children }: { children: ReactNode }) {
 
   return (
     <>
+      {/* SiteChrome no se desmonta entre navegaciones internas (solo cambia
+          "children"), así que LoadingScreen -- montado una sola vez aquí --
+          solo aparece en la carga real inicial del sitio, nunca al navegar
+          entre secciones o páginas ya dentro de la sesión. */}
+      <LoadingScreen />
+
       {/* fondo ambiental como hermano de nivel superior, no anidado dentro
           del wrapper de contenido: un z-index negativo dentro de otro
           contexto de apilamiento (position:relative) no se pintaba de forma

@@ -72,6 +72,18 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      // Los assets estáticos de marca (videos de fondo, logo, fotos del equipo, logos de
+      // confianza) nunca cambian de contenido bajo el mismo nombre de archivo -- si algún
+      // día se reemplaza uno, se renombra el archivo (cache-busting real) en vez de pisar
+      // el mismo nombre. Sin este Cache-Control explícito, Next.js sirve estos archivos de
+      // /public sin ninguna cabecera de caché fuerte: cada visita repetida (o cada
+      // navegación entre secciones de la misma sesión) los vuelve a pedir enteros al
+      // servidor en vez de servirlos directo desde el caché del navegador. "immutable"
+      // evita incluso la revalidación condicional (If-None-Match) de un año completo.
+      {
+        source: "/(videos|marca|equipo|confianza|fondos)/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
     ];
   },
 };
