@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { cambiarContrasena, ApiError } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminCard, AdminButton } from "@/components/admin/ui";
+import { PasswordInput } from "@/components/admin/password-input";
 
 export default function PerfilPage() {
   const { sesion } = useAuth();
@@ -56,9 +57,8 @@ export default function PerfilPage() {
             <label htmlFor="actual" className="text-sm font-medium text-ink">
               Contraseña actual
             </label>
-            <input
+            <PasswordInput
               id="actual"
-              type="password"
               required
               value={contrasenaActual}
               onChange={(e) => setContrasenaActual(e.target.value)}
@@ -69,9 +69,8 @@ export default function PerfilPage() {
             <label htmlFor="nueva" className="text-sm font-medium text-ink">
               Nueva contraseña
             </label>
-            <input
+            <PasswordInput
               id="nueva"
-              type="password"
               required
               value={contrasenaNueva}
               onChange={(e) => setContrasenaNueva(e.target.value)}
@@ -82,9 +81,8 @@ export default function PerfilPage() {
             <label htmlFor="confirmar" className="text-sm font-medium text-ink">
               Confirmar nueva contraseña
             </label>
-            <input
+            <PasswordInput
               id="confirmar"
-              type="password"
               required
               value={confirmacion}
               onChange={(e) => setConfirmacion(e.target.value)}

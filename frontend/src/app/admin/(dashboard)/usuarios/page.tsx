@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState } from "@/components/admin/ui";
+import { PasswordInput } from "@/components/admin/password-input";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -173,8 +174,7 @@ function ModalNuevoAbogado({
               placeholder="correo@siejuridicos.com"
               className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
             />
-            <input
-              type="password"
+            <PasswordInput
               value={contrasena}
               onChange={(e) => setContrasena(e.target.value)}
               placeholder="Contraseña temporal (mín. 8 caracteres)"

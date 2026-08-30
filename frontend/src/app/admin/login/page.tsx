@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Spinner } from "@phosphor-icons/react";
 import { login as loginRequest, ApiError } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
+import { PasswordInput } from "@/components/admin/password-input";
 
 export default function LoginPage() {
   const { login, cargando: cargandoSesion, sesion } = useAuth();
@@ -93,9 +94,8 @@ export default function LoginPage() {
             <label htmlFor="contrasena" className="text-sm font-medium text-ink-soft">
               Contraseña
             </label>
-            <input
+            <PasswordInput
               id="contrasena"
-              type="password"
               required
               value={contrasena}
               onChange={(e) => setContrasena(e.target.value)}
