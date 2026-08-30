@@ -10,8 +10,9 @@ import { Eye, EyeSlash } from "@phosphor-icons/react";
 export function PasswordInput({
   id,
   className,
+  eyeClassName,
   ...props
-}: InputHTMLAttributes<HTMLInputElement>) {
+}: InputHTMLAttributes<HTMLInputElement> & { eyeClassName?: string }) {
   const [visible, setVisible] = useState(false);
   const idGenerado = useId();
   const idFinal = id ?? idGenerado;
@@ -29,7 +30,7 @@ export function PasswordInput({
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
         tabIndex={-1}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft/60 transition-colors hover:text-ink"
+        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${eyeClassName ?? "text-ink-soft/60 hover:text-ink"}`}
       >
         {visible ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>

@@ -94,15 +94,6 @@ export function SiteNav() {
           <div className="flex items-center gap-2">
             <HelpMenu className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
 
-            <Link
-              href="/admin/login"
-              aria-label="Acceso interno para administradores y abogados"
-              title="Acceso interno"
-              className="nav-text-crossfade hidden h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-50 transition-opacity duration-300 hover:bg-ink/5 hover:opacity-100 sm:flex"
-            >
-              <Lock className="h-[15px] w-[15px]" weight="light" />
-            </Link>
-
             <ThemeToggle className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
@@ -117,6 +108,19 @@ export function SiteNav() {
                 />
               </Link>
             </MagneticButton>
+
+            {/* Deliberadamente pequeño y casi invisible en reposo (opacity-20): es la
+                puerta de entrada del equipo interno, no una invitación pública -- solo
+                quien ya sabe que está ahí lo va a notar. Sube a opacity-100 al pasar el
+                mouse para que siga siendo encontrable, no un secreto imposible. */}
+            <Link
+              href="/admin/login"
+              aria-label="Acceso interno para administradores y abogados"
+              title="Acceso interno"
+              className="nav-text-crossfade ml-3 hidden h-7 w-7 shrink-0 items-center justify-center rounded-full opacity-20 transition-opacity duration-300 hover:bg-ink/5 hover:opacity-100 sm:flex"
+            >
+              <Lock className="h-[11px] w-[11px]" weight="light" />
+            </Link>
 
             <button
               type="button"
@@ -201,9 +205,9 @@ export function SiteNav() {
                   onClick={() => setOpen(false)}
                   aria-label="Acceso interno para administradores y abogados"
                   title="Acceso interno"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-night-ink/50 transition-colors hover:bg-night-ink/10 hover:text-night-ink"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-night-ink/30 transition-colors hover:bg-night-ink/10 hover:text-night-ink"
                 >
-                  <Lock className="h-[15px] w-[15px]" weight="light" />
+                  <Lock className="h-[11px] w-[11px]" weight="light" />
                 </Link>
               </div>
             </motion.div>
