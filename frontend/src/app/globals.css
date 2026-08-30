@@ -229,7 +229,12 @@ html[data-theme="dark"] .ambient-field {
   transform: scale(calc(var(--foto-zoom, 1) * 1.05));
 }
 
-/* costura entre secciones: filo dorado en degradado en vez de un borde plano */
+/* costura entre secciones: filo dorado en degradado en vez de un borde plano,
+   más una zona de traspaso alta y suave (::after) para que el corte de una
+   sección a la siguiente en el scroll-snap no se sienta como un salto de
+   color duro -- se desvanece hacia el tono oscuro de fondo del sitio antes
+   de que aparezca el contenido nuevo. z-index bajo y pointer-events: none
+   para no interferir con nada clicable de la sección. */
 .section-seam {
   position: relative;
 }
@@ -239,7 +244,22 @@ html[data-theme="dark"] .ambient-field {
   position: absolute;
   inset: 0 0 auto 0;
   height: 1px;
+  z-index: 1;
   background: linear-gradient(90deg, transparent, rgba(217, 169, 37, 0.4), transparent);
+}
+
+.section-seam::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(14vh, 140px);
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(10, 9, 6, 0.4), transparent);
+}
+
+html[data-theme="light"] .site-theme .section-seam::after {
+  background: linear-gradient(to bottom, rgba(250, 249, 246, 0.55), transparent);
 }
 
 /* grano de papel muy sutil, fijo, nunca sobre contenedores con scroll (perf) */
@@ -379,18 +399,30 @@ html[data-theme="dark"] .ambient-field {
 
 /* Botón principal del sitio: superficie dorada limpia (sin el doble filo
    desplazado de versiones anteriores -- a tamaño real se veía como una línea
-   suelta mal alineada, no como un sello) con un brillo continuo y sutil que
-   recorre el dorado cada pocos segundos, como el reflejo sobre metal pulido,
-   y una elevación suave al pasar el mouse. */
+   suelta mal alineada, no como un sello). Dos capas de animación continua,
+   pensadas para leerse como "vivo" incluso en una captura fija, no solo en
+   movimiento:
+   1) un pulso lento en el resplandor de abajo (box-shadow), siempre presente;
+   2) un brillo que recorre el dorado cada pocos segundos -- ancho y con un
+      degradado largo (no un punto de luz seco), para que se vea como un
+      reflejo real sobre metal y no como una línea recta cruzando el botón. */
 .cta-boton {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   border-radius: 0.625rem;
-  box-shadow: 0 12px 28px -14px rgba(169, 124, 22, 0.55);
-  transition:
-    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cta-pulso 3.2s ease-in-out infinite;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cta-pulso {
+  0%,
+  100% {
+    box-shadow: 0 12px 26px -14px rgba(169, 124, 22, 0.5);
+  }
+  50% {
+    box-shadow: 0 14px 34px -12px rgba(169, 124, 22, 0.78);
+  }
 }
 
 .cta-boton::before {
@@ -398,25 +430,35 @@ html[data-theme="dark"] .ambient-field {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.65) 50%, transparent 60%);
-  background-size: 260% 100%;
-  background-position: 200% 0;
-  animation: cta-brillo 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  animation-delay: 1.2s;
+  background: linear-gradient(
+    100deg,
+    transparent 10%,
+    rgba(255, 255, 255, 0.16) 38%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.16) 62%,
+    transparent 90%
+  );
+  background-size: 220% 100%;
+  background-position: 165% 0;
+  animation: cta-brillo 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 1s;
 }
 
 @keyframes cta-brillo {
   0%,
-  20% {
-    background-position: 200% 0;
+  15% {
+    background-position: 165% 0;
   }
-  55%,
+  65%,
   100% {
-    background-position: -60% 0;
+    background-position: -65% 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cta-boton {
+    animation: none;
+  }
   .cta-boton::before {
     animation: none;
   }
@@ -424,7 +466,7 @@ html[data-theme="dark"] .ambient-field {
 
 .cta-boton:hover {
   transform: translateY(-2px);
-  box-shadow: 0 18px 36px -14px rgba(169, 124, 22, 0.7);
+  box-shadow: 0 18px 36px -14px rgba(169, 124, 22, 0.7) !important;
 }
 
 .cta-boton:active {

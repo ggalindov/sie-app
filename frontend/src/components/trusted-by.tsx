@@ -9,7 +9,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const cifras = [
   { valor: "20+", etiqueta: "Años de trayectoria" },
   { valor: "800+", etiqueta: "Casos ganados" },
-  { valor: "7", etiqueta: "Empresas aliadas" },
+  { valor: "20+", etiqueta: "Empresas aliadas" },
 ];
 
 // único marquee de la página (regla: máximo uno por página). Los logos

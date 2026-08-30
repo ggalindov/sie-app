@@ -20,9 +20,9 @@ function Contador({ numero, prefijo, sufijo }: { numero: number; prefijo: string
   useEffect(() => {
     if (!enVista) return;
     const controles = animate(valor, numero, {
-      duration: 1.6,
+      duration: 2.6,
       delay: 0.3,
-      ease: [0.16, 1, 0.3, 1],
+      ease: [0.22, 0.68, 0, 1],
       onUpdate: (v) => {
         if (ref.current) ref.current.textContent = `${prefijo}${Math.round(v)}${sufijo}`;
       },
@@ -61,13 +61,18 @@ export function AnilloEstadistica({
       transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col items-center text-center"
     >
-      <div className="relative flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center sm:h-24 sm:w-24">
+      <div className="relative flex h-24 w-24 shrink-0 items-center justify-center sm:h-28 sm:w-28">
+        <div
+          aria-hidden="true"
+          className="absolute inset-[6px] rounded-full opacity-70"
+          style={{ background: "radial-gradient(circle, var(--color-gold-pale) 0%, transparent 72%)" }}
+        />
         <AnilloSeal trigger={contenedorRef} />
-        <p className="relative font-display text-xl leading-none text-ink sm:text-2xl">
+        <p className="relative font-display text-2xl leading-none text-ink sm:text-[1.75rem]">
           <Contador numero={numero} prefijo={prefijo} sufijo={sufijo} />
         </p>
       </div>
-      <p className="mt-3 max-w-[6.5rem] text-[11px] font-medium uppercase leading-tight tracking-[0.08em] text-ink-soft">
+      <p className="mt-3.5 max-w-[7rem] text-[11px] font-medium uppercase leading-tight tracking-[0.1em] text-ink-soft">
         {etiqueta}
       </p>
     </motion.div>
