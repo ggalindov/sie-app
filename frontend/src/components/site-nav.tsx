@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
 import { List, X, WhatsappLogo } from "@phosphor-icons/react";
@@ -16,10 +17,20 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 // layout raíz para todos los componentes motion de la app.
 export function SiteNav() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // Solo la home tiene un Hero de video oscuro de borde a borde detrás del nav, así
+  // que solo ahí el texto puede nacer claro (--color-night-ink) y cruzar a oscuro al
+  // hacer scroll. En cualquier otra página (p. ej. /blog) no hay ese video: el fondo
+  // en scroll 0 ya sigue el tema activo (claro u oscuro), así que el texto debe usar
+  // directamente el color de tinta del tema desde el inicio. Sin este corte, en modo
+  // claro fuera de la home el nav nacía en --color-night-ink (un crema casi idéntico
+  // al fondo claro de la página) y quedaba invisible/"pegado" hasta pasar 140px de
+  // scroll.
+  const esInicio = pathname === "/";
   const { scrollY } = useScroll();
   const navAlpha = useTransform(scrollY, [0, 140], [0, 96]);
   const navBorder = useTransform(scrollY, [0, 140], [0, 1]);
-  const navInk = useTransform(scrollY, [0, 140], [0, 100]);
+  const navInkScroll = useTransform(scrollY, [0, 140], [0, 100]);
   const headerRef = useRef<HTMLElement>(null);
 
   // Mide la altura real del nav (en vez de asumir un número fijo en rem) y
@@ -54,7 +65,7 @@ export function SiteNav() {
     <>
       <motion.header
         ref={headerRef}
-        style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder, "--nav-ink": navInk } as CSSProperties}
+        style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder, "--nav-ink": esInicio ? navInkScroll : 100 } as CSSProperties}
         className="nav-bar fixed inset-x-0 top-0 z-40 backdrop-blur-xl"
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
@@ -84,7 +95,7 @@ export function SiteNav() {
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
               <Link
-                href="#agendar"
+                href="/#agendar"
                 className="cta-boton group flex items-center gap-2 rounded-lg bg-gold py-2.5 pl-5 pr-4 text-sm font-medium text-ink-fixed active:scale-[0.98]"
               >
                 {siteConfig.ctaPrincipal}
@@ -164,7 +175,7 @@ export function SiteNav() {
               className="mt-10"
             >
               <Link
-                href="#agendar"
+                href="/#agendar"
                 onClick={() => setOpen(false)}
                 className="cta-boton inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 text-sm font-medium text-ink-fixed"
               >

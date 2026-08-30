@@ -15,10 +15,15 @@ export const siteConfig = {
   ctaPrincipal: "Agendar asesoría",
 } as const;
 
+// Rutas con "/" al inicio (no solo "#ancla"): este nav se monta en TODO el sitio
+// público (SiteChrome), no solo en la home. Con solo "#ancla", Next/Link las trata
+// como navegación dentro de la página actual -- en /blog (o cualquier página sin esas
+// secciones) el clic no hacía nada, porque no había ningún id que buscar ahí. Con
+// "/#ancla" siempre navega primero a la home y ya ahí hace scroll al id.
 export const navLinks = [
-  { href: "#quienes-somos", label: "La firma" },
-  { href: "#areas", label: "Áreas de práctica" },
-  { href: "#equipo", label: "Equipo" },
+  { href: "/#quienes-somos", label: "La firma" },
+  { href: "/#areas", label: "Áreas de práctica" },
+  { href: "/#equipo", label: "Equipo" },
   { href: "/blog", label: "Blog y Noticias" },
-  { href: "#contacto", label: "Contacto" },
+  { href: "/#contacto", label: "Contacto" },
 ] as const;
