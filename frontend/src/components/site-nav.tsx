@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
-import { List, X, WhatsappLogo } from "@phosphor-icons/react";
+import { List, X, WhatsappLogo, Lock } from "@phosphor-icons/react";
 import { navLinks, siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -91,6 +91,15 @@ export function SiteNav() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/login"
+              aria-label="Acceso interno para administradores y abogados"
+              title="Acceso interno"
+              className="nav-text-crossfade hidden h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-50 transition-opacity duration-300 hover:bg-ink/5 hover:opacity-100 sm:flex"
+            >
+              <Lock className="h-[15px] w-[15px]" weight="light" />
+            </Link>
+
             <ThemeToggle className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
@@ -181,7 +190,18 @@ export function SiteNav() {
               >
                 {siteConfig.ctaPrincipal}
               </Link>
-              <ThemeToggle className="mt-6 text-night-ink/70 hover:bg-night-ink/10 hover:text-night-ink" />
+              <div className="mt-6 flex items-center gap-2">
+                <ThemeToggle className="text-night-ink/70 hover:bg-night-ink/10 hover:text-night-ink" />
+                <Link
+                  href="/admin/login"
+                  onClick={() => setOpen(false)}
+                  aria-label="Acceso interno para administradores y abogados"
+                  title="Acceso interno"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-night-ink/50 transition-colors hover:bg-night-ink/10 hover:text-night-ink"
+                >
+                  <Lock className="h-[15px] w-[15px]" weight="light" />
+                </Link>
+              </div>
             </motion.div>
           </motion.div>
         )}
