@@ -86,7 +86,18 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+        # SOLO el origen, sin "/api" al final: cada llamada del código ya agrega su
+        # propio "/api/..." a la ruta (ver frontend/src/lib/api.ts y admin-api.ts), igual
+        # que API_URL_INTERNAL más abajo (que tampoco lo lleva). Bug real encontrado en
+        # producción: con "/api" ya incluido aquí, cada petición del navegador terminaba
+        # pidiendo "/api/api/..." (404/401 según la ruta) -- rompía en silencio TODO lo
+        # que se envía desde el navegador: login del panel admin, formulario de
+        # contacto, chatbot, testimonios, boletín. Nunca se detectó antes porque las
+        # verificaciones con curl le pegaban directo a la ruta correcta del backend
+        # (sin pasar por este código del navegador), y las pruebas en navegador de la
+        # sesión eran contra localhost en desarrollo, donde esta variable no lleva
+        # "/api" y por eso nunca reproducía el bug.
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
     restart: unless-stopped
     environment:
       # Variable normal (sin prefijo NEXT_PUBLIC_): solo la lee el servidor en tiempo de
