@@ -137,7 +137,7 @@ export const equipo: MiembroEquipo[] = [
   },
   {
     nombre: "Antonio Farfán Barrero",
-    cargo: "Abogado Senior",
+    cargo: "Abogado Socio",
     foto: "/equipo/antonio-farfan.jpg",
     posicion: "48% 22%",
   },
@@ -147,13 +147,6 @@ export const equipo: MiembroEquipo[] = [
     foto: "/equipo/valentina-castaneda.jpg",
     posicion: "50% 22%",
     zoom: 1.05,
-  },
-  {
-    nombre: "Kory Violeta Mendoza Sarabia",
-    cargo: "Líder de Gestión",
-    foto: "/equipo/kory-mendoza.png",
-    posicion: "50% 28%",
-    zoom: 1.1,
   },
   {
     nombre: "Iris Edelmira Pinzón",
@@ -171,7 +164,7 @@ export const equipo: MiembroEquipo[] = [
   },
   {
     nombre: "Juan David Galindo",
-    cargo: "Soporte Técnico",
+    cargo: "Líder de Gestión",
     foto: "/equipo/juan-david-galindo.jpg",
     bio: "Ingeniero de Sistemas de la Universidad El Bosque.",
     posicion: "50% 20%",
