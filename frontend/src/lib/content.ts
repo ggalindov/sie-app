@@ -167,7 +167,7 @@ export const equipo: MiembroEquipo[] = [
     nombre: "Juan David Galindo",
     cargo: "Soporte Técnico",
     foto: "/equipo/juan-david-galindo.jpg",
-    bio: "Ingeniero de Sistemas de la Universidad El Bosque. A cargo del soporte técnico del sitio web y el panel administrativo de la firma.",
+    bio: "Ingeniero de Sistemas de la Universidad El Bosque.",
     posicion: "50% 20%",
   },
 ];
