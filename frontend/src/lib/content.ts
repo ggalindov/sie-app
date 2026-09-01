@@ -108,6 +108,12 @@ export const equipo: MiembroEquipo[] = [
     posicion: "50% 32%",
   },
   {
+    nombre: "Antonio Farfán Barrero",
+    cargo: "Abogado Socio",
+    foto: "/equipo/antonio-farfan.jpg",
+    posicion: "48% 22%",
+  },
+  {
     nombre: "Jorge Mario Cifuentes Lara",
     cargo: "Abogado Senior",
     foto: "/equipo/jorge-mario.png",
@@ -134,12 +140,6 @@ export const equipo: MiembroEquipo[] = [
     cargo: "Abogada",
     foto: "/equipo/karen-cantillo.jpg",
     posicion: "50% 30%",
-  },
-  {
-    nombre: "Antonio Farfán Barrero",
-    cargo: "Abogado Socio",
-    foto: "/equipo/antonio-farfan.jpg",
-    posicion: "48% 22%",
   },
   {
     nombre: "Valentina Castañeda",

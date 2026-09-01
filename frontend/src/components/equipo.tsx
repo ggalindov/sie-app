@@ -23,7 +23,7 @@ export function Equipo() {
 
   return (
     <section id="equipo" className="snap-slide section-seam frame-fixed py-20">
-      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-4">
+      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-6">
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
@@ -50,18 +50,16 @@ export function Equipo() {
             no. El detalle completo (cargo + bio, cuando existe) vive en el
             popup, no en la tarjeta.
 
-            flex-wrap (no CSS grid) a propósito: con 11 personas el conteo no
-            es múltiplo exacto de ninguna cantidad de columnas razonable, y un
-            grid deja la última fila incompleta pegada a la izquierda (se ve
-            como un error, una tarjeta huérfana). justify-center en un flex
-            envuelto centra cada fila de forma independiente, así que la
-            última fila (3 de 4 en desktop) queda centrada en vez de colgando.
-            Ancho fijo por tarjeta = 4 por fila en desktop -> 3 filas exactas
-            (4+4+3), 3 por fila en tablet, 2 en móvil. Las tarjetas y fotos se
-            achican respecto a la versión de 2 filas para que 3 filas quepan
-            cómodas dentro de la altura fija de la sección (frame-fixed) sin
-            necesitar scroll interno. */}
-        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-7 sm:gap-x-6 md:mt-1.5 md:min-h-0 md:flex-1 md:content-center md:gap-x-4 md:gap-y-2">
+            flex-wrap (no CSS grid) a propósito: con 10 personas el desktop
+            (5 por fila) sí cae en dos filas exactas, pero en tablet (3 por
+            fila) sobra una persona en una tercera fila -- un grid deja esa
+            tarjeta huérfana pegada a la izquierda; justify-center en un flex
+            envuelto la centra en vez de dejarla colgando. Las fotos y el
+            texto son más grandes que en la versión de 3 filas porque ahora
+            solo hay 2 filas en desktop, así que sobra más alto disponible
+            dentro de la altura fija de la sección (frame-fixed) para
+            aprovecharlo sin necesitar scroll interno. */}
+        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-8 sm:gap-x-6 md:mt-3 md:min-h-0 md:flex-1 md:content-center md:gap-x-5 md:gap-y-3">
           {equipo.map((persona, i) => (
             <motion.button
               key={persona.nombre}
@@ -72,12 +70,12 @@ export function Equipo() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.7, delay: 0.06 * i, ease: EASE }}
               whileHover={{ y: -6 }}
-              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-5 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(25%-0.75rem)] md:py-2"
+              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-5 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(20%-1rem)] md:py-3"
             >
-              <div className="relative aspect-square w-full max-w-[116px] md:max-w-[88px]">
+              <div className="relative aspect-square w-full max-w-[128px] md:max-w-[116px]">
                 <motion.div
                   aria-hidden="true"
-                  className="absolute -inset-2 rounded-full opacity-0 group-hover:opacity-100"
+                  className="absolute -inset-2.5 rounded-full opacity-0 group-hover:opacity-100"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
                   style={{
@@ -93,7 +91,7 @@ export function Equipo() {
                     src={persona.foto}
                     alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 768px) 88px, (min-width: 640px) 28vw, 42vw"
+                    sizes="(min-width: 768px) 116px, (min-width: 640px) 30vw, 45vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -104,8 +102,8 @@ export function Equipo() {
                 </div>
               </div>
 
-              <p className="mt-2 font-display text-[0.95rem] leading-snug md:text-[0.85rem]">{persona.nombre}</p>
-              <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
+              <p className="mt-3 font-display text-base leading-snug md:text-[1.05rem]">{persona.nombre}</p>
+              <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
                 <span className="h-1 w-1 shrink-0 rounded-full bg-gold-deep" />
                 {persona.cargo}
               </span>
