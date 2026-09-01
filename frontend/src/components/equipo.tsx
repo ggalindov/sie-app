@@ -23,7 +23,7 @@ export function Equipo() {
 
   return (
     <section id="equipo" className="snap-slide section-seam frame-fixed py-20">
-      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-10">
+      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-4">
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <motion.h2
             initial={{ opacity: 0, y: 24 }}
@@ -61,7 +61,7 @@ export function Equipo() {
             achican respecto a la versión de 2 filas para que 3 filas quepan
             cómodas dentro de la altura fija de la sección (frame-fixed) sin
             necesitar scroll interno. */}
-        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-7 sm:gap-x-6 md:mt-3 md:min-h-0 md:flex-1 md:content-center md:gap-x-4 md:gap-y-3">
+        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-7 sm:gap-x-6 md:mt-1.5 md:min-h-0 md:flex-1 md:content-center md:gap-x-4 md:gap-y-2">
           {equipo.map((persona, i) => (
             <motion.button
               key={persona.nombre}
@@ -72,9 +72,9 @@ export function Equipo() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.7, delay: 0.06 * i, ease: EASE }}
               whileHover={{ y: -6 }}
-              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-4 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(25%-0.75rem)] md:py-2.5"
+              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-5 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(25%-0.75rem)] md:py-2"
             >
-              <div className="relative aspect-square w-full max-w-[104px] md:max-w-[84px]">
+              <div className="relative aspect-square w-full max-w-[116px] md:max-w-[88px]">
                 <motion.div
                   aria-hidden="true"
                   className="absolute -inset-2 rounded-full opacity-0 group-hover:opacity-100"
@@ -88,12 +88,12 @@ export function Equipo() {
                   }}
                 />
                 <div className="absolute inset-0 rounded-full bg-paper" />
-                <div className="absolute inset-[5px] overflow-hidden rounded-full">
+                <div className="absolute inset-[6px] overflow-hidden rounded-full">
                   <Image
                     src={persona.foto}
                     alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 768px) 84px, (min-width: 640px) 25vw, 40vw"
+                    sizes="(min-width: 768px) 88px, (min-width: 640px) 28vw, 42vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -104,8 +104,8 @@ export function Equipo() {
                 </div>
               </div>
 
-              <p className="mt-2 font-display text-sm leading-snug md:text-[0.8rem]">{persona.nombre}</p>
-              <span className="mt-1 inline-flex items-center gap-1 text-[0.65rem] font-medium tracking-wide text-gold-deep">
+              <p className="mt-2 font-display text-[0.95rem] leading-snug md:text-[0.85rem]">{persona.nombre}</p>
+              <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
                 <span className="h-1 w-1 shrink-0 rounded-full bg-gold-deep" />
                 {persona.cargo}
               </span>
