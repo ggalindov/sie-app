@@ -56,7 +56,7 @@ export function Equipo() {
             columnas sobraban 2 personas en una tercera fila apenas visible).
             Las tarjetas y fotos se achican para que esas 2 filas quepan
             cómodas dentro de la altura fija de la sección. */}
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:mt-8 md:min-h-0 md:flex-1 md:grid-cols-5 md:content-center md:gap-3">
+        <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 md:mt-4 md:min-h-0 md:flex-1 md:grid-cols-5 md:content-center md:gap-4">
           {equipo.map((persona, i) => (
             <motion.button
               key={persona.nombre}
@@ -67,12 +67,12 @@ export function Equipo() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.7, delay: 0.07 * i, ease: EASE }}
               whileHover={{ y: -6 }}
-              className="card-edged group flex flex-col items-center px-3 py-4 text-center md:py-4"
+              className="card-edged group flex flex-col items-center px-3 py-5 text-center md:py-4"
             >
-              <div className="relative aspect-square w-full max-w-[104px] md:max-w-[92px]">
+              <div className="relative aspect-square w-full max-w-[128px] md:max-w-[132px]">
                 <motion.div
                   aria-hidden="true"
-                  className="absolute -inset-2 rounded-full opacity-0 group-hover:opacity-100"
+                  className="absolute -inset-2.5 rounded-full opacity-0 group-hover:opacity-100"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
                   style={{
@@ -83,12 +83,12 @@ export function Equipo() {
                   }}
                 />
                 <div className="absolute inset-0 rounded-full bg-paper" />
-                <div className="absolute inset-[5px] overflow-hidden rounded-full">
+                <div className="absolute inset-[6px] overflow-hidden rounded-full">
                   <Image
                     src={persona.foto}
                     alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 768px) 92px, (min-width: 640px) 25vw, 40vw"
+                    sizes="(min-width: 768px) 132px, (min-width: 640px) 30vw, 45vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -99,8 +99,8 @@ export function Equipo() {
                 </div>
               </div>
 
-              <p className="mt-2.5 font-display text-sm leading-snug md:text-[0.85rem]">{persona.nombre}</p>
-              <span className="mt-1 inline-flex items-center gap-1 text-[0.65rem] font-medium tracking-wide text-gold-deep">
+              <p className="mt-2.5 font-display text-base leading-snug md:text-[0.95rem]">{persona.nombre}</p>
+              <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
                 <span className="h-1 w-1 shrink-0 rounded-full bg-gold-deep" />
                 {persona.cargo}
               </span>
