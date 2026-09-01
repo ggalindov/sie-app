@@ -197,15 +197,20 @@ export function SiteNav() {
               >
                 {siteConfig.ctaPrincipal}
               </Link>
-              <div className="mt-6 flex items-center gap-2">
-                <HelpMenu align="left" className="text-night-ink/70 hover:bg-night-ink/10 hover:text-night-ink" />
-                <ThemeToggle className="text-night-ink/70 hover:bg-night-ink/10 hover:text-night-ink" />
+              <div className="mt-8 flex items-center gap-4">
+                <HelpMenu
+                  align="left"
+                  size={44}
+                  onNavigate={() => setOpen(false)}
+                  className="text-night-ink/80 hover:bg-night-ink/10 hover:text-night-ink"
+                />
+                <ThemeToggle size={44} className="text-night-ink/80 hover:bg-night-ink/10 hover:text-night-ink" />
                 <Link
                   href="/admin/login"
                   onClick={() => setOpen(false)}
                   aria-label="Acceso interno para administradores y abogados"
                   title="Acceso interno"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-night-ink/30 transition-colors hover:bg-night-ink/10 hover:text-night-ink"
+                  className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-night-ink/30 transition-colors hover:bg-night-ink/10 hover:text-night-ink"
                 >
                   <Lock className="h-[11px] w-[11px]" weight="light" />
                 </Link>

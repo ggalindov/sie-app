@@ -26,7 +26,24 @@ const ENLACES = [
 // los dos destinos que un cliente (no un lead nuevo) más necesita encontrar rápido,
 // sin sumar otro botón flotante a los que ya compiten por la esquina de la pantalla
 // (WhatsApp, chatbot, Cuida tu marca).
-export function HelpMenu({ className, align = "right" }: { className?: string; align?: "left" | "right" }) {
+export function HelpMenu({
+  className,
+  align = "right",
+  onNavigate,
+  size = 36,
+}: {
+  className?: string;
+  align?: "left" | "right";
+  // El menú móvil (overlay a pantalla completa) que envuelve este componente
+  // en site-nav.tsx tiene su propio estado "open" separado del de este
+  // dropdown: sin este callback, al navegar desde aquí solo se cerraba el
+  // dropdown chiquito y el overlay oscuro se quedaba tapando la página nueva.
+  onNavigate?: () => void;
+  // En px, vía inline style en vez de clases h-*/w-* -- así el tamaño
+  // pedido por quien lo usa siempre gana sin depender del orden en que
+  // Tailwind genere las clases (className vs. el tamaño por defecto).
+  size?: number;
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -53,9 +70,10 @@ export function HelpMenu({ className, align = "right" }: { className?: string; a
         onClick={() => setOpen((v) => !v)}
         aria-label="Consulta tu caso o resuelve dudas frecuentes"
         aria-expanded={open}
-        className={`${className ?? ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors`}
+        style={{ width: size, height: size }}
+        className={`${className ?? ""} flex shrink-0 items-center justify-center rounded-full transition-colors`}
       >
-        <Question className="h-[17px] w-[17px]" weight="bold" />
+        <Question style={{ width: size * 0.48, height: size * 0.48 }} weight="bold" />
       </button>
 
       <AnimatePresence>
@@ -72,7 +90,10 @@ export function HelpMenu({ className, align = "right" }: { className?: string; a
               <Link
                 key={href}
                 href={href}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  onNavigate?.();
+                }}
                 className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-gold/10"
               >
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-pale text-gold-deep">

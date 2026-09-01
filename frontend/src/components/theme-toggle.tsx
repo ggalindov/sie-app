@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Moon, Sun } from "@phosphor-icons/react";
 
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({ className, size = 36 }: { className?: string; size?: number }) {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
@@ -28,7 +28,8 @@ export function ThemeToggle({ className }: { className?: string }) {
       type="button"
       onClick={toggle}
       aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-      className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition-colors ${className ?? "text-ink-soft hover:bg-paper hover:text-ink"}`}
+      style={{ width: size, height: size }}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full transition-colors ${className ?? "text-ink-soft hover:bg-paper hover:text-ink"}`}
     >
       <AnimatePresence initial={false} mode="wait">
         {theme === "dark" ? (
@@ -39,7 +40,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             exit={{ rotate: 90, opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
-            <Sun className="h-[18px] w-[18px]" weight="light" />
+            <Sun style={{ width: size * 0.5, height: size * 0.5 }} weight="light" />
           </motion.span>
         ) : (
           <motion.span
@@ -49,7 +50,7 @@ export function ThemeToggle({ className }: { className?: string }) {
             exit={{ rotate: -90, opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
-            <Moon className="h-[18px] w-[18px]" weight="light" />
+            <Moon style={{ width: size * 0.5, height: size * 0.5 }} weight="light" />
           </motion.span>
         )}
       </AnimatePresence>

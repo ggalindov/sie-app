@@ -30,7 +30,7 @@ export function Equipo() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="max-w-lg font-display text-4xl leading-tight tracking-tight md:text-5xl"
+            className="max-w-xl font-display text-4xl leading-tight tracking-tight md:text-5xl md:[@media(min-height:900px)]:text-6xl"
           >
             Nuestro equipo
           </motion.h2>
@@ -39,7 +39,7 @@ export function Equipo() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
-            className="max-w-sm text-sm text-ink-soft sm:text-right"
+            className="max-w-sm text-sm text-ink-soft sm:text-right md:text-base"
           >
             Un equipo, un mismo criterio: cada caso lo lleva alguien que responde por su nombre.
           </motion.p>
@@ -59,7 +59,7 @@ export function Equipo() {
             solo hay 2 filas en desktop, así que sobra más alto disponible
             dentro de la altura fija de la sección (frame-fixed) para
             aprovecharlo sin necesitar scroll interno. */}
-        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-8 sm:gap-x-6 md:mt-3 md:min-h-0 md:flex-1 md:content-center md:gap-x-5 md:gap-y-3">
+        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-8 sm:gap-x-6 md:mt-3 md:min-h-0 md:flex-1 md:content-center md:gap-x-5 md:gap-y-3 md:[@media(min-height:760px)_and_(max-height:899px)]:mt-5 md:[@media(min-height:760px)_and_(max-height:899px)]:gap-x-6 md:[@media(min-height:760px)_and_(max-height:899px)]:gap-y-5 md:[@media(min-height:900px)_and_(max-height:1019px)]:mt-6 md:[@media(min-height:900px)_and_(max-height:1019px)]:gap-x-7 md:[@media(min-height:900px)_and_(max-height:1019px)]:gap-y-5 md:[@media(min-height:1020px)]:mt-8 md:[@media(min-height:1020px)]:gap-x-8 md:[@media(min-height:1020px)]:gap-y-7">
           {equipo.map((persona, i) => (
             <motion.button
               key={persona.nombre}
@@ -70,9 +70,9 @@ export function Equipo() {
               viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.7, delay: 0.06 * i, ease: EASE }}
               whileHover={{ y: -6 }}
-              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-5 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(20%-1rem)] md:py-3"
+              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-5 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(20%-1rem)] md:py-3 md:[@media(min-height:760px)_and_(max-height:899px)]:w-[calc(20%-1.2rem)] md:[@media(min-height:760px)_and_(max-height:899px)]:py-4 md:[@media(min-height:900px)_and_(max-height:1019px)]:w-[calc(20%-1.4rem)] md:[@media(min-height:900px)_and_(max-height:1019px)]:py-5 md:[@media(min-height:1020px)]:w-[calc(20%-1.6rem)] md:[@media(min-height:1020px)]:py-7"
             >
-              <div className="relative aspect-square w-full max-w-[128px] md:max-w-[116px]">
+              <div className="relative aspect-square w-full max-w-[128px] md:max-w-[132px] md:[@media(min-height:760px)_and_(max-height:899px)]:max-w-[140px] md:[@media(min-height:900px)_and_(max-height:1019px)]:max-w-[160px] md:[@media(min-height:1020px)]:max-w-[192px]">
                 <motion.div
                   aria-hidden="true"
                   className="absolute -inset-2.5 rounded-full opacity-0 group-hover:opacity-100"
@@ -91,7 +91,7 @@ export function Equipo() {
                     src={persona.foto}
                     alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 768px) 116px, (min-width: 640px) 30vw, 45vw"
+                    sizes="(min-width: 768px) 192px, (min-width: 640px) 30vw, 45vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -102,8 +102,8 @@ export function Equipo() {
                 </div>
               </div>
 
-              <p className="mt-3 font-display text-base leading-snug md:text-[1.05rem]">{persona.nombre}</p>
-              <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
+              <p className="mt-3 font-display text-base leading-snug md:text-[1.05rem] md:[@media(min-height:760px)_and_(max-height:899px)]:text-lg md:[@media(min-height:900px)]:text-xl">{persona.nombre}</p>
+              <span className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep md:[@media(min-height:900px)]:text-sm md:[@media(min-height:1020px)]:text-[0.95rem]">
                 <span className="h-1 w-1 shrink-0 rounded-full bg-gold-deep" />
                 {persona.cargo}
               </span>
