@@ -50,13 +50,18 @@ export function Equipo() {
             no. El detalle completo (cargo + bio, cuando existe) vive en el
             popup, no en la tarjeta.
 
-            5 columnas fijas desde md: con 10 personas en el equipo, siempre
-            son exactas 2 filas -- a propósito, para que la sección quepa
-            entera en la pantalla sin necesitar scroll interno (antes con 4
-            columnas sobraban 2 personas en una tercera fila apenas visible).
-            Las tarjetas y fotos se achican para que esas 2 filas quepan
-            cómodas dentro de la altura fija de la sección. */}
-        <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 md:mt-4 md:min-h-0 md:flex-1 md:grid-cols-5 md:content-center md:gap-4">
+            flex-wrap (no CSS grid) a propósito: con 11 personas el conteo no
+            es múltiplo exacto de ninguna cantidad de columnas razonable, y un
+            grid deja la última fila incompleta pegada a la izquierda (se ve
+            como un error, una tarjeta huérfana). justify-center en un flex
+            envuelto centra cada fila de forma independiente, así que la
+            última fila (3 de 4 en desktop) queda centrada en vez de colgando.
+            Ancho fijo por tarjeta = 4 por fila en desktop -> 3 filas exactas
+            (4+4+3), 3 por fila en tablet, 2 en móvil. Las tarjetas y fotos se
+            achican respecto a la versión de 2 filas para que 3 filas quepan
+            cómodas dentro de la altura fija de la sección (frame-fixed) sin
+            necesitar scroll interno. */}
+        <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-7 sm:gap-x-6 md:mt-3 md:min-h-0 md:flex-1 md:content-center md:gap-x-4 md:gap-y-3">
           {equipo.map((persona, i) => (
             <motion.button
               key={persona.nombre}
@@ -65,14 +70,14 @@ export function Equipo() {
               initial={{ opacity: 0, y: 34, scale: 0.94, filter: "blur(6px)" }}
               whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.7, delay: 0.07 * i, ease: EASE }}
+              transition={{ duration: 0.7, delay: 0.06 * i, ease: EASE }}
               whileHover={{ y: -6 }}
-              className="card-edged group flex flex-col items-center px-3 py-5 text-center md:py-4"
+              className="card-edged group flex w-[calc(50%-0.625rem)] shrink-0 flex-col items-center px-3 py-4 text-center sm:w-[calc(33.333%-1rem)] md:w-[calc(25%-0.75rem)] md:py-2.5"
             >
-              <div className="relative aspect-square w-full max-w-[128px] md:max-w-[132px]">
+              <div className="relative aspect-square w-full max-w-[104px] md:max-w-[84px]">
                 <motion.div
                   aria-hidden="true"
-                  className="absolute -inset-2.5 rounded-full opacity-0 group-hover:opacity-100"
+                  className="absolute -inset-2 rounded-full opacity-0 group-hover:opacity-100"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
                   style={{
@@ -83,12 +88,12 @@ export function Equipo() {
                   }}
                 />
                 <div className="absolute inset-0 rounded-full bg-paper" />
-                <div className="absolute inset-[6px] overflow-hidden rounded-full">
+                <div className="absolute inset-[5px] overflow-hidden rounded-full">
                   <Image
                     src={persona.foto}
                     alt={`${persona.nombre}, ${persona.cargo}`}
                     fill
-                    sizes="(min-width: 768px) 132px, (min-width: 640px) 30vw, 45vw"
+                    sizes="(min-width: 768px) 84px, (min-width: 640px) 25vw, 40vw"
                     style={{
                       ...mascara,
                       objectPosition: persona.posicion ?? "50% 32%",
@@ -99,8 +104,8 @@ export function Equipo() {
                 </div>
               </div>
 
-              <p className="mt-2.5 font-display text-base leading-snug md:text-[0.95rem]">{persona.nombre}</p>
-              <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-gold-deep">
+              <p className="mt-2 font-display text-sm leading-snug md:text-[0.8rem]">{persona.nombre}</p>
+              <span className="mt-1 inline-flex items-center gap-1 text-[0.65rem] font-medium tracking-wide text-gold-deep">
                 <span className="h-1 w-1 shrink-0 rounded-full bg-gold-deep" />
                 {persona.cargo}
               </span>

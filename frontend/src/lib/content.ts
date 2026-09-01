@@ -136,6 +136,12 @@ export const equipo: MiembroEquipo[] = [
     posicion: "50% 30%",
   },
   {
+    nombre: "Antonio Farfán Barrero",
+    cargo: "Abogado Senior",
+    foto: "/equipo/antonio-farfan.jpg",
+    posicion: "48% 22%",
+  },
+  {
     nombre: "Valentina Castañeda",
     cargo: "Abogada",
     foto: "/equipo/valentina-castaneda.jpg",
