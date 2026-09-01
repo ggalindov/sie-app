@@ -136,6 +136,13 @@ export const equipo: MiembroEquipo[] = [
     posicion: "50% 30%",
   },
   {
+    nombre: "Valentina Castañeda",
+    cargo: "Abogada",
+    foto: "/equipo/valentina-castaneda.jpg",
+    posicion: "50% 22%",
+    zoom: 1.05,
+  },
+  {
     nombre: "Kory Violeta Mendoza Sarabia",
     cargo: "Líder de Gestión",
     foto: "/equipo/kory-mendoza.png",
@@ -155,6 +162,13 @@ export const equipo: MiembroEquipo[] = [
     foto: "/equipo/alejandra-villate.jpg",
     posicion: "48% 28%",
     zoom: 1.02,
+  },
+  {
+    nombre: "Juan David Galindo",
+    cargo: "Soporte Técnico",
+    foto: "/equipo/juan-david-galindo.jpg",
+    bio: "Ingeniero de Sistemas de la Universidad El Bosque. A cargo del soporte técnico del sitio web y el panel administrativo de la firma.",
+    posicion: "50% 20%",
   },
 ];
 

@@ -41,7 +41,7 @@ export function Equipo() {
             transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
             className="max-w-sm text-sm text-ink-soft sm:text-right"
           >
-            Ocho personas, un mismo criterio: cada caso lo lleva alguien que responde por su nombre.
+            Un equipo, un mismo criterio: cada caso lo lleva alguien que responde por su nombre.
           </motion.p>
         </div>
 
