@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 // Cada método es @Async y atrapa sus propios errores: el envío de correo es un efecto
 // secundario, nunca debe hacer fallar la operación principal (crear solicitud, agendar
@@ -529,7 +530,13 @@ public class EmailService {
         }
         try {
             MimeMessage mensaje = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mensaje, MimeMessageHelper.MULTIPART_MODE_RELATED, "UTF-8");
+            // MULTIPART_MODE_MIXED_RELATED, no MULTIPART_MODE_RELATED: el modo "related" a
+            // secas solo admite UN cuerpo (HTML) más los recursos inline (el logo/sello por
+            // cid:) -- no dos versiones alternativas del mismo mensaje. "mixed_related" es
+            // el que hace falta para que setText(textoPlano, html) más abajo arme la
+            // estructura MIME correcta (multipart/alternative con texto plano + HTML,
+            // envuelto en el multipart/related que trae las imágenes inline).
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
             // Nombre del remitente fijado explícitamente aquí, codificado en UTF-8 por
             // MimeMessageHelper (RFC 2047): así el correo siempre muestra "SIE Jurídicos"
             // bien acentuado sin importar qué nombre tenga guardado la cuenta de Gmail en
@@ -543,11 +550,27 @@ public class EmailService {
             // la respuesta debe llegar a una bandeja que sí se revisa.
             helper.setReplyTo(correoAdmin);
             helper.setSubject(asunto);
-            helper.setText(plantilla(asunto, cuerpoHtml), true);
+            String htmlCompleto = plantilla(asunto, cuerpoHtml);
+            // Bug real de entregabilidad encontrado en esta revisión (reportado por el
+            // usuario: los correos a Hotmail/Outlook no llegaban): SPF, DKIM y el alineamiento
+            // From/Reply-To ya estaban correctos (MAIL_FROM = la misma cuenta de Gmail
+            // autenticada), así que no era un fallo de configuración -- Gmail nunca rechazaba
+            // el envío (cero errores en los logs del servidor). Un correo enviado SOLO en HTML,
+            // sin una alternativa de texto plano, es justo el patrón que los filtros de
+            // Microsoft penalizan como señal de spam/phishing, incluso cuando la autenticación
+            // es perfecta -- da igual cuán legítimo sea el remitente si el mensaje en sí tiene
+            // esa forma. Toda la plantilla ya pasa por htmlAPlano() para generar esa versión
+            // automáticamente, sin duplicar el contenido de cada correo por separado.
+            helper.setText(htmlAPlano(htmlCompleto), htmlCompleto);
             helper.addInline(CID_LOGO, logoResource, "image/png");
             helper.addInline(CID_SELLO, selloResource, "image/png");
             if (esBoletin) {
+                // El par List-Unsubscribe + List-Unsubscribe-Post (no uno sin el otro) es lo
+                // que Gmail/Yahoo exigen desde 2024 para remitentes masivos, y Microsoft
+                // también lo trata como señal de legitimidad: sin el "-Post", algunos clientes
+                // de correo ni siquiera muestran el botón de "darse de baja" de un clic.
                 mensaje.addHeader("List-Unsubscribe", "<mailto:" + correoAdmin + "?subject=Baja%20del%20bolet%C3%ADn>");
+                mensaje.addHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
             }
             mailSender.send(mensaje);
             return true;
@@ -562,5 +585,47 @@ public class EmailService {
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
+    }
+
+    // Genera la alternativa de texto plano exigida por enviarHtml() (ver el comentario ahí:
+    // un correo solo-HTML es en sí mismo una señal de spam para Microsoft, sin importar la
+    // autenticación). No es una conversión HTML->texto de propósito general, sino la mínima
+    // necesaria para ESTA plantilla propia (nunca procesa HTML de terceros ni contenido de
+    // usuarios sin escapar primero, ver escaparHtml): quita <head> completo, convierte los
+    // enlaces a "texto (URL)" para no perder el destino, convierte saltos de bloque en saltos
+    // de línea reales, quita cualquier etiqueta restante, decodifica las entidades que esta
+    // misma plantilla usa, y colapsa líneas en blanco repetidas.
+    private static final Pattern HTML_HEAD = Pattern.compile("(?is)<head\\b.*?</head>");
+    private static final Pattern HTML_ENLACE = Pattern.compile("(?is)<a\\s+[^>]*href=\"([^\"]*)\"[^>]*>(.*?)</a>");
+    private static final Pattern HTML_SALTO_BLOQUE = Pattern.compile(
+            "(?i)<br\\s*/?>|</p>|</tr>|</table>|</div>|</h[1-6]>|</li>");
+    private static final Pattern HTML_ETIQUETA = Pattern.compile("<[^>]+>");
+    private static final Pattern LINEAS_EN_BLANCO_REPETIDAS = Pattern.compile("\\n{3,}");
+
+    // Sin "private" (paquete), a propósito, solo para que EmailServiceHtmlAPlanoTest pueda
+    // probarlo directamente en vez de tener que armar un MimeMessage completo para inspeccionar
+    // la parte de texto plano.
+    static String htmlAPlano(String html) {
+        String texto = HTML_HEAD.matcher(html).replaceAll("");
+        texto = HTML_ENLACE.matcher(texto).replaceAll(mr -> {
+            String destino = mr.group(1).strip();
+            String etiqueta = mr.group(2).replaceAll("(?i)<[^>]+>", "").strip();
+            return etiqueta.equals(destino) ? destino : etiqueta + " (" + destino + ")";
+        });
+        texto = HTML_SALTO_BLOQUE.matcher(texto).replaceAll("\n");
+        texto = HTML_ETIQUETA.matcher(texto).replaceAll("");
+        texto = texto
+                .replace("&nbsp;", " ")
+                .replace("&middot;", "-")
+                .replace("&copy;", "(c)")
+                .replace("&rarr;", "->")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&");
+        texto = Arrays.stream(texto.split("\n"))
+                .map(String::strip)
+                .collect(Collectors.joining("\n"));
+        texto = LINEAS_EN_BLANCO_REPETIDAS.matcher(texto).replaceAll("\n\n");
+        return texto.strip();
     }
 }
