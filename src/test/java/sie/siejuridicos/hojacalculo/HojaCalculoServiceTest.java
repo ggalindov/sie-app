@@ -317,4 +317,32 @@ class HojaCalculoServiceTest {
         assertEquals(sinRadicado.filas().get(0).numeroCaso(), conRadicado.filas().get(0).numeroCaso(),
                 "La llave debe ser la misma antes y después de que el despacho asigne el radicado.");
     }
+
+    // Bug real reportado por el usuario ("todos los de superintendencia están mal, no están
+    // jalando la info correctamente") y confirmado leyendo la hoja real: la hoja de
+    // Superintendencia separa sus bloques de entidad con filas donde el nombre de la
+    // siguiente entidad (o, en un caso, los propios encabezados de columna) queda escrito
+    // como texto en la MISMA columna que el nombre del demandante, con despacho, radicado y
+    // correo todos vacíos. Antes esto se sincronizaba como un "caso" fantasma -- el nombre por
+    // sí solo ya no es señal suficiente de contenido real.
+    @Test
+    void unaFilaSeparadoraDeSeccionConSoloElNombreDeLaEntidadNoCreaUnCasoFantasma() throws IOException {
+        Sheets sheets = sheetsSuperintendencia(List.of(
+                filaSuper("Superintendencia Financiera", "RAD-100", "Ana Gómez", "ana@correo.com"),
+                // Fila separadora real: solo la columna de "demandante" trae texto (el nombre
+                // de la siguiente entidad, centrado con espacios de relleno), todo lo demás
+                // vacío -- exactamente el patrón encontrado en la hoja real.
+                filaSuper("", "", "                    SUPERINTENDENCIA NACIONAL DE SALUD", ""),
+                // Fila de encabezados re-escritos como si fueran datos, también real.
+                filaSuper("", "RADICADO ", "DEMANDANTE ", ""),
+                filaSuper("Superintendencia Nacional de Salud", "RAD-200", "Beatriz Ruiz", "beatriz@correo.com")
+        ));
+
+        ResultadoSincronizacionHoja resultado = new HojaCalculoService(SPREADSHEET_ID, sheets).listarParaSincronizar();
+
+        assertEquals(2, resultado.filas().size(),
+                "Solo los 2 casos reales, ninguna de las 2 filas separadoras/de encabezado.");
+        assertTrue(resultado.filas().stream().anyMatch(f -> "RAD-100".equals(f.radicadoId())));
+        assertTrue(resultado.filas().stream().anyMatch(f -> "RAD-200".equals(f.radicadoId())));
+    }
 }

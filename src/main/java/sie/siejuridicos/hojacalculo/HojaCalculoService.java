@@ -395,18 +395,31 @@ public class HojaCalculoService {
         return fila.get(indice).toString().strip();
     }
 
-    // Una fila cuenta como caso real si trae despacho, un radicado con al menos un dígito, un
-    // sujeto procesal que no sea un enlace, o correo del cliente -- cualquiera de esos, no
-    // hace falta que estén todos. Solo se usa para las fuentes sin columna de "NO." (ver
-    // arriba): ahí no hay ninguna otra señal de "esto es una fila de separación/nota, no un
-    // caso" más que mirar si tiene algo de contenido real.
+    // Una fila cuenta como caso real si trae despacho, un radicado con al menos un dígito, o
+    // correo del cliente -- cualquiera de esos, no hace falta que estén todos. Solo se usa
+    // para las fuentes sin columna de "NO." (ver arriba): ahí no hay ninguna otra señal de
+    // "esto es una fila de separación/nota, no un caso" más que mirar si tiene algo de
+    // contenido real.
     //
-    // Bug real encontrado con datos reales: una fila de Superintendencia sin despacho traía,
-    // en la columna de radicado, el texto "Radicar demanda " (sin ningún dígito) y en la de
-    // sujeto procesal un enlace de referencia a cómo radicar en el sitio de la SIC -- no es un
-    // caso, es una nota de la firma para sí misma. Un radicado sin dígitos y un "nombre" que
-    // en realidad es una URL ya no cuentan como contenido real por sí solos (mismo criterio de
-    // radicadoValidoOVacio() para el radicado).
+    // Bug real encontrado con datos reales (primero): una fila de Superintendencia sin
+    // despacho traía, en la columna de radicado, el texto "Radicar demanda " (sin ningún
+    // dígito) y en la de sujeto procesal un enlace de referencia a cómo radicar en el sitio de
+    // la SIC -- no es un caso, es una nota de la firma para sí misma. Un radicado sin dígitos
+    // ya no cuenta como contenido real por sí solo (mismo criterio de radicadoValidoOVacio()
+    // para el radicado).
+    //
+    // Bug real encontrado con datos reales (segundo, más serio -- reportado por el usuario:
+    // "no están jalando la info correctamente"): la hoja de Superintendencia usa filas
+    // separadoras ENTRE bloques de entidad, con el nombre de la siguiente entidad escrito
+    // como texto centrado (con espacios de relleno) en la MISMA columna que el nombre del
+    // demandante ("                    SUPERINTENDENCIA FINANCIERA", etc.), y al menos una
+    // fila con literalmente los encabezados de columna re-escritos como si fueran datos
+    // ("RADICADO " / "DEMANDANTE " / "DEMANDADO "). El nombre del cliente/demandante, por sí
+    // solo, YA NO cuenta como contenido real: en las 41 filas reales de casos verificadas a
+    // mano (34 de Superintendencia + 7 de Procesos Comisaría), ninguna tenía el nombre como
+    // única columna con datos -- el despacho, el radicado o el correo siempre acompañan a un
+    // caso real. Esto eliminó 4 "casos" fantasma de Superintendencia que en realidad eran
+    // separadores de sección, nunca clientes reales de la firma.
     private static boolean tieneContenidoReal(List<Object> fila, ConfiguracionFuente config) {
         if (!valorEn(fila, config.idxDespacho()).isBlank()) {
             return true;
@@ -415,18 +428,7 @@ public class HojaCalculoService {
         if (radicado.chars().anyMatch(Character::isDigit)) {
             return true;
         }
-        if (config.idxNombreCliente() != null) {
-            String nombre = valorEn(fila, config.idxNombreCliente());
-            if (!nombre.isBlank() && !esEnlace(nombre)) {
-                return true;
-            }
-        }
         return !valorEn(fila, config.idxCorreoCliente()).isBlank();
-    }
-
-    private static boolean esEnlace(String texto) {
-        String normalizado = texto.strip().toLowerCase(Locale.ROOT);
-        return normalizado.startsWith("http://") || normalizado.startsWith("https://") || normalizado.startsWith("www.");
     }
 
     private static String valorNuloSiVacio(List<Object> fila, int indice) {
