@@ -530,15 +530,24 @@ public class CasoService {
     // RegistroSistemaService), y un fallo al guardarlo nunca rompe la consulta real (se traga
     // y se loguea ahí mismo).
     //
-    // SIN readOnly=true a propósito, aunque este método no escribe nada directamente: bug
-    // real encontrado corriendo la suite completa contra Postgres real (no en un mock, ahí no
-    // se habría visto) -- Spring marca la conexión JDBC como de solo lectura para TODA la
-    // transacción, y Postgres rechaza el INSERT del registro incluso dentro de la transacción
-    // aparte de REQUIRES_NEW ("cannot execute INSERT in a read-only transaction"), porque esa
-    // transacción anidada corre sobre la misma conexión física que Spring ya marcó readOnly.
-    // El registro se tragaba el error y quedaba en silencio -- consultar() respondía bien,
-    // pero NUNCA se guardaba nada en la bitácora, justo la funcionalidad que se pidió.
-    @Transactional
+    // Deliberadamente SIN @Transactional en este método (aunque el resto de CasoService sí
+    // lo usa) -- dos bugs reales encontrados y confirmados en esta auditoría, contra
+    // Postgres real en producción, no en un mock:
+    // 1) Con @Transactional(readOnly = true) (la anotación original de este método, cuando
+    //    solo leía), Postgres rechazaba el INSERT del registro con "cannot execute INSERT in
+    //    a read-only transaction", incluso dentro de la transacción aparte de REQUIRES_NEW.
+    // 2) Quitar SOLO el readOnly (dejando @Transactional a secas) no bastó: cuando el
+    //    radicado no existe, este método termina lanzando RecursoNoEncontradoException, lo
+    //    que revierte SU PROPIA transacción -- y esa reversión se llevaba de encuentro el
+    //    registro YA GUARDADO por la transacción REQUIRES_NEW anidada (confirmado con
+    //    logging temporal: el INSERT sí corría y Postgres sí asignaba un id de la secuencia,
+    //    pero la fila nunca quedaba en la tabla). En vez de perseguir esa interacción caso
+    //    por caso, la solución robusta es no envolver este método en ninguna transacción
+    //    propia: findByRadicadoId() ya trae la suya (todo repositorio de Spring Data JPA la
+    //    tiene, individual, de solo lectura) y registrar() trae la suya (REQUIRES_NEW) --
+    //    ninguna de las dos necesita ni se beneficia de una transacción ambiente alrededor
+    //    que además pueda terminar en rollback por una excepción de negocio esperada (un
+    //    "no encontrado" no es un error de los que ameritan deshacer nada).
     public CasoConsultaResponse consultar(String radicadoId) {
         String radicadoBuscado = radicadoId.strip();
         String radicadoParaRegistro = radicadoBuscado.length() > LONGITUD_MAXIMA_RADICADO_EN_REGISTRO
