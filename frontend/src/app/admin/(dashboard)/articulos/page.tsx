@@ -8,8 +8,16 @@ import { listarArticulosAdmin, eliminarArticulo, ApiError, type ArticuloAdmin } 
 import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { CompartirArticuloButton } from "@/components/admin/compartir-articulo-button";
 
+// timeZone explícito: ver el mismo comentario en blog-grid.tsx -- sin esto, la fecha se
+// muestra en la zona de quien renderiza (navegador de quien administre el panel), no en la
+// de Colombia.
 function formatearFecha(iso: string) {
-  return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "America/Bogota",
+  });
 }
 
 export default function ArticulosPage() {

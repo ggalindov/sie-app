@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import { getArticuloPorSlug } from "@/lib/api";
 import { ArticuloCabecera } from "@/components/articulo-cabecera";
 
+// timeZone explícito: ver el mismo comentario en blog-grid.tsx -- sin esto, la fecha se
+// muestra en la zona de quien renderiza (navegador o servidor), no en la de Colombia.
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Bogota",
   });
 }
 

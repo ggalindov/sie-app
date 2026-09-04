@@ -7,11 +7,14 @@ import type { ArticuloResumen } from "@/lib/api";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+// timeZone explícito: ver el mismo comentario en blog-grid.tsx -- sin esto, la fecha se
+// muestra en la zona de quien renderiza (navegador o servidor), no en la de Colombia.
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Bogota",
   });
 }
 

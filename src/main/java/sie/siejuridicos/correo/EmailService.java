@@ -56,6 +56,7 @@ public class EmailService {
     private final JavaMailSender mailSender;
     private final String remitente;
     private final String correoAdmin;
+    private final String correoAvisoRedes;
     private final String nombreFirma;
     private final String sitioWeb;
     private final String whatsappUrl;
@@ -67,6 +68,7 @@ public class EmailService {
     public EmailService(JavaMailSender mailSender,
                          @Value("${app.correo.remitente}") String remitente,
                          @Value("${app.correo.admin}") String correoAdmin,
+                         @Value("${app.redes-sociales.correo-aviso}") String correoAvisoRedes,
                          @Value("${app.firma.nombre}") String nombreFirma,
                          @Value("${app.firma.sitio-web}") String sitioWeb,
                          @Value("${app.firma.whatsapp:}") String whatsappUrl,
@@ -75,6 +77,7 @@ public class EmailService {
         this.mailSender = mailSender;
         this.remitente = remitente;
         this.correoAdmin = correoAdmin;
+        this.correoAvisoRedes = correoAvisoRedes;
         this.nombreFirma = nombreFirma;
         this.sitioWeb = sitioWeb;
         this.whatsappUrl = whatsappUrl;
@@ -240,6 +243,37 @@ public class EmailService {
                     """.formatted(escaparHtml(suscriptor.getNombre()), nombreFirma, listado, firmaCierre());
             enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
         }
+    }
+
+    // Pedido explícito del usuario: aparte del boletín a los suscriptores (arriba), un aviso
+    // aparte a la persona encargada de redes sociales de la firma -- dispara desde el mismo
+    // punto (ArticuloService.notificarPublicacion, la transición real BORRADOR -> PUBLICADO),
+    // pero es un correo propio, no una copia del boletín: el destinatario es interno (ver
+    // app.redes-sociales.correo-aviso), no un suscriptor público, y el llamado a la acción es
+    // "sube esto a redes", no "lee el artículo".
+    @Async
+    public void enviarAvisoRedesSociales(Articulo publicado) {
+        String urlArticulo = sitioWeb + "/blog/" + publicado.getSlug();
+        String etiqueta = publicado.getTipoContenido() == TipoContenido.NOTICIA ? "una noticia" : "un blog";
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola,</p>
+                <p style="margin:0 0 16px;">Se acaba de publicar %s nuevo en %s:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td style="border-left:3px solid %s;padding:2px 0 2px 16px;">
+                <p style="margin:0 0 6px;font-size:17px;font-weight:bold;color:%s;">%s</p>
+                <a href="%s" style="color:%s;font-weight:bold;">Ver artículo &rarr;</a>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">Recuerda subirlo a las redes sociales de la firma.</p>
+                %s
+                """.formatted(
+                etiqueta, nombreFirma,
+                COLOR_DORADO,
+                COLOR_TEXTO, escaparHtml(publicado.getTitulo()),
+                urlArticulo, COLOR_DORADO,
+                firmaCierre()
+        );
+        enviarHtml(correoAvisoRedes, "Nueva publicación para subir a redes: " + publicado.getTitulo(), cuerpo);
     }
 
     // Se dispara solo cuando la fila de suscriptores_marketing es realmente nueva (ver

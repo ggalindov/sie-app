@@ -3,10 +3,15 @@ package sie.siejuridicos.articulo.dto;
 import sie.siejuridicos.articulo.Articulo;
 import sie.siejuridicos.articulo.TipoContenido;
 import sie.siejuridicos.categoria.dto.CategoriaResponse;
+import sie.siejuridicos.common.FechasUtil;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 // Vista liviana para listados públicos (RF-11): sin el contenido completo del artículo.
+//
+// fechaPublicacion como Instant, no LocalDateTime: ver el comentario de
+// ArticuloDetalleResponse (bug real de horario, "arregla la hora de los blogs a hora de
+// colombia" -- un LocalDateTime se serializa sin 'Z', Instant sí).
 public record ArticuloResumenResponse(
         Long id,
         String titulo,
@@ -16,7 +21,7 @@ public record ArticuloResumenResponse(
         TipoContenido tipoContenido,
         CategoriaResponse categoria,
         String autorNombre,
-        LocalDateTime fechaPublicacion,
+        Instant fechaPublicacion,
         Integer tiempoLecturaMin
 ) {
     public static ArticuloResumenResponse desde(Articulo articulo) {
@@ -29,7 +34,7 @@ public record ArticuloResumenResponse(
                 articulo.getTipoContenido(),
                 CategoriaResponse.desde(articulo.getCategoria()),
                 articulo.getAutor().getNombre(),
-                articulo.getFechaPublicacion(),
+                FechasUtil.aInstanteUtc(articulo.getFechaPublicacion()),
                 articulo.getTiempoLecturaMin()
         );
     }

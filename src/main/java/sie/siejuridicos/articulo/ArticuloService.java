@@ -151,6 +151,11 @@ public class ArticuloService {
     }
 
     private void notificarPublicacion(Articulo publicado) {
+        // Aviso a quien sube el contenido a redes sociales (pedido explícito del usuario):
+        // independiente de si hay suscriptores del boletín o no -- se publicó de verdad, así
+        // que hay que avisar sin importar el tamaño de la lista de abajo.
+        emailService.enviarAvisoRedesSociales(publicado);
+
         List<SuscriptorMarketing> destinatarios = suscriptorMarketingRepository.findByActivoTrueOrderByFechaSuscripcionDesc();
         if (destinatarios.isEmpty()) {
             return;

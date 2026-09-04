@@ -6,11 +6,17 @@ import type { ArticuloResumen } from "@/lib/api";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
+// timeZone explícito: sin esto, toLocaleDateString usa la zona del entorno donde corre el
+// código (el navegador de quien mire la página, o el contenedor del servidor en SSR --
+// típicamente UTC), no la de Colombia. Bug real reportado por el usuario: un artículo
+// publicado de noche en Bogotá (después de las 7pm, medianoche UTC) mostraba la fecha del
+// día siguiente.
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Bogota",
   });
 }
 
