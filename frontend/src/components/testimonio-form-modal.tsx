@@ -6,6 +6,7 @@ import { Star, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { crearTestimonio, ApiError } from "@/lib/api";
 import { CampoTrampa } from "@/components/campo-trampa";
+import { CasillaConsentimiento } from "@/components/casilla-consentimiento";
 
 type Estado = "idle" | "enviando" | "enviado";
 
@@ -192,19 +193,16 @@ export function TestimonioFormModal({
                   />
                 </div>
 
-                <label className="flex items-start gap-3 text-xs leading-relaxed text-ink-soft">
-                  <input
-                    type="checkbox"
-                    checked={aceptaDatos}
-                    onChange={(e) => {
-                      setAceptaDatos(e.target.checked);
-                      setErrorDatos(false);
-                    }}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-gold-deep"
-                  />
+                <CasillaConsentimiento
+                  checked={aceptaDatos}
+                  onChange={(v) => {
+                    setAceptaDatos(v);
+                    setErrorDatos(false);
+                  }}
+                >
                   Autorizo el tratamiento de mis datos personales conforme a la política de
                   privacidad de SIE Jurídicos (Ley 1581 de 2012).
-                </label>
+                </CasillaConsentimiento>
                 {errorDatos && (
                   <p className="text-xs text-red-500">
                     Debes aceptar el tratamiento de datos para continuar.

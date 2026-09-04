@@ -216,24 +216,25 @@ export async function getFaq(): Promise<PreguntaFrecuente[]> {
   return res.json();
 }
 
-export type EtapaCaso =
-  | "RADICADO"
-  | "EN_ESTUDIO"
-  | "EN_TRAMITE"
-  | "AUDIENCIA_DILIGENCIA"
-  | "RESUELTO";
-
+// El estado real del caso se lee en vivo del Google Sheets de la firma (ver
+// HojaCalculoService en el backend), no de nuestra base de datos: estadoDisponible=false es
+// un estado normal (el radicado está registrado pero la firma aún no cargó esa fila en la
+// hoja), no un error.
 export type CasoConsulta = {
-  codigoUnico: string;
-  tipoCaso: string;
-  etapa: EtapaCaso;
-  fechaCreacion: string;
-  fechaActualizacion: string;
+  radicadoId: string;
+  estadoDisponible: boolean;
+  despachoJudicial: string | null;
+  informacionCaso: string | null;
+  tipoCaso: string | null;
+  ultimaDecision: string | null;
+  estado: string | null;
+  fechaActualizacionHoja: string | null;
+  fechaRegistro: string;
 };
 
-export async function consultarCaso(codigo: string): Promise<CasoConsulta> {
+export async function consultarCaso(radicadoId: string): Promise<CasoConsulta> {
   const res = await fetch(
-    `${API_URL}/api/casos/consulta?codigo=${encodeURIComponent(codigo)}`,
+    `${API_URL}/api/casos/consulta?codigo=${encodeURIComponent(radicadoId)}`,
   );
   if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
   return res.json();

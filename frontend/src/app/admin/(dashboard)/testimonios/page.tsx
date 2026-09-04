@@ -9,7 +9,7 @@ import {
   type TestimonioAdmin,
   type EstadoTestimonio,
 } from "@/lib/admin-api";
-import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string) {
@@ -83,7 +83,7 @@ export default function TestimoniosAdminPage() {
       </div>
 
       {filtrados === null ? (
-        <p className="mt-6 text-sm text-ink-soft">Cargando...</p>
+        <AdminLoader />
       ) : filtrados.length === 0 ? (
         <EmptyState title="No hay testimonios en esta categoría" />
       ) : (

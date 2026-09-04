@@ -12,6 +12,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -53,6 +54,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Todo lo que sirve este backend vive bajo /api/** (el sitio público y el panel
+                // los sirve Next.js aparte) -- pedido explícito del usuario de que ninguna URL
+                // del sistema quede indexable: esta cabecera evita que un buscador guarde en su
+                // índice una respuesta de la API aunque llegara a rastrearla por error. Los
+                // headers por defecto de Spring Security (X-Content-Type-Options, X-Frame-Options,
+                // Cache-Control en rutas sensibles) se mantienen activos, esto solo agrega uno más.
+                .headers(headers -> headers.addHeaderWriter(
+                        new StaticHeadersWriter("X-Robots-Tag", "noindex, nofollow, noarchive")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/salud").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
@@ -66,6 +75,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/faq").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/casos/consulta").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/analitica/visita").permitAll()
+                        // Webhook de Meta (WhatsApp Cloud API): necesariamente público (Meta lo
+                        // llama directo, sin JWT), protegido en su lugar por la verificación de
+                        // firma HMAC del propio controlador (ver WhatsAppWebhookController).
+                        .requestMatchers("/api/whatsapp/webhook").permitAll()
                         .requestMatchers("/api/admin/usuarios/**").hasRole("ADMIN_GENERAL")
                         // Testimonios, marketing y boletines quedan fuera del alcance del rol
                         // ABOGADO (pedido explícito: "que se queden más como abogados y ya", el
@@ -76,6 +89,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/testimonios/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/marketing/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/boletines/**").hasRole("ADMIN_GENERAL")
+                        .requestMatchers("/api/admin/registro-sistema/**").hasRole("ADMIN_GENERAL")
+                        // Cobros Pendientes: pedido explícito del usuario, solo visible/accesible
+                        // para el administrador general, ABOGADO pierde el acceso por completo.
+                        .requestMatchers("/api/admin/cobros/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN_GENERAL", "ABOGADO")
                         .anyRequest().authenticated()
                 )

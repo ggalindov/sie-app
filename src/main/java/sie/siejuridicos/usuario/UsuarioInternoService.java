@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.common.exception.ConflictoNegocioException;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
+import sie.siejuridicos.registro.RegistroSistemaService;
+import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.usuario.dto.CrearUsuarioRequest;
 import sie.siejuridicos.usuario.dto.UsuarioResponse;
 
@@ -15,10 +17,14 @@ public class UsuarioInternoService {
 
     private final UsuarioInternoRepository usuarioInternoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RegistroSistemaService registroSistemaService;
 
-    public UsuarioInternoService(UsuarioInternoRepository usuarioInternoRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioInternoService(UsuarioInternoRepository usuarioInternoRepository,
+                                  PasswordEncoder passwordEncoder,
+                                  RegistroSistemaService registroSistemaService) {
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.passwordEncoder = passwordEncoder;
+        this.registroSistemaService = registroSistemaService;
     }
 
     @Transactional
@@ -34,7 +40,10 @@ public class UsuarioInternoService {
         usuario.setRol(RolUsuario.ABOGADO);
         usuario.setActivo(true);
 
-        return UsuarioResponse.desde(usuarioInternoRepository.save(usuario));
+        UsuarioResponse creado = UsuarioResponse.desde(usuarioInternoRepository.save(usuario));
+        registroSistemaService.registrar(TipoRegistroSistema.USUARIO_CREADO,
+                "Usuario creado: " + creado.correo() + " (ABOGADO)", true);
+        return creado;
     }
 
     public List<UsuarioResponse> listar() {
@@ -49,6 +58,9 @@ public class UsuarioInternoService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe el usuario con id " + id));
 
         usuario.setActivo(activo);
-        return UsuarioResponse.desde(usuarioInternoRepository.save(usuario));
+        UsuarioResponse actualizado = UsuarioResponse.desde(usuarioInternoRepository.save(usuario));
+        registroSistemaService.registrar(TipoRegistroSistema.USUARIO_ACTIVO_CAMBIADO,
+                (activo ? "Cuenta activada: " : "Cuenta desactivada: ") + actualizado.correo(), true);
+        return actualizado;
     }
 }

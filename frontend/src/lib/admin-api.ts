@@ -382,20 +382,44 @@ export function moderarFaq(id: number, nuevoEstado: EstadoPreguntaFrecuente, res
 }
 
 // ---------- Casos ----------
+// El panel ya no depende de cargar cada caso a mano: sincronizarCasos() trae/actualiza todo
+// desde las TRES hojas de seguimiento de la firma (Judiciales, Superintendencia, Procesos
+// Comisaría -- cada una con su propia estructura de columnas, ver HojaCalculoService en el
+// backend). crearCaso() se mantiene solo como respaldo manual (fuente "MANUAL"). El estado
+// real del caso se lee en vivo de la hoja correspondiente, no se gestiona desde aquí.
 
-export type EtapaCaso = "RADICADO" | "EN_ESTUDIO" | "EN_TRAMITE" | "AUDIENCIA_DILIGENCIA" | "RESUELTO";
+export type FuenteCaso = "JUDICIALES" | "SUPERINTENDENCIA" | "PROCESOS_COMISARIA" | "MANUAL";
 
 export type CasoAdmin = {
   id: number;
+  fuente: FuenteCaso;
+  fuenteVisible: string;
+  numeroCaso: string | null;
   nombreCliente: string;
-  correoCliente: string;
+  correoCliente: string | null;
   telefonoCliente: string | null;
-  categoriaNombre: string;
-  codigoUnico: string;
-  etapa: EtapaCaso;
+  radicadoId: string | null;
+  correoEnviado: boolean;
+  whatsappEnviado: boolean;
   notasInternas: string | null;
   fechaCreacion: string;
-  fechaActualizacion: string;
+};
+
+export type ResumenSincronizacionCasos = {
+  filasLeidasEnHoja: number;
+  casosNuevos: number;
+  casosActualizados: number;
+  casosEliminados: number;
+  filasSinCorreo: number;
+  radicadosDuplicados: number;
+  fuentesConError: string[];
+};
+
+export type ResumenEnvioCorreosCasos = {
+  correosEnviados: number;
+  correosFallidos: number;
+  whatsappEnviados: number;
+  whatsappFallidos: number;
 };
 
 export function listarCasos(): Promise<CasoAdmin[]> {
@@ -406,7 +430,7 @@ export function crearCaso(input: {
   nombreCliente: string;
   correoCliente: string;
   telefonoCliente?: string;
-  idCategoria: number;
+  radicadoId: string;
   notasInternas?: string;
 }): Promise<CasoAdmin> {
   return pedido<CasoAdmin>("/api/admin/casos", {
@@ -415,9 +439,106 @@ export function crearCaso(input: {
   });
 }
 
-export function actualizarEtapaCaso(id: number, nuevaEtapa: EtapaCaso): Promise<CasoAdmin> {
-  return pedido<CasoAdmin>(`/api/admin/casos/${id}/etapa`, {
-    method: "PATCH",
-    body: JSON.stringify({ nuevaEtapa }),
-  });
+export function sincronizarCasos(): Promise<ResumenSincronizacionCasos> {
+  return pedido<ResumenSincronizacionCasos>("/api/admin/casos/sincronizar", { method: "POST" });
+}
+
+export function enviarCorreosPendientesCasos(): Promise<ResumenEnvioCorreosCasos> {
+  return pedido<ResumenEnvioCorreosCasos>("/api/admin/casos/enviar-pendientes", { method: "POST" });
+}
+
+// ---------- Cobros Pendientes ----------
+// Igual que Casos: el panel no carga clientes a mano, sincronizarCobros() trae/actualiza todo
+// desde las dos pestañas del Google Sheets de cobros (Empresas, Personas Naturales) y elimina
+// del sistema los que ya no estén en la hoja (ver CobroService en el backend).
+
+export type TipoClienteCobro = "EMPRESA" | "PERSONA_NATURAL";
+
+export type ClienteCobro = {
+  id: number;
+  tipo: TipoClienteCobro;
+  tipoVisible: string;
+  numeroFila: string;
+  nombre: string;
+  correo: string | null;
+  telefono: string | null;
+  cedulaNit: string | null;
+  honorarios: string | null;
+  pagoEsteMes: boolean | null;
+  respondioMensaje: string | null;
+  fechaUltimoRecordatorio: string | null;
+  fechaCreacion: string;
+};
+
+export type ResumenSincronizacionCobros = {
+  filasLeidasEnHoja: number;
+  clientesNuevos: number;
+  clientesActualizados: number;
+  clientesEliminados: number;
+};
+
+export type ResumenEnvioRecordatoriosCobros = {
+  correosEnviados: number;
+  correosFallidos: number;
+  whatsappEnviados: number;
+  whatsappFallidos: number;
+  clientesSinCosto: number;
+};
+
+export function listarCobros(): Promise<ClienteCobro[]> {
+  return pedido<ClienteCobro[]>("/api/admin/cobros");
+}
+
+export function sincronizarCobros(): Promise<ResumenSincronizacionCobros> {
+  return pedido<ResumenSincronizacionCobros>("/api/admin/cobros/sincronizar", { method: "POST" });
+}
+
+export function enviarRecordatoriosCobros(): Promise<ResumenEnvioRecordatoriosCobros> {
+  return pedido<ResumenEnvioRecordatoriosCobros>("/api/admin/cobros/enviar-recordatorios", { method: "POST" });
+}
+
+// ---------- Registro del Sistema ----------
+// Bitácora de procesos que el sistema ejecuta por su cuenta o que el admin dispara desde el
+// panel (sincronizaciones, envíos masivos, recordatorios programados, boletines) -- solo
+// ADMIN_GENERAL, ver SecurityConfig en el backend.
+
+export type TipoRegistroSistema =
+  | "SINCRONIZACION_CASOS"
+  | "ENVIO_NOTIFICACIONES_CASOS"
+  | "SINCRONIZACION_COBROS"
+  | "ENVIO_RECORDATORIOS_COBROS"
+  | "RECORDATORIO_CITA"
+  | "BOLETIN_ENVIADO"
+  | "INICIO_SESION"
+  | "USUARIO_CREADO"
+  | "USUARIO_ACTIVO_CAMBIADO";
+
+export type RegistroSistemaItem = {
+  id: number;
+  tipo: TipoRegistroSistema;
+  tipoVisible: string;
+  descripcion: string;
+  detalle: string | null;
+  exitoso: boolean;
+  fechaHora: string;
+};
+
+export type PaginaRegistroSistema = {
+  content: RegistroSistemaItem[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export function listarRegistroSistema(opciones: {
+  tipo?: TipoRegistroSistema;
+  pagina?: number;
+  tamano?: number;
+}): Promise<PaginaRegistroSistema> {
+  const parametros = new URLSearchParams();
+  if (opciones.tipo) parametros.set("tipo", opciones.tipo);
+  parametros.set("pagina", String(opciones.pagina ?? 0));
+  parametros.set("tamano", String(opciones.tamano ?? 30));
+  return pedido<PaginaRegistroSistema>(`/api/admin/registro-sistema?${parametros.toString()}`);
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Manrope } from "next/font/google";
-import Script from "next/script";
 import { MotionConfig } from "motion/react";
 import { Toaster } from "sonner";
 import { SiteChrome } from "@/components/site-chrome";
@@ -94,6 +93,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="es"
       data-scroll-behavior="smooth"
+      // Modo oscuro fijo (pedido explícito del usuario: se quitó por completo el
+      // interruptor de tema, ver theme-toggle.tsx ya eliminado). Antes esto lo decidía un
+      // script inline leyendo localStorage/prefers-color-scheme antes de la primera
+      // pintura, para no parpadear; ahora, al no haber ninguna preferencia que leer, el
+      // valor va fijo aquí mismo -- sin script, sin parpadeo posible.
+      data-theme="dark"
       suppressHydrationWarning
       className={`${playfair.variable} ${manrope.variable} h-full antialiased`}
     >
@@ -103,14 +108,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           // eslint-disable-next-line react/no-danger -- JSON.stringify de un objeto propio, no de entrada de usuario
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {/* Oscuro por defecto (pedido explícito): antes, sin preferencia guardada, se
-            seguía el prefers-color-scheme del sistema operativo del visitante. Ahora el
-            único caso que cae a claro es que la persona ya haya elegido "light" a mano
-            con el interruptor de tema (queda en localStorage) -- ya no importa el tema
-            del sistema operativo. */}
-        <Script id="theme-init" strategy="beforeInteractive">
-          {"(function(){try{var s=localStorage.getItem('sie-theme');var d=s!=='light';document.documentElement.setAttribute('data-theme', d?'dark':'light');}catch(e){}})();"}
-        </Script>
         <MotionConfig reducedMotion="user">
           <SiteChrome>{children}</SiteChrome>
           <Toaster position="bottom-right" richColors />

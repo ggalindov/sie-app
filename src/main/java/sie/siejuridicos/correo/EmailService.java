@@ -20,8 +20,10 @@ import sie.siejuridicos.solicitud.Solicitud;
 import java.io.UnsupportedEncodingException;
 import java.time.Year;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 // Cada método es @Async y atrapa sus propios errores: el envío de correo es un efecto
 // secundario, nunca debe hacer fallar la operación principal (crear solicitud, agendar
@@ -298,35 +300,95 @@ public class EmailService {
     }
 
     // Se envía una sola vez, al crear el caso desde el panel (ver CasoService.crear). Es la
-    // única forma en que el cliente recibe su código: no hay cuenta ni login, solo esta
-    // consulta por código en /consulta-caso.
+    // única forma en que el cliente recibe su radicado: no hay cuenta ni login, solo esta
+    // consulta por radicado en /consulta-caso. El estado real se lee en vivo del Google
+    // Sheets de la firma (ver HojaCalculoService), por eso el correo ya no menciona un "tipo
+    // de caso": ese dato ahora vive en la hoja, no se captura al registrar el caso.
     @Async
-    public void enviarCodigoCaso(String nombreCliente, String correo, String codigoUnico, String tipoCaso) {
+    public void enviarCodigoCaso(String nombreCliente, String correo, String radicadoId) {
+        enviarCodigoCasoSincrono(nombreCliente, correo, radicadoId);
+    }
+
+    // Variante síncrona (devuelve si de verdad se envió) para el envío masivo controlado de
+    // CasoService.enviarCorreosPendientes(): ese método necesita saber el resultado real de
+    // cada envío -- uno por uno, con una pausa entre cada uno -- para no marcar como
+    // "notificado" a alguien que en realidad nunca recibió nada, y para no disparar todos los
+    // correos en paralelo (eso fue justo lo que hizo que Gmail bloqueara la cuenta a mitad de
+    // un envío masivo real). La versión @Async de arriba sigue existiendo para el único caso
+    // que la necesita como "dispara y olvida": crear un caso manual desde el panel, un envío
+    // aislado que no debe bloquear la respuesta HTTP.
+    public boolean enviarCodigoCasoSincrono(String nombreCliente, String correo, String radicadoId) {
+        // Última barrera antes de mandar nada, sin importar quién llame este método: jamás se
+        // envía un correo de "tu radicado es..." sin un radicado real (CasoService ya filtra
+        // esto antes de llegar aquí, pero un correo con un radicado vacío/roto sería peor que
+        // no mandarlo -- confundiría al cliente).
+        if (radicadoId == null || radicadoId.isBlank()) {
+            log.warn("Se intentó enviar el correo de radicado sin un radicado real -- se canceló el envío.");
+            return false;
+        }
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
-                <p style="margin:0 0 16px;">Registramos tu caso de <strong>%s</strong> en %s. Puedes
-                consultar el estado de tu proceso en cualquier momento, sin necesidad de crear una cuenta,
-                con este código:</p>
+                <p style="margin:0 0 16px;">Registramos tu caso en %s. Puedes consultar el estado de tu
+                proceso en cualquier momento, sin necesidad de crear una cuenta, con tu número de
+                radicado:</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
                 <tr><td align="center" style="background-color:#F7F4EC;border:1px dashed %s;padding:16px;">
                 <span style="font-size:24px;font-weight:bold;letter-spacing:3px;color:%s;font-family:Arial,Helvetica,sans-serif;">%s</span>
                 </td></tr>
                 </table>
-                <p style="margin:0 0 8px;">Ingresa el código en
-                <a href="%s/consulta-caso" style="color:%s;">%s/consulta-caso</a> para ver en qué etapa va
-                tu proceso.</p>
-                <p style="margin:0 0 20px;">Guarda este código en un lugar seguro: lo necesitarás para
+                <p style="margin:0 0 8px;">Ingresa tu radicado en
+                <a href="%s/consulta-caso" style="color:%s;">%s/consulta-caso</a> para ver el estado
+                actual de tu proceso.</p>
+                <p style="margin:0 0 20px;">Guarda este radicado en un lugar seguro: lo necesitarás para
                 futuras consultas.</p>
                 %s
                 """.formatted(
                 escaparHtml(nombreCliente),
-                escaparHtml(tipoCaso),
                 nombreFirma,
-                COLOR_DORADO, COLOR_TEXTO, escaparHtml(codigoUnico),
+                COLOR_DORADO, COLOR_TEXTO, escaparHtml(radicadoId),
                 sitioWeb, COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
-        enviarHtml(correo, "Tu código de consulta de caso - " + nombreFirma, cuerpo);
+        return enviarHtml(correo, "Tu número de radicado para consultar tu caso - " + nombreFirma, cuerpo, false);
+    }
+
+    // Recordatorio mensual de cobro (ver cobro.CobroService.enviarRecordatorios(), disparado
+    // el día 1 de cada mes o manualmente desde el panel). "Tipo tirilla": destaca el monto
+    // como el correo de radicado destaca el código, y a propósito reafirma que el caso sigue
+    // activo -- pedido explícito del usuario: "indicandoles que su proceso sigue siendo
+    // trabajado por SIE".
+    @Async
+    public void enviarTirillaCobro(String nombreCliente, String correo, String honorariosTexto) {
+        enviarTirillaCobroSincrono(nombreCliente, correo, honorariosTexto);
+    }
+
+    // Variante síncrona (devuelve si de verdad se envió), misma razón que
+    // enviarCodigoCasoSincrono(): la usa el envío masivo controlado de
+    // CobroService.enviarRecordatorios(), uno por uno con pausa entre cada uno.
+    public boolean enviarTirillaCobroSincrono(String nombreCliente, String correo, String honorariosTexto) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Te recordamos el valor pendiente correspondiente a los
+                honorarios de tu proceso con %s este mes:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td align="center" style="background-color:#F7F4EC;border:1px dashed %s;padding:16px;">
+                <span style="font-size:26px;font-weight:bold;color:%s;font-family:Arial,Helvetica,sans-serif;">%s</span>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 16px;">Queremos que sepas que seguimos trabajando activamente en tu
+                proceso: nuestro equipo continúa haciéndole seguimiento con el mismo compromiso de
+                siempre.</p>
+                <p style="margin:0 0 20px;">Si ya realizaste este pago o tienes alguna duda al respecto,
+                por favor contáctanos respondiendo este correo%s.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreCliente),
+                nombreFirma,
+                COLOR_DORADO, COLOR_TEXTO, escaparHtml(honorariosTexto),
+                whatsappUrl.isBlank() ? "" : " o escribiéndonos por WhatsApp",
+                firmaCierre()
+        );
+        return enviarHtml(correo, "Recordatorio de pago pendiente - " + nombreFirma, cuerpo, false);
     }
 
     private String firmaCierre() {
@@ -431,6 +493,22 @@ public class EmailService {
         enviarHtml(destinatario, asunto, cuerpoHtml, false);
     }
 
+    // Bug real encontrado con datos reales: varias celdas de correo en las hojas de la firma
+    // traen más de un destinatario separado por ";" (ej. "a@x.com; b@y.com") -- eso es texto
+    // libre de una hoja de cálculo, no una dirección RFC 5322 válida. Pasárselo tal cual a
+    // MimeMessageHelper.setTo(String) revienta con "Illegal semicolon, not in group" y el
+    // correo nunca sale (confirmado: 41 de 89 fallos de un envío real fueron por esto). Se
+    // separa por ";" o "," y cada trozo se manda como un destinatario propio de la lista "to"
+    // -- todos reciben el mismo correo, como cabría esperar de una celda con varios contactos.
+    private static final Pattern SEPARADOR_CORREOS = Pattern.compile("[;,]");
+
+    private static String[] separarCorreos(String correoCrudo) {
+        return Arrays.stream(SEPARADOR_CORREOS.split(correoCrudo))
+                .map(String::strip)
+                .filter(s -> !s.isBlank() && s.contains("@"))
+                .toArray(String[]::new);
+    }
+
     // esBoletin=true agrega la cabecera List-Unsubscribe: Gmail y otros proveedores
     // aplican reglas de "remitente masivo" a cualquier correo con apariencia de boletín
     // (HTML con plantilla repetida, mismo remitente, múltiples destinatarios similares) y
@@ -438,7 +516,17 @@ public class EmailService {
     // de verdad son boletín/novedades (enviarBoletin, enviarNotificacionPublicacion,
     // enviarBienvenidaBoletin): un correo transaccional 1:1 (confirmación de solicitud,
     // de cita, código de caso) no la necesita y no se beneficia de ella.
-    private void enviarHtml(String destinatario, String asunto, String cuerpoHtml, boolean esBoletin) {
+    //
+    // Devuelve si el correo se le entregó de verdad al servidor SMTP del destinatario (lo más
+    // cerca de "llegó" que se puede confirmar sin un proveedor con webhooks de entrega tipo
+    // SES/SendGrid): antes este método no devolvía nada y quien llamaba marcaba "enviado" con
+    // solo haberlo intentado, sin saber si en realidad había fallado.
+    private boolean enviarHtml(String destinatario, String asunto, String cuerpoHtml, boolean esBoletin) {
+        String[] destinatarios = separarCorreos(destinatario);
+        if (destinatarios.length == 0) {
+            log.warn("No se pudo enviar el correo '{}': '{}' no tiene ninguna dirección válida.", asunto, destinatario);
+            return false;
+        }
         try {
             MimeMessage mensaje = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mensaje, MimeMessageHelper.MULTIPART_MODE_RELATED, "UTF-8");
@@ -448,7 +536,7 @@ public class EmailService {
             // sí (se detectó que esa cuenta tenía el nombre guardado con una codificación
             // rota, mostrando "SIE JURÃ­DICOS" en la bandeja del destinatario).
             helper.setFrom(remitente, nombreFirma);
-            helper.setTo(destinatario);
+            helper.setTo(destinatarios);
             // Un remitente coherente entre "From" y "Reply-To" (misma cuenta ya usada
             // para las notificaciones al admin) es una señal más de legitimidad para los
             // filtros de spam, además de ser simplemente lo correcto: si alguien responde,
@@ -462,8 +550,10 @@ public class EmailService {
                 mensaje.addHeader("List-Unsubscribe", "<mailto:" + correoAdmin + "?subject=Baja%20del%20bolet%C3%ADn>");
             }
             mailSender.send(mensaje);
+            return true;
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.warn("No se pudo enviar el correo '{}' a {}: {}", asunto, destinatario, ex.getMessage());
+            return false;
         }
     }
 

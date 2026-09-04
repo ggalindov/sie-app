@@ -29,11 +29,18 @@ const ENLACES = [
 export function HelpMenu({
   className,
   align = "right",
+  direction = "down",
   onNavigate,
   size = 36,
 }: {
   className?: string;
   align?: "left" | "right";
+  // "up" para el uso dentro del menú móvil (site-nav.tsx): ese botón vive cerca del
+  // borde inferior del overlay a pantalla completa, así que el panel abriendo hacia
+  // ABAJO (el comportamiento por defecto, pensado para el nav de escritorio donde el
+  // botón está arriba de todo) se salía del viewport y quedaba cortado -- bug real
+  // reportado: "al abrirlo no se visualiza correctamente" en móvil.
+  direction?: "up" | "down";
   // El menú móvil (overlay a pantalla completa) que envuelve este componente
   // en site-nav.tsx tiene su propio estado "open" separado del de este
   // dropdown: sin este callback, al navegar desde aquí solo se cerraba el
@@ -79,12 +86,16 @@ export function HelpMenu({
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            initial={{ opacity: 0, y: direction === "up" ? 6 : -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            exit={{ opacity: 0, y: direction === "up" ? 6 : -6, scale: 0.97 }}
             transition={{ duration: 0.22, ease: EASE }}
-            style={{ transformOrigin: align === "right" ? "top right" : "top left" }}
-            className={`absolute top-full z-50 mt-3 w-72 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl bg-surface p-1.5 text-left shadow-[0_20px_45px_-15px_rgba(28,26,22,0.35)] ring-1 ring-line ${align === "right" ? "right-0" : "left-0"}`}
+            style={{
+              transformOrigin: `${direction === "up" ? "bottom" : "top"} ${align === "right" ? "right" : "left"}`,
+            }}
+            className={`absolute z-50 w-72 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl bg-surface p-1.5 text-left shadow-[0_20px_45px_-15px_rgba(28,26,22,0.35)] ring-1 ring-line ${
+              direction === "up" ? "bottom-full mb-3" : "top-full mt-3"
+            } ${align === "right" ? "right-0" : "left-0"}`}
           >
             {ENLACES.map(({ href, label, hint, icon: Icon }) => (
               <Link

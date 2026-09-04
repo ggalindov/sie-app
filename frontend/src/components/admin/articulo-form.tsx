@@ -194,8 +194,8 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
           placeholder="https://ejemplo.com/imagen.jpg"
         />
         <p className="text-xs text-ink-soft">
-          Es la foto de referencia del artículo: se ve en la miniatura del blog, no se
-          inserta en el contenido.
+          Se ve en la miniatura del listado del blog y también como imagen destacada arriba
+          del contenido, dentro del artículo.
         </p>
         {imagenUrl.trim() && (
           <ImagenPreview url={imagenUrl.trim()} />

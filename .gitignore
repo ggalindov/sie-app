@@ -9,6 +9,10 @@ run.local.bat
 backend-run.log
 backend_run.log
 
+# Llave de la cuenta de servicio de Google (Google Sheets de casos, ver HojaCalculoService):
+# jamás debe terminar en el repo.
+secrets/
+
 ### STS ###
 .apt_generated
 .classpath

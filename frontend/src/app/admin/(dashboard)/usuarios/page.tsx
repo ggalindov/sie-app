@@ -12,7 +12,7 @@ import {
   type UsuarioInterno,
 } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
-import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { PasswordInput } from "@/components/admin/password-input";
 
 function formatearFecha(iso: string) {
@@ -65,7 +65,7 @@ export default function UsuariosPage() {
       />
 
       {usuarios === null ? (
-        <p className="text-sm text-ink-soft">Cargando...</p>
+        <AdminLoader />
       ) : (
         <div className="space-y-3">
           {usuarios.map((u) => (

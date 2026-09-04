@@ -6,5 +6,8 @@ import java.util.Optional;
 
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
-    Optional<Cliente> findByCorreo(String correo);
+    // Por el índice ciego (HMAC), no por el correo cifrado en sí (ver Cliente.correoHash):
+    // "correo" ya no es comparable por igualdad directamente en SQL una vez cifrado con IV
+    // aleatorio.
+    Optional<Cliente> findByCorreoHash(String correoHash);
 }

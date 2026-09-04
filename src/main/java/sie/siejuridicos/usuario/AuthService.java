@@ -8,6 +8,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
+import sie.siejuridicos.registro.RegistroSistemaService;
+import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.security.JwtService;
 import sie.siejuridicos.security.LoginAttemptService;
 import sie.siejuridicos.usuario.dto.CambiarContrasenaRequest;
@@ -34,15 +36,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
+    private final RegistroSistemaService registroSistemaService;
 
     public AuthService(UsuarioInternoRepository usuarioInternoRepository,
                         PasswordEncoder passwordEncoder,
                         JwtService jwtService,
-                        LoginAttemptService loginAttemptService) {
+                        LoginAttemptService loginAttemptService,
+                        RegistroSistemaService registroSistemaService) {
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
+        this.registroSistemaService = registroSistemaService;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -56,6 +61,10 @@ public class AuthService {
             log.warn("Intento de acceso fallido: no existe el correo {}", request.correo());
             passwordEncoder.matches(request.contrasena(), HASH_RELLENO);
             loginAttemptService.registrarFallo(request.correo());
+            // Solo se registra el correo intentado, nunca la contraseña -- ver CLAUDE.md
+            // sección de seguridad y la restricción explícita del usuario sobre este punto.
+            registroSistemaService.registrar(TipoRegistroSistema.INICIO_SESION,
+                    "Intento de acceso fallido (correo no registrado): " + request.correo(), false);
             throw new BadCredentialsException(CREDENCIALES_INVALIDAS);
         }
         UsuarioInterno usuario = usuarioOpt.get();
@@ -63,6 +72,8 @@ public class AuthService {
         if (!passwordEncoder.matches(request.contrasena(), usuario.getContrasena())) {
             log.warn("Intento de acceso fallido: contraseña incorrecta para {}", request.correo());
             loginAttemptService.registrarFallo(request.correo());
+            registroSistemaService.registrar(TipoRegistroSistema.INICIO_SESION,
+                    "Intento de acceso fallido (contraseña incorrecta): " + request.correo(), false);
             throw new BadCredentialsException(CREDENCIALES_INVALIDAS);
         }
 
@@ -72,10 +83,14 @@ public class AuthService {
         // una cuenta que resulta estar inactiva.
         if (!usuario.isActivo()) {
             log.warn("Intento de acceso a cuenta desactivada: {}", request.correo());
+            registroSistemaService.registrar(TipoRegistroSistema.INICIO_SESION,
+                    "Intento de acceso a cuenta desactivada: " + request.correo(), false);
             throw new DisabledException("Esta cuenta se encuentra desactivada. Contacte al administrador general");
         }
 
         loginAttemptService.registrarExito(request.correo());
+        registroSistemaService.registrar(TipoRegistroSistema.INICIO_SESION,
+                "Inicio de sesión exitoso: " + usuario.getCorreo() + " (" + usuario.getRol() + ")", true);
         String token = jwtService.generarToken(usuario);
         return new LoginResponse(token, usuario.getNombre(), usuario.getCorreo(), usuario.getRol(), jwtService.getExpirationMs());
     }

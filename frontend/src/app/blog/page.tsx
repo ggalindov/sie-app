@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MagnifyingGlass } from "@phosphor-icons/react/dist/ssr";
 import { getArticulos, getCategorias, type TipoContenido } from "@/lib/api";
+import { BlogGrid } from "@/components/blog-grid";
 
 export const metadata: Metadata = {
   title: "Blog y Noticias",
@@ -14,14 +15,6 @@ const TIPOS: { valor: TipoContenido | undefined; label: string }[] = [
   { valor: "BLOG", label: "Blog" },
   { valor: "NOTICIA", label: "Noticias" },
 ];
-
-function formatearFecha(iso: string) {
-  return new Date(iso).toLocaleDateString("es-CO", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 export default async function BlogPage({
   searchParams,
@@ -142,50 +135,7 @@ export default async function BlogPage({
               : "No encontramos artículos con esos filtros."}
           </p>
         ) : (
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {articulos.map((articulo) => (
-              <Link
-                key={articulo.slug}
-                href={`/blog/${articulo.slug}`}
-                className="group flex flex-col overflow-hidden rounded-3xl bg-surface ring-1 ring-line"
-              >
-                <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-night">
-                  {articulo.imagenUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- enlace externo arbitrario pegado por el admin
-                    <img
-                      src={articulo.imagenUrl}
-                      alt={articulo.titulo}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <span className="font-display text-2xl text-gold/40">
-                      {articulo.categoria.nombre}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col p-6">
-                  <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.1em] text-gold-deep">
-                    {articulo.categoria.nombre}
-                    {articulo.tipoContenido === "NOTICIA" && (
-                      <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] text-gold-deep">
-                        Noticia
-                      </span>
-                    )}
-                  </p>
-                  <h2 className="mt-2 font-display text-lg leading-snug">
-                    {articulo.titulo}
-                  </h2>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
-                    {articulo.resumen}
-                  </p>
-                  <p className="mt-4 text-xs text-ink-soft">
-                    {formatearFecha(articulo.fechaPublicacion)}
-                    {articulo.tiempoLecturaMin && ` · ${articulo.tiempoLecturaMin} min`}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <BlogGrid articulos={articulos} />
         )}
       </div>
     </main>

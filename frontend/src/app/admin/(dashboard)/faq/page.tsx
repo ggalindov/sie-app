@@ -8,7 +8,7 @@ import {
   ApiError,
   type PreguntaFrecuenteAdmin,
 } from "@/lib/admin-api";
-import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -79,7 +79,7 @@ export default function FaqAdminPage() {
       />
 
       {preguntas === null ? (
-        <p className="text-sm text-ink-soft">Cargando...</p>
+        <AdminLoader />
       ) : preguntas.length === 0 ? (
         <EmptyState
           title="No hay candidatas por ahora"

@@ -17,6 +17,8 @@ import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
+import sie.siejuridicos.registro.RegistroSistemaService;
+import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
 
 import java.text.Normalizer;
@@ -36,19 +38,22 @@ public class ArticuloService {
     private final SuscriptorMarketingRepository suscriptorMarketingRepository;
     private final BoletinEnviadoRepository boletinEnviadoRepository;
     private final EmailService emailService;
+    private final RegistroSistemaService registroSistemaService;
 
     public ArticuloService(ArticuloRepository articuloRepository,
                             CategoriaRepository categoriaRepository,
                             UsuarioInternoRepository usuarioInternoRepository,
                             SuscriptorMarketingRepository suscriptorMarketingRepository,
                             BoletinEnviadoRepository boletinEnviadoRepository,
-                            EmailService emailService) {
+                            EmailService emailService,
+                            RegistroSistemaService registroSistemaService) {
         this.articuloRepository = articuloRepository;
         this.categoriaRepository = categoriaRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.suscriptorMarketingRepository = suscriptorMarketingRepository;
         this.boletinEnviadoRepository = boletinEnviadoRepository;
         this.emailService = emailService;
+        this.registroSistemaService = registroSistemaService;
     }
 
     @Transactional(readOnly = true)
@@ -156,6 +161,11 @@ public class ArticuloService {
         registro.setCantidadPublicaciones(1);
         registro.setCantidadDestinatarios(destinatarios.size());
         boletinEnviadoRepository.save(registro);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.BOLETIN_ENVIADO,
+                "Publicación '%s' notificada a %d suscriptor(es)".formatted(publicado.getTitulo(), destinatarios.size()),
+                true);
     }
 
     @Transactional

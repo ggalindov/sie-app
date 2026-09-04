@@ -38,6 +38,15 @@ MAIL_FROM=$(pedir "Correo remitente" "${MAIL_USERNAME:-siejuridicos@gmail.com}")
 MAIL_ADMIN=$(pedir "Correo que recibe las notificaciones internas" "${MAIL_USERNAME:-siejuridicos@gmail.com}")
 ANTHROPIC_API_KEY=$(pedir "API key de Anthropic para el chatbot (deja vacío para configurarla después)")
 FIRMA_WHATSAPP_URL=$(pedir "Enlace de WhatsApp (wa.me/... o wa.link/...)")
+GOOGLE_SHEETS_ID=$(pedir "ID del Google Sheets de casos (deja vacío para configurarlo después, ver DEPLOY.md)")
+WHATSAPP_ACCESS_TOKEN=$(pedir "Token permanente de WhatsApp Cloud API (deja vacío para configurarlo después, ver DEPLOY.md sección 2.2)")
+WHATSAPP_PHONE_NUMBER_ID=$(pedir "Phone Number ID de WhatsApp Cloud API (deja vacío si no lo tienes aún)")
+WHATSAPP_TEMPLATE_NAME=$(pedir "Nombre de la plantilla de WhatsApp ya aprobada por Meta" "notificacion_radicado")
+GOOGLE_SHEETS_COBROS_ID=$(pedir "ID del Google Sheets de Cobros Pendientes (deja vacío para configurarlo después, ver DEPLOY.md)")
+WHATSAPP_TEMPLATE_COBRO_NAME=$(pedir "Nombre de la plantilla de recordatorio de cobro ya aprobada por Meta" "recordatorio_cobro")
+WHATSAPP_APP_SECRET=$(pedir "App Secret de la app de Meta (Configuración básica en Meta Business Manager, deja vacío para configurarlo después)")
+WHATSAPP_TEMPLATE_SOLICITUD_NAME=$(pedir "Nombre de la plantilla de aviso interno de nueva solicitud ya aprobada por Meta" "nueva_solicitud")
+WHATSAPP_ADMIN_NUMERO=$(pedir "Número de WhatsApp interno que recibe el aviso de cada nueva solicitud" "+573124781583")
 
 # Contraseñas/secretos generados de verdad, nunca placeholders que alguien tenga que
 # acordarse de cambiar. 48 bytes en base64 da de sobra los 256 bits mínimos que exige
@@ -46,6 +55,13 @@ FIRMA_WHATSAPP_URL=$(pedir "Enlace de WhatsApp (wa.me/... o wa.link/...)")
 DB_PASSWORD=$(openssl rand -base64 24)
 JWT_SECRET=$(openssl rand -base64 48)
 ADMIN_BOOTSTRAP_PASSWORD=$(openssl rand -base64 18)
+# Exactamente 32 bytes reales (256 bits) antes de codificar en Base64, no "48 bytes" como
+# arriba: CifradoService exige que decodifique a 32 bytes justos (AES-256), ni más ni menos.
+DATA_ENCRYPTION_KEY=$(openssl rand -base64 32)
+# Este token lo inventa el propio sistema (nadie tiene que memorizarlo): se registra tal
+# cual en Meta al configurar el webhook (ver DEPLOY.md), Meta simplemente lo reenvía de
+# vuelta en el handshake de verificación.
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=$(openssl rand -base64 24)
 
 cat > .env.prod << EOF
 DOMAIN=${DOMAIN}
@@ -67,6 +83,22 @@ MAIL_ADMIN=${MAIL_ADMIN}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 
 FIRMA_WHATSAPP_URL=${FIRMA_WHATSAPP_URL}
+
+GOOGLE_SHEETS_ID=${GOOGLE_SHEETS_ID}
+
+DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
+
+WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+WHATSAPP_TEMPLATE_NAME=${WHATSAPP_TEMPLATE_NAME}
+
+GOOGLE_SHEETS_COBROS_ID=${GOOGLE_SHEETS_COBROS_ID}
+WHATSAPP_TEMPLATE_COBRO_NAME=${WHATSAPP_TEMPLATE_COBRO_NAME}
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
+WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET}
+
+WHATSAPP_TEMPLATE_SOLICITUD_NAME=${WHATSAPP_TEMPLATE_SOLICITUD_NAME}
+WHATSAPP_ADMIN_NUMERO=${WHATSAPP_ADMIN_NUMERO}
 EOF
 
 chmod 600 .env.prod
@@ -75,6 +107,14 @@ echo
 echo "=== .env.prod generado y protegido (chmod 600) ==="
 echo "Contraseña del primer administrador (${ADMIN_BOOTSTRAP_EMAIL}): ${ADMIN_BOOTSTRAP_PASSWORD}"
 echo "Guárdala en un gestor de contraseñas ahora mismo — no vuelve a mostrarse."
+echo
+echo "IMPORTANTE: guarda también DATA_ENCRYPTION_KEY (arriba en .env.prod) en un lugar"
+echo "seguro aparte, ANTES de que el sistema guarde cualquier dato real de un cliente."
+echo "Sin esa llave exacta, los datos cifrados de clientes/casos quedan permanentemente"
+echo "indescifrables — no hay forma de \"recuperarla\" si se pierde."
+echo
+echo "Falta además colocar la llave JSON de la cuenta de servicio de Google Sheets en"
+echo "./secrets/google-sheets-service-account.json (ver DEPLOY.md, sección Google Sheets)."
 echo
 echo "Siguiente paso:"
 echo "  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build"

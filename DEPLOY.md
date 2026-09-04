@@ -68,6 +68,161 @@ el propio repositorio de ejemplo — no lo dejes así):
 grep -n "cambia-esto\|cambiar-este" .env.prod
 ```
 
+### 2.1 Google Sheets de casos (consulta de estado en `/consulta-caso`)
+
+Este módulo lee en vivo, **solo lectura**, el Google Sheets donde la firma lleva el
+seguimiento real de sus casos (ver `HojaCalculoService`). Antes del primer arranque:
+
+1. En [Google Cloud Console](https://console.cloud.google.com/), crea/selecciona un
+   proyecto y habilita "Google Sheets API".
+2. Crea una **Service Account** (IAM y administración → Cuentas de servicio), sin roles
+   especiales de proyecto.
+3. Genera una llave JSON para esa cuenta y descárgala.
+4. Colócala en el VPS en `./secrets/google-sheets-service-account.json` (misma carpeta que
+   `docker-compose.prod.yml`) y restringe sus permisos:
+   ```bash
+   mkdir -p secrets
+   chmod 600 secrets/google-sheets-service-account.json
+   ```
+   Esta ruta ya está en `.gitignore` — nunca debe subirse a git. `docker-compose.prod.yml`
+   la monta como **secreto de Docker Compose** (no como variable de entorno) dentro del
+   contenedor del backend, de solo lectura.
+5. Abre la hoja real, "Compartir" → agrega el `client_email` de esa llave JSON como
+   **Lector** (nunca Editor, nunca "cualquiera con el enlace" — la hoja sigue siendo
+   privada, solo esa cuenta de servicio puede leerla).
+6. Pon el ID de la hoja (el segmento largo de su URL, entre `/d/` y `/edit`) en
+   `GOOGLE_SHEETS_ID` dentro de `.env.prod` (el script de la sección 2 ya lo pide).
+
+Sin este setup, el sitio funciona igual (crear casos desde el panel sigue andando), pero
+`/consulta-caso` responde "servicio no disponible" en vez de mostrar el estado real.
+
+### 2.2 WhatsApp de la línea de atención (notificación del radicado)
+
+Este módulo (`WhatsAppService`) manda, además del correo, el mismo aviso del número de
+radicado por WhatsApp, usando la **API oficial de Meta (WhatsApp Cloud API)** — no la app
+normal de WhatsApp Business, que no tiene forma de conectarse por código. Sin este setup, el
+sistema sigue notificando con normalidad, solo que únicamente por correo.
+
+**Diferencia clave con el correo**: WhatsApp NO permite mandar texto libre cuando el negocio
+inicia la conversación primero (como avisarle a un cliente su radicado sin que él haya
+escrito antes) — es una regla dura de la plataforma, no una limitación de este proyecto.
+Hay que redactar una **plantilla de mensaje** y mandarla a aprobación de Meta una sola vez;
+después de aprobada, el sistema solo rellena sus variables (nombre, radicado, enlace) en
+cada envío.
+
+1. Crea (o usa) una cuenta en [Meta Business Manager](https://business.facebook.com/) para
+   la firma.
+2. Dentro de ella, activa **WhatsApp** → "Empezar a usar la API de WhatsApp Business"
+   (WhatsApp Cloud API). Sigue el asistente para verificar el número de la línea de
+   atención de SIE como número de negocio (requiere un código de verificación por SMS o
+   llamada al número real).
+   - Si ese número ya está en uso activo en la app normal de WhatsApp Business, hay que
+     migrarlo formalmente a la Cloud API desde el mismo asistente (Meta lo guía paso a
+     paso); una vez migrado, deja de poder usarse desde la app de celular para lo que
+     administre la API.
+3. En **WhatsApp → Configuración de la API**, copia:
+   - El **Phone Number ID** (identificador interno del número, no el número en sí) →
+     `WHATSAPP_PHONE_NUMBER_ID`.
+   - Un **token de acceso permanente**: genera un "System User" en Business Settings →
+     Usuarios del sistema, asígnale el activo de WhatsApp con permiso `whatsapp_business_messaging`,
+     y genera su token sin fecha de expiración desde ahí (el token temporal de 24h que
+     muestra el asistente inicial NO sirve para producción) → `WHATSAPP_ACCESS_TOKEN`.
+4. En **Administrador de WhatsApp → Plantillas de mensajes**, crea una nueva plantilla:
+   - Categoría: **Utilidad** (Utility) — es una notificación transaccional de un trámite
+     que el cliente ya inició, no publicidad.
+   - Nombre: `notificacion_radicado` (o el que prefieras, pero debe coincidir EXACTO con
+     `WHATSAPP_TEMPLATE_NAME`).
+   - Idioma: Español.
+   - Cuerpo sugerido (con las 3 variables que el sistema ya rellena, en este orden: nombre,
+     radicado, enlace):
+     ```
+     Hola {{1}}, en SIE Jurídicos registramos tu caso. Tu número de radicado es: {{2}}.
+     Consulta el estado de tu proceso en cualquier momento aquí: {{3}}
+     ```
+   - Envíala a aprobación. Meta suele responder en minutos a un par de días para plantillas
+     de categoría Utilidad.
+5. Con la plantilla ya **aprobada**, completa en `.env.prod`: `WHATSAPP_ACCESS_TOKEN`,
+   `WHATSAPP_PHONE_NUMBER_ID`, y si usaste un nombre distinto de plantilla,
+   `WHATSAPP_TEMPLATE_NAME`.
+
+Mientras la plantilla esté en revisión (o si `WHATSAPP_ACCESS_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID`
+quedan vacíos), el sistema sigue notificando solo por correo sin ningún error visible para
+el cliente ni para el admin — el botón "Enviar notificaciones pendientes" del panel deja
+esos casos con WhatsApp pendiente hasta que se configure.
+
+### 2.3 Cobros Pendientes (recordatorio mensual de pago)
+
+Este módulo (`cobro/`) sincroniza los clientes activos desde un Google Sheets **distinto**
+al de casos (dos pestañas: Empresas y Personas Naturales) y les recuerda, el día 1 de cada
+mes, el pago pendiente por correo y por WhatsApp — con dos botones de respuesta rápida
+(Sí/No) para que confirmen el pago directamente desde WhatsApp.
+
+1. **La hoja**: usa la MISMA cuenta de servicio de la sección 2.1
+   (`secrets/google-sheets-service-account.json`), pero esta vez la hoja hay que compartirla
+   con permiso de **Editor** (no Lector) — es la única escritura real que hace todo el
+   sistema: marcar la columna "RESPONDIO MENSAJE" cuando el cliente contesta. Pon el ID de
+   esta hoja (distinto al de casos) en `GOOGLE_SHEETS_COBROS_ID`.
+2. **La plantilla de WhatsApp**: en el mismo Administrador de plantillas de Meta (ver 2.2),
+   crea una plantilla NUEVA y aparte de `notificacion_radicado`:
+   - Categoría: **Utilidad**.
+   - Nombre: `recordatorio_cobro` (o el que prefieras, debe coincidir EXACTO con
+     `WHATSAPP_TEMPLATE_COBRO_NAME`).
+   - Idioma: Español.
+   - Cuerpo sugerido (2 variables: nombre, monto):
+     ```
+     Hola {{1}}, te recordamos el valor pendiente de tus honorarios con SIE Jurídicos este
+     mes: {{2}}. Seguimos trabajando activamente en tu proceso. ¿Confirmas el pago?
+     ```
+   - **Botones**: agrega dos botones de tipo "Respuesta rápida" (Quick Reply): uno con texto
+     `Sí` y otro con texto `No`. El sistema identifica la respuesta por el texto del botón
+     que el cliente presiona, no hace falta configurar nada más de tu lado para eso.
+   - Envíala a aprobación.
+3. **El webhook** (recibe la respuesta del cliente al botón): en tu app de Meta (la misma
+   usada para WhatsApp Cloud API), ve a **Configuración de la app → Básica** y copia el
+   **App Secret** → `WHATSAPP_APP_SECRET`. Luego en **WhatsApp → Configuración → Webhook**:
+   - URL de retorno de llamada: `https://<tu-dominio>/api/whatsapp/webhook`.
+   - Verify token: el mismo valor que `WHATSAPP_WEBHOOK_VERIFY_TOKEN` en tu `.env.prod`
+     (si usaste `scripts/generar-env-prod.sh`, ya se generó uno real por ti — cópialo del
+     archivo con `grep WHATSAPP_WEBHOOK_VERIFY_TOKEN .env.prod`).
+   - Suscríbete al campo **messages**.
+4. Con la plantilla ya **aprobada** y el webhook verificado, completa en `.env.prod`:
+   `GOOGLE_SHEETS_COBROS_ID`, `WHATSAPP_TEMPLATE_COBRO_NAME`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`,
+   `WHATSAPP_APP_SECRET`.
+
+Sin este setup, la sección "Cobros Pendientes" del panel responde "servicio no disponible" en
+vez de listar clientes, y el recordatorio mensual simplemente no encuentra a quién notificar
+— nada de esto afecta al resto del sistema (Casos, Solicitudes, Blog, etc. siguen igual).
+
+### 2.4 Aviso interno de nueva solicitud por WhatsApp
+
+Apenas alguien llena el formulario público de contacto, el sistema le manda un WhatsApp con
+el resumen completo (nombre, correo, teléfono, mensaje) a la línea interna de la firma
+(`WHATSAPP_ADMIN_NUMERO`, por defecto `+57 312 4781583`) — además del correo de notificación
+al admin que ya existía. Es una plantilla NUEVA y aparte de `notificacion_radicado` y
+`recordatorio_cobro`.
+
+1. En el mismo Administrador de plantillas de Meta (ver 2.2), crea una plantilla:
+   - Categoría: **Utilidad** — es una notificación interna transaccional, no publicidad.
+   - Nombre: `nueva_solicitud` (o el que prefieras, debe coincidir EXACTO con
+     `WHATSAPP_TEMPLATE_SOLICITUD_NAME`).
+   - Idioma: Español.
+   - Cuerpo sugerido (4 variables, en este orden: nombre, correo, teléfono, mensaje):
+     ```
+     Nueva solicitud en el sitio web:
+     Nombre: {{1}}
+     Correo: {{2}}
+     Teléfono: {{3}}
+     Mensaje: {{4}}
+     ```
+   - Envíala a aprobación.
+2. Con la plantilla ya **aprobada**, completa en `.env.prod`: `WHATSAPP_TEMPLATE_SOLICITUD_NAME`
+   y, si la línea de atención cambia, `WHATSAPP_ADMIN_NUMERO` (formato internacional, con o
+   sin `+`).
+
+Mientras la plantilla esté en revisión, el aviso simplemente no se envía por WhatsApp (sin
+error visible para el visitante ni para el admin) — el correo de notificación al admin sigue
+llegando con normalidad.
+
 ## 3. Levantar el stack
 
 ```bash
@@ -173,3 +328,4 @@ producción.)
 | `Caddyfile` | Proxy reverso + HTTPS automático: `/api/*` → backend, todo lo demás → frontend |
 | `application-prod.properties` | Ajustes de producción del backend (logging, proxies de confianza, sin el módulo de docker-compose de desarrollo) |
 | `.env.prod` | Todas las credenciales y configuración específica de este despliegue (nunca en git) |
+| `secrets/google-sheets-service-account.json` | Llave de solo lectura al Google Sheets de casos, montada como secreto de Compose (nunca en git, ver sección 2.1) |

@@ -2,37 +2,29 @@
 
 import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
-import { MagnifyingGlass, CheckCircle, Circle, Spinner } from "@phosphor-icons/react";
-import { consultarCaso, ApiError, type CasoConsulta, type EtapaCaso } from "@/lib/api";
+import { MagnifyingGlass, Spinner, Clock, Buildings, Tag, FileText } from "@phosphor-icons/react";
+import { consultarCaso, ApiError, type CasoConsulta } from "@/lib/api";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
-
-const ETAPAS: { valor: EtapaCaso; label: string }[] = [
-  { valor: "RADICADO", label: "Radicado" },
-  { valor: "EN_ESTUDIO", label: "En estudio" },
-  { valor: "EN_TRAMITE", label: "En trámite" },
-  { valor: "AUDIENCIA_DILIGENCIA", label: "Audiencia / diligencia" },
-  { valor: "RESUELTO", label: "Resuelto" },
-];
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
 }
 
 export default function ConsultaCasoPage() {
-  const [codigo, setCodigo] = useState("");
+  const [radicado, setRadicado] = useState("");
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<CasoConsulta | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!codigo.trim()) return;
+    if (!radicado.trim()) return;
     setCargando(true);
     setError(null);
     setResultado(null);
     try {
-      const caso = await consultarCaso(codigo.trim());
+      const caso = await consultarCaso(radicado.trim());
       setResultado(caso);
     } catch (err) {
       setError(
@@ -45,8 +37,6 @@ export default function ConsultaCasoPage() {
     }
   }
 
-  const indiceActual = resultado ? ETAPAS.findIndex((e) => e.valor === resultado.etapa) : -1;
-
   return (
     <main className="flex-1 pt-32 pb-24 md:pt-36">
       <div className="mx-auto max-w-2xl px-6">
@@ -54,8 +44,8 @@ export default function ConsultaCasoPage() {
           Consulta el estado de tu caso
         </h1>
         <p className="mt-4 text-base leading-relaxed text-ink-soft">
-          Ingresa el código único que te enviamos por correo cuando registramos tu caso. No
-          necesitas crear ninguna cuenta.
+          Ingresa el número de radicado que te enviamos por correo cuando registramos tu caso.
+          No necesitas crear ninguna cuenta.
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -65,11 +55,11 @@ export default function ConsultaCasoPage() {
               className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft"
             />
             <input
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+              value={radicado}
+              onChange={(e) => setRadicado(e.target.value)}
               required
-              placeholder="SIE-2026-XXXXXX"
-              className="w-full rounded-full border border-line bg-surface py-3.5 pl-10 pr-4 text-sm uppercase tracking-wider text-ink placeholder:text-ink-soft/50 focus:border-gold-deep focus:outline-none"
+              placeholder="Número de radicado"
+              className="w-full rounded-full border border-line bg-surface py-3.5 pl-10 pr-4 text-sm tracking-wide text-ink placeholder:text-ink-soft/50 focus:border-gold-deep focus:outline-none"
             />
           </div>
           <button
@@ -99,47 +89,90 @@ export default function ConsultaCasoPage() {
             className="mt-10 rounded-3xl bg-surface p-8 ring-1 ring-line"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-display text-xl text-ink">{resultado.tipoCaso}</p>
-              <p className="font-mono text-xs tracking-wider text-gold-deep">{resultado.codigoUnico}</p>
+              <p className="font-mono text-xs tracking-wider text-gold-deep">{resultado.radicadoId}</p>
+              <p className="text-xs text-ink-soft">Registrado el {formatearFecha(resultado.fechaRegistro)}</p>
             </div>
-            <p className="mt-1 text-xs text-ink-soft">
-              Registrado el {formatearFecha(resultado.fechaCreacion)} · Última actualización{" "}
-              {formatearFecha(resultado.fechaActualizacion)}
-            </p>
 
-            <ol className="mt-8 space-y-0">
-              {ETAPAS.map((etapa, i) => {
-                const completada = i < indiceActual;
-                const activa = i === indiceActual;
-                return (
-                  <li key={etapa.valor} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      {completada || activa ? (
-                        <CheckCircle
-                          weight={activa ? "fill" : "regular"}
-                          className={`h-6 w-6 ${activa ? "text-gold" : "text-gold-deep"}`}
-                        />
-                      ) : (
-                        <Circle weight="light" className="h-6 w-6 text-ink-soft/40" />
-                      )}
-                      {i < ETAPAS.length - 1 && (
-                        <span
-                          className={`mt-1 h-8 w-px ${i < indiceActual ? "bg-gold-deep" : "bg-line"}`}
-                        />
+            {!resultado.estadoDisponible ? (
+              <div className="mt-6 flex flex-col items-center gap-3 py-8 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep">
+                  <Clock weight="light" className="h-6 w-6" />
+                </span>
+                <p className="font-display text-lg text-ink">Aún no hay actualizaciones</p>
+                <p className="max-w-sm text-sm text-ink-soft">
+                  Tu caso está registrado. En cuanto nuestro equipo actualice tu proceso, verás el
+                  estado aquí.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-6">
+                {resultado.estado && (
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gold-deep">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold-deep" />
+                        Estado actual
+                      </dt>
+                      {resultado.fechaActualizacionHoja && (
+                        <span className="text-xs text-ink-soft">
+                          Actualizado el {resultado.fechaActualizacionHoja}
+                        </span>
                       )}
                     </div>
-                    <p
-                      className={`pb-8 text-sm ${
-                        activa ? "font-medium text-ink" : completada ? "text-ink" : "text-ink-soft"
-                      }`}
-                    >
-                      {etapa.label}
-                      {activa && <span className="ml-2 text-xs text-gold-deep">(etapa actual)</span>}
+                    {/* text-sm leading-relaxed (no font-display grande) a propósito: el
+                        texto de esta columna lo escribe libremente el sistema de la firma
+                        y puede ser una palabra corta ("En trámite") o un párrafo largo con
+                        detalles de audiencia y citaciones -- debe leerse bien en ambos
+                        casos, no apretarse en una "pastilla" pensada para texto corto. */}
+                    <p className="mt-2 whitespace-pre-line rounded-2xl bg-gold-pale/30 px-5 py-4 text-sm leading-relaxed text-ink">
+                      {resultado.estado}
                     </p>
-                  </li>
-                );
-              })}
-            </ol>
+                  </div>
+                )}
+
+                {resultado.ultimaDecision && (
+                  <div>
+                    <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ink-soft/50" />
+                      Última decisión
+                    </dt>
+                    <p className="mt-2 whitespace-pre-line rounded-2xl bg-ink/[0.03] px-5 py-4 text-sm leading-relaxed text-ink">
+                      {resultado.ultimaDecision}
+                    </p>
+                  </div>
+                )}
+
+                <dl className="grid gap-5 sm:grid-cols-2">
+                  {resultado.despachoJudicial && (
+                    <div>
+                      <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+                        <Buildings weight="light" className="h-4 w-4" />
+                        Despacho judicial
+                      </dt>
+                      <dd className="mt-1.5 text-sm text-ink">{resultado.despachoJudicial}</dd>
+                    </div>
+                  )}
+                  {resultado.tipoCaso && (
+                    <div>
+                      <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+                        <Tag weight="light" className="h-4 w-4" />
+                        Tipo de caso
+                      </dt>
+                      <dd className="mt-1.5 text-sm text-ink">{resultado.tipoCaso}</dd>
+                    </div>
+                  )}
+                  {resultado.informacionCaso && (
+                    <div className="sm:col-span-2">
+                      <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+                        <FileText weight="light" className="h-4 w-4" />
+                        Partes del proceso
+                      </dt>
+                      <dd className="mt-1.5 text-sm leading-relaxed text-ink">{resultado.informacionCaso}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
           </motion.div>
         )}
       </div>

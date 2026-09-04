@@ -14,7 +14,7 @@ import {
   Globe,
 } from "@phosphor-icons/react";
 import { obtenerEstadisticas, type Estadisticas } from "@/lib/admin-api";
-import { AdminPageHeader, AdminCard, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminCard, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { DonutChart, GaugeRadial } from "@/components/admin/charts";
 import { useAuth } from "@/lib/auth-context";
 
@@ -99,7 +99,7 @@ export default function EstadisticasPage() {
     return (
       <div>
         <AdminPageHeader title="Estadísticas" description="Un vistazo agregado a la actividad de la firma." />
-        <p className="text-sm text-ink-soft">Cargando...</p>
+        <AdminLoader />
       </div>
     );
   }

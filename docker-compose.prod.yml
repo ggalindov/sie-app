@@ -67,6 +67,29 @@ services:
       - FIRMA_WHATSAPP_URL=${FIRMA_WHATSAPP_URL}
       - FIRMA_SITIO_WEB=https://${DOMAIN}
       - CORS_ALLOWED_ORIGINS=https://${DOMAIN}
+      - GOOGLE_SHEETS_ID=${GOOGLE_SHEETS_ID}
+      # Ruta FIJA dentro del contenedor, no un valor de .env.prod: Compose monta el secreto
+      # ahí abajo (ver "secrets:" de este servicio), con permisos 0444 de solo lectura, sin
+      # pasar el contenido de la llave por una variable de entorno (docker inspect / los
+      # logs de arranque de un proceso pueden filtrar variables de entorno más fácilmente
+      # que un archivo montado con permisos restringidos).
+      - GOOGLE_SHEETS_CREDENTIALS_PATH=/run/secrets/google_sheets_credentials
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - WHATSAPP_TEMPLATE_NAME=${WHATSAPP_TEMPLATE_NAME:-notificacion_radicado}
+      # Cobros Pendientes: hoja DISTINTA a la de casos, misma llave de cuenta de servicio
+      # (GOOGLE_SHEETS_CREDENTIALS_PATH de arriba) pero con permiso de Editor otorgado sobre
+      # esta hoja específica (ver DEPLOY.md).
+      - GOOGLE_SHEETS_COBROS_ID=${GOOGLE_SHEETS_COBROS_ID}
+      - WHATSAPP_TEMPLATE_COBRO_NAME=${WHATSAPP_TEMPLATE_COBRO_NAME:-recordatorio_cobro}
+      - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
+      - WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET}
+      # Aviso interno de nueva solicitud (formulario público) a la línea de la firma.
+      - WHATSAPP_TEMPLATE_SOLICITUD_NAME=${WHATSAPP_TEMPLATE_SOLICITUD_NAME:-nueva_solicitud}
+      - WHATSAPP_ADMIN_NUMERO=${WHATSAPP_ADMIN_NUMERO:-+573124781583}
+    secrets:
+      - google_sheets_credentials
     depends_on:
       postgres:
         condition: service_healthy
@@ -161,3 +184,13 @@ volumes:
   sie_juridicos_data:
   caddy_data:
   caddy_config:
+
+secrets:
+  # Llave de la cuenta de servicio de Google (solo lectura, ver HojaCalculoConfig) que lee
+  # el Google Sheets de casos. "file:" (secreto de archivo, no de Swarm) funciona con
+  # "docker compose" normal, sin necesidad de modo Swarm: Compose monta este archivo dentro
+  # del contenedor del backend en /run/secrets/google_sheets_credentials, de solo lectura y
+  # sin exponer su contenido como variable de entorno. La ruta es relativa a este archivo
+  # (la raíz del repo en el VPS); ver DEPLOY.md para dónde colocar el archivo real.
+  google_sheets_credentials:
+    file: ./secrets/google-sheets-service-account.json

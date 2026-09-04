@@ -11,7 +11,7 @@ import {
   type SuscriptorMarketing,
   type BoletinEnviado,
 } from "@/lib/admin-api";
-import { AdminPageHeader, AdminCard, AdminButton, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminCard, AdminButton, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string) {
@@ -84,7 +84,7 @@ export default function MarketingPage() {
         />
 
         {suscriptores === null ? (
-          <p className="text-sm text-ink-soft">Cargando...</p>
+          <AdminLoader />
         ) : suscriptores.length === 0 ? (
           <EmptyState title="Aún no hay suscriptores" />
         ) : (
@@ -113,7 +113,7 @@ export default function MarketingPage() {
         </p>
 
         {boletines === null ? (
-          <p className="mt-4 text-sm text-ink-soft">Cargando...</p>
+          <AdminLoader />
         ) : boletines.length === 0 ? (
           <div className="mt-4">
             <EmptyState

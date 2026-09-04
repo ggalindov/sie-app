@@ -493,6 +493,175 @@ html[data-theme="light"] .site-theme .section-seam::after {
   background: linear-gradient(90deg, var(--color-gold-deep), var(--color-gold) 55%, var(--color-gold-pale));
 }
 
+/* Loader de marca del panel admin (AdminLoader, ver components/admin/loader.tsx):
+   reemplaza el "Cargando..." de texto plano en todas las pantallas del panel. Dos anillos
+   concéntricos -- uno fijo y tenue de fondo, otro que gira con una curva de aceleración
+   propia (no linear, para que no lea como un spinner de sistema operativo genérico) --
+   más un tercer arco más corto girando en sentido contrario a menor velocidad, dando
+   sensación de profundidad/engranaje en vez de una sola rueda. La regla global de
+   prefers-reduced-motion al final de este archivo ya neutraliza estas animaciones. */
+@keyframes admin-loader-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes admin-loader-girar-inverso {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.admin-loader-anillo {
+  animation: admin-loader-girar 1.15s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.admin-loader-anillo-interno {
+  animation: admin-loader-girar-inverso 1.65s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* Tipografía del HTML de un artículo (Tiptap -> dangerouslySetInnerHTML en /blog/[slug],
+   y el propio editor en el panel para que el admin vea un WYSIWYG real). No usamos el
+   plugin @tailwindcss/typography (no está instalado, y las clases "prose" que quedaban en
+   el código no hacían nada): en vez de agregar una dependencia nueva solo para esto, se
+   escribe el estilo a mano una vez aquí y se reutiliza en los dos lugares.
+
+   overflow-wrap+word-break: la razón real por la que un artículo largo "no se
+   redimensionaba a la página" -- un admin pegando una URL larga sin espacios o una palabra
+   larga como texto plano no tenía forma de partirse, y empujaba el contenedor (y con él
+   toda la página) a desbordarse horizontalmente. img/pre con su propio límite de ancho
+   además de la regla global de Tailwind, como defensa adicional explícita para este
+   contenedor específico. */
+.contenido-articulo {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.contenido-articulo > * + * {
+  margin-top: 1.25em;
+}
+
+.contenido-articulo h1,
+.contenido-articulo h2,
+.contenido-articulo h3,
+.contenido-articulo h4 {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+  line-height: 1.25;
+  text-wrap: balance;
+  font-weight: 500;
+}
+
+.contenido-articulo h2 {
+  margin-top: 2em;
+  font-size: 1.5rem;
+}
+
+.contenido-articulo h3 {
+  margin-top: 1.75em;
+  font-size: 1.25rem;
+}
+
+.contenido-articulo h4 {
+  margin-top: 1.5em;
+  font-size: 1.05rem;
+}
+
+.contenido-articulo p {
+  line-height: 1.8;
+  color: var(--color-ink-soft);
+}
+
+.contenido-articulo strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.contenido-articulo a {
+  color: var(--color-gold-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 200ms ease;
+}
+
+.contenido-articulo a:hover {
+  color: var(--color-gold);
+}
+
+.contenido-articulo ul,
+.contenido-articulo ol {
+  padding-left: 1.4em;
+  color: var(--color-ink-soft);
+}
+
+.contenido-articulo ul {
+  list-style: disc;
+}
+
+.contenido-articulo ol {
+  list-style: decimal;
+}
+
+.contenido-articulo li {
+  line-height: 1.75;
+}
+
+.contenido-articulo li + li {
+  margin-top: 0.4em;
+}
+
+.contenido-articulo li > p {
+  margin-top: 0;
+  color: inherit;
+}
+
+.contenido-articulo blockquote {
+  border-left: 3px solid var(--color-gold);
+  padding-left: 1.25em;
+  font-style: italic;
+  color: var(--color-ink-soft);
+}
+
+/* max-width/height ya los pone el preflight de Tailwind, pero se repite explícito aquí a
+   propósito (belt-and-suspenders para este contenedor puntual) + el trato visual propio
+   del sitio: esquinas redondeadas, nunca una imagen pegada directo al texto sin espacio. */
+.contenido-articulo img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2em auto;
+  border-radius: 1.25rem;
+}
+
+.contenido-articulo pre {
+  margin-top: 1.5em;
+  overflow-x: auto;
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface));
+  padding: 1em 1.25em;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.contenido-articulo code {
+  border-radius: 0.35em;
+  background: color-mix(in srgb, var(--color-ink) 7%, var(--color-surface));
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+
+.contenido-articulo pre code {
+  background: none;
+  padding: 0;
+}
+
+.contenido-articulo hr {
+  margin: 2.5em 0;
+  border: none;
+  border-top: 1px solid var(--color-line);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

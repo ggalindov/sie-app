@@ -14,7 +14,7 @@ import {
   type Solicitud,
   type EstadoSolicitud,
 } from "@/lib/admin-api";
-import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 
 const ESTADOS: EstadoSolicitud[] = ["NUEVO", "CONTACTADO", "CERRADO"];
 
@@ -139,7 +139,7 @@ export default function SolicitudesPage() {
       </div>
 
       {solicitudes === null ? (
-        <p className="text-sm text-ink-soft">Cargando...</p>
+        <AdminLoader />
       ) : solicitudes.length === 0 ? (
         <EmptyState title="No hay solicitudes" description="Ajusta los filtros o espera a que lleguen nuevas." />
       ) : (

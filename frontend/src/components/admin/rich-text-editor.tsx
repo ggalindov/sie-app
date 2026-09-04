@@ -47,8 +47,10 @@ export function RichTextEditor({
     content: value,
     editorProps: {
       attributes: {
-        class:
-          "prose prose-neutral max-w-none min-h-[320px] px-4 py-4 focus:outline-none [&_h2]:font-display [&_h2]:text-xl [&_h3]:font-display [&_h3]:text-lg [&_a]:text-gold-deep",
+        // contenido-articulo: misma clase que /blog/[slug] (ver globals.css), para que lo
+        // que el admin ve mientras escribe sea de verdad lo que el cliente va a ver
+        // publicado, no una aproximación distinta.
+        class: "contenido-articulo min-h-[320px] px-4 py-4 text-ink focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),

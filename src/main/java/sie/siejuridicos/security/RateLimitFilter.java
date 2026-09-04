@@ -51,15 +51,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new RegistroLimite("POST", "/api/testimonios", 10),
             new RegistroLimite("POST", "/api/marketing/suscriptores", 10),
             // GET /api/casos/consulta es el único endpoint público que funciona como
-            // "adivina el código": aunque el alfabeto de CasoService.generarCodigoUnico
-            // (31 caracteres, 6 posiciones) da ~887M combinaciones, sin límite de tasa un
-            // atacante podría probar miles por minuto igual. 20/min alcanza de sobra para
-            // un cliente real que se equivoca escribiendo su código varias veces.
+            // "adivina el radicado": sin límite de tasa un atacante podría probar miles por
+            // minuto. 20/min alcanza de sobra para un cliente real que se equivoca
+            // escribiendo su radicado varias veces.
             new RegistroLimite("GET", "/api/casos/consulta", 20),
             // Se envía como mucho una vez por pestaña/sesión (ver VisitorTracker en el
             // frontend), así que 10/min por IP es de sobra para uso legítimo y sigue
             // acotando un abuso que intente inflar el contador de visitantes.
-            new RegistroLimite("POST", "/api/analitica/visita", 10)
+            new RegistroLimite("POST", "/api/analitica/visita", 10),
+            // Listados públicos de contenido (blog, categorías, testimonios aprobados, FAQ):
+            // sin autenticación ni token, así que se acotan igual para que no se puedan
+            // scrapear en volumen -- 60/min por IP es generoso de sobra para una visita real
+            // al sitio (varias llamadas por carga de página) pero corta un raspado masivo.
+            new RegistroLimite("GET", "/api/articulos", 60),
+            new RegistroLimite("GET", "/api/categorias", 60),
+            new RegistroLimite("GET", "/api/testimonios", 60),
+            new RegistroLimite("GET", "/api/faq", 60)
     );
 
     private static final class Contador {
@@ -114,7 +121,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String metodo = request.getMethod();
         String ruta = request.getRequestURI();
         for (RegistroLimite limite : LIMITES) {
-            if (limite.metodo().equalsIgnoreCase(metodo) && ruta.equals(limite.ruta())) {
+            // startsWith(ruta + "/") además de equals: cubre también las variantes con
+            // subruta de un mismo recurso (ej. GET /api/articulos/{slug} bajo el mismo
+            // límite que GET /api/articulos), sin tener que listar cada una aparte.
+            if (limite.metodo().equalsIgnoreCase(metodo)
+                    && (ruta.equals(limite.ruta()) || ruta.startsWith(limite.ruta() + "/"))) {
                 return limite;
             }
         }

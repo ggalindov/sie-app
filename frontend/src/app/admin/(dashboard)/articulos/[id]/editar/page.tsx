@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { obtenerArticuloAdmin, type ArticuloAdmin } from "@/lib/admin-api";
-import { AdminPageHeader } from "@/components/admin/ui";
+import { AdminPageHeader, AdminLoader } from "@/components/admin/ui";
 import { ArticuloForm } from "@/components/admin/articulo-form";
 
 export default function EditarArticuloPage({ params }: PageProps<"/admin/articulos/[id]/editar">) {
@@ -25,7 +25,7 @@ export default function EditarArticuloPage({ params }: PageProps<"/admin/articul
   }
 
   if (!articulo) {
-    return <p className="text-sm text-ink-soft">Cargando...</p>;
+    return <AdminLoader />;
   }
 
   return (

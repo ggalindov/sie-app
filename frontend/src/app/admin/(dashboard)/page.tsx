@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, Envelope, Article, Megaphone } from "@phosphor-icons/react";
 import { listarSolicitudes, listarArticulosAdmin, listarSuscriptoresMarketing, type Solicitud } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
-import { AdminPageHeader, AdminCard, Badge } from "@/components/admin/ui";
+import { AdminPageHeader, AdminCard, Badge, AdminLoader } from "@/components/admin/ui";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -58,7 +58,7 @@ export default function ResumenPage() {
 
         <AdminCard className="p-0">
           {solicitudes === null ? (
-            <p className="p-6 text-sm text-ink-soft">Cargando...</p>
+            <AdminLoader className="py-10" />
           ) : recientes.length === 0 ? (
             <p className="p-6 text-sm text-ink-soft">Aún no hay solicitudes.</p>
           ) : (

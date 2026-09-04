@@ -41,6 +41,55 @@ rem aplicacion" en https://myaccount.google.com/apppasswords (no uses tu contras
 set MAIL_USERNAME=
 set MAIL_PASSWORD=
 
+rem Google Sheets de casos (consulta de estado en /consulta-caso, ver HojaCalculoService).
+rem Sin esto, la consulta de estado responde "servicio no disponible" pero la app funciona
+rem igual (crear casos desde el panel sigue andando). GOOGLE_SHEETS_ID es el ID de la hoja
+rem (el segmento largo en su URL, entre /d/ y /edit). GOOGLE_SHEETS_CREDENTIALS_PATH es la
+rem ruta local a la llave JSON de una cuenta de servicio de Google Cloud con acceso de SOLO
+rem LECTURA a esa hoja (compartida como "Lector", nunca "Editor" ni "cualquiera con el
+rem enlace"). Nunca pongas la llave JSON dentro del repo sin que su carpeta esté en
+rem .gitignore.
+set GOOGLE_SHEETS_ID=
+set GOOGLE_SHEETS_CREDENTIALS_PATH=
+
+rem Llave de cifrado de datos sensibles de clientes/casos (ver CifradoService). Ya trae un
+rem valor por defecto de desarrollo (ver application.properties) para que el proyecto
+rem funcione sin configurar nada; en produccion DEBE cambiarse por una real: genera una con
+rem "openssl rand -base64 32" (debe decodificar a exactamente 32 bytes).
+set DATA_ENCRYPTION_KEY=
+
+rem Notificacion del radicado por WhatsApp (linea de atencion de la firma, ver
+rem WhatsAppService), ademas del correo. Sin esto, la notificacion se sigue enviando solo
+rem por correo con normalidad. WHATSAPP_ACCESS_TOKEN y WHATSAPP_PHONE_NUMBER_ID vienen de
+rem Meta Business Manager (WhatsApp Cloud API, ver DEPLOY.md para la guia completa).
+rem WHATSAPP_TEMPLATE_NAME debe coincidir EXACTO con el nombre de una plantilla ya aprobada
+rem por Meta -- no admite texto libre.
+set WHATSAPP_ACCESS_TOKEN=
+set WHATSAPP_PHONE_NUMBER_ID=
+set WHATSAPP_TEMPLATE_NAME=notificacion_radicado
+set WHATSAPP_TEMPLATE_LANG=es
+
+rem Cobros Pendientes: recordatorio mensual de pago (correo + WhatsApp), ver modulo cobro/.
+rem Hoja de Google DISTINTA a la de casos (GOOGLE_SHEETS_COBROS_ID), con permiso de EDITOR
+rem otorgado sobre esa hoja especifica (unica escritura real que hace el sistema: marcar la
+rem columna "RESPONDIO MENSAJE"). WHATSAPP_TEMPLATE_COBRO_NAME es una plantilla distinta a la
+rem de radicado, con botones de respuesta rapida Si/No, aprobada aparte en Meta. Las dos
+rem variables WEBHOOK verifican el webhook publico que recibe la respuesta del cliente por
+rem WhatsApp (ver WhatsAppWebhookController): WEBHOOK_VERIFY_TOKEN lo inventas tu mismo (una
+rem cadena aleatoria) y la registras igual en Meta al configurar el webhook; APP_SECRET sale
+rem de Meta Business Manager (Configuracion basica de la app).
+set GOOGLE_SHEETS_COBROS_ID=
+set WHATSAPP_TEMPLATE_COBRO_NAME=recordatorio_cobro
+set WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+set WHATSAPP_APP_SECRET=
+
+rem Aviso interno (no al cliente): apenas llega una solicitud nueva del formulario publico, se
+rem manda un WhatsApp con el resumen completo a la linea interna de la firma. Plantilla
+rem DISTINTA a las de radicado/cobro, debe aprobarse aparte en Meta. WHATSAPP_ADMIN_NUMERO ya
+rem trae el numero fijo pedido (+57 312 4781583); solo cambialo si la firma pide otra linea.
+set WHATSAPP_TEMPLATE_SOLICITUD_NAME=nueva_solicitud
+set WHATSAPP_ADMIN_NUMERO=+573124781583
+
 rem Credenciales reales (Gmail u otras): NUNCA las pongas aqui arriba, este archivo esta
 rem versionado en git y se sube al repositorio. Crea "run.local.bat" (esta en .gitignore,
 rem nunca se sube) junto a este script con las mismas variables set MAIL_USERNAME=... /

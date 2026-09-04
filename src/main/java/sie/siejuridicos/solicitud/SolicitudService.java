@@ -11,6 +11,7 @@ import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.marketing.SuscriptorMarketingService;
 import sie.siejuridicos.solicitud.dto.CrearSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
+import sie.siejuridicos.whatsapp.WhatsAppService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,13 +23,16 @@ public class SolicitudService {
     private final SolicitudRepository solicitudRepository;
     private final SuscriptorMarketingService suscriptorMarketingService;
     private final EmailService emailService;
+    private final WhatsAppService whatsAppService;
 
     public SolicitudService(SolicitudRepository solicitudRepository,
                              SuscriptorMarketingService suscriptorMarketingService,
-                             EmailService emailService) {
+                             EmailService emailService,
+                             WhatsAppService whatsAppService) {
         this.solicitudRepository = solicitudRepository;
         this.suscriptorMarketingService = suscriptorMarketingService;
         this.emailService = emailService;
+        this.whatsAppService = whatsAppService;
     }
 
     // @Transactional (sin readOnly) es necesario aquí: fn_crear_solicitud hace un INSERT
@@ -51,6 +55,8 @@ public class SolicitudService {
 
             emailService.enviarConfirmacionYPromocionSolicitud(creada);
             emailService.enviarNotificacionAdminNuevaSolicitud(creada);
+            whatsAppService.enviarNotificacionAdminNuevaSolicitud(
+                    creada.getNombre(), creada.getCorreo(), creada.getTelefono(), creada.getMensaje());
 
             return SolicitudResponse.desde(creada);
         } catch (DataAccessException ex) {

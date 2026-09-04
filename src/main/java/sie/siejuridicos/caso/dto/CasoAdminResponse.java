@@ -1,34 +1,38 @@
 package sie.siejuridicos.caso.dto;
 
 import sie.siejuridicos.caso.Caso;
-import sie.siejuridicos.caso.EtapaCaso;
+import sie.siejuridicos.caso.FuenteCaso;
 
 import java.time.LocalDateTime;
 
 public record CasoAdminResponse(
         Long id,
+        FuenteCaso fuente,
+        String fuenteVisible,
+        String numeroCaso,
         String nombreCliente,
         String correoCliente,
         String telefonoCliente,
-        String categoriaNombre,
-        String codigoUnico,
-        EtapaCaso etapa,
+        String radicadoId,
+        boolean correoEnviado,
+        boolean whatsappEnviado,
         String notasInternas,
-        LocalDateTime fechaCreacion,
-        LocalDateTime fechaActualizacion
+        LocalDateTime fechaCreacion
 ) {
     public static CasoAdminResponse desde(Caso caso) {
         return new CasoAdminResponse(
                 caso.getId(),
+                caso.getFuente(),
+                caso.getFuente().getNombreVisible(),
+                caso.getNumeroCaso(),
                 caso.getCliente().getNombre(),
                 caso.getCliente().getCorreo(),
                 caso.getCliente().getTelefono(),
-                caso.getCategoria().getNombre(),
-                caso.getCodigoUnico(),
-                caso.getEtapa(),
+                caso.getRadicadoId(),
+                caso.isCorreoEnviado(),
+                caso.isWhatsappEnviado(),
                 caso.getNotasInternas(),
-                caso.getFechaCreacion(),
-                caso.getFechaActualizacion()
+                caso.getFechaCreacion()
         );
     }
 }

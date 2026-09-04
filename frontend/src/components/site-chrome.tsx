@@ -13,6 +13,7 @@ import { SlideNav } from "@/components/slide-nav";
 import { NewsletterPopup } from "@/components/newsletter-popup";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import { CuidaMarcaFloat } from "@/components/cuida-marca-float";
+import { ConsultaCasoFloat } from "@/components/consulta-caso-float";
 import { LoadingScreen } from "@/components/loading-screen";
 
 // El panel administrativo (/admin/**) tiene su propio shell (sidebar/topbar) y no debe
@@ -21,6 +22,9 @@ export function SiteChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const esAdmin = pathname?.startsWith("/admin");
   const esInicio = pathname === "/";
+  // No tiene sentido ofrecer el acceso directo a "consulta tu caso" estando ya parado
+  // en esa misma página.
+  const esConsultaCaso = pathname === "/consulta-caso";
 
   // El scroll-snap tipo slide (ver globals.css, html.snap-inicio) solo tiene sentido en
   // la home, la única página con secciones .snap-slide de punta a punta. Sin este
@@ -70,6 +74,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         <SiteFooter />
         <SlideNav />
         {esInicio && <CuidaMarcaFloat />}
+        {!esConsultaCaso && <ConsultaCasoFloat />}
         <WhatsappFloat />
         <ChatbotWidget />
         <NewsletterPopup />

@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus, PencilSimple, Trash, Eye } from "@phosphor-icons/react";
 import { listarArticulosAdmin, eliminarArticulo, ApiError, type ArticuloAdmin } from "@/lib/admin-api";
-import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState } from "@/components/admin/ui";
+import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { CompartirArticuloButton } from "@/components/admin/compartir-articulo-button";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -55,7 +56,7 @@ export default function ArticulosPage() {
       />
 
       {articulos === null ? (
-        <p className="text-sm text-ink-soft">Cargando...</p>
+        <AdminLoader />
       ) : articulos.length === 0 ? (
         <EmptyState title="Aún no hay artículos" description="Crea el primero desde el botón de arriba." />
       ) : (
@@ -75,15 +76,24 @@ export default function ArticulosPage() {
 
               <div className="flex shrink-0 items-center gap-2">
                 {a.estado === "PUBLICADO" && (
-                  <a
-                    href={`/blog/${a.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5"
-                    aria-label="Ver en el sitio"
-                  >
-                    <Eye className="h-4 w-4" weight="light" />
-                  </a>
+                  <>
+                    <a
+                      href={`/blog/${a.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5"
+                      aria-label="Ver en el sitio"
+                    >
+                      <Eye className="h-4 w-4" weight="light" />
+                    </a>
+                    <CompartirArticuloButton
+                      titulo={a.titulo}
+                      slug={a.slug}
+                      resumen={a.resumen}
+                      categoria={a.categoria.nombre}
+                      esNoticia={a.tipoContenido === "NOTICIA"}
+                    />
+                  </>
                 )}
                 <Link
                   href={`/admin/articulos/${a.id}/editar`}

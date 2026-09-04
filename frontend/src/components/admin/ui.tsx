@@ -69,6 +69,50 @@ export function Badge({
   );
 }
 
+// Paleta de las píldoras de notificación (correo/WhatsApp enviados o pendientes, estado de
+// pago, respuesta del cliente): más grandes y con más peso visual que Badge a propósito
+// -- son el primer dato que un admin necesita ver de un vistazo en Casos y Cobros
+// Pendientes ("qué falta por notificar"), así que se les da jerarquía propia en vez de
+// competir en tamaño con etiquetas secundarias como el número de caso o la fuente.
+const notificationTones = {
+  success: {
+    wrap: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
+    iconWrap: "bg-emerald-600 text-white",
+  },
+  warning: {
+    wrap: "bg-amber-50 text-amber-900 ring-1 ring-amber-200",
+    iconWrap: "bg-amber-500 text-white",
+  },
+  danger: {
+    wrap: "bg-red-50 text-red-800 ring-1 ring-red-200",
+    iconWrap: "bg-red-600 text-white",
+  },
+  neutral: {
+    wrap: "bg-ink/[0.04] text-ink-soft ring-1 ring-ink/10",
+    iconWrap: "bg-ink/12 text-ink-soft",
+  },
+} as const;
+
+export function NotificationBadge({
+  children,
+  tone = "neutral",
+  icon,
+}: {
+  children: ReactNode;
+  tone?: keyof typeof notificationTones;
+  icon: ReactNode;
+}) {
+  const t = notificationTones[tone];
+  return (
+    <span className={cn("inline-flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-4 text-sm font-semibold", t.wrap)}>
+      <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", t.iconWrap)}>
+        {icon}
+      </span>
+      {children}
+    </span>
+  );
+}
+
 export function AdminButton({
   variant = "primary",
   className,
@@ -103,6 +147,39 @@ export function AdminCard({
   return (
     <div className={cn("rounded-2xl bg-surface p-6 ring-1 ring-line", accent && "card-edged", className)}>
       {children}
+    </div>
+  );
+}
+
+// Loader de marca del panel, reemplaza el "Cargando..." de texto plano que tenía cada
+// pantalla -- pedido explícito del usuario de animaciones de carga "únicas y hermosas" en
+// vez del texto simple de antes. Dos anillos concéntricos girando en sentidos y velocidades
+// distintas (ver globals.css: admin-loader-anillo / admin-loader-anillo-interno), en dorado
+// de marca, con curvas de aceleración propias en vez de un giro lineal genérico.
+export function AdminLoader({
+  label = "Cargando",
+  size = "md",
+  className,
+}: {
+  /** null oculta la etiqueta -- útil para el uso "sm" incrustado junto a otro texto. */
+  label?: string | null;
+  size?: "sm" | "md";
+  className?: string;
+}) {
+  const dimension = size === "sm" ? "h-5 w-5" : "h-11 w-11";
+  // className, cuando se pasa, reemplaza el padding por defecto en vez de sumarse (dos
+  // clases py-* de Tailwind conviviendo en el mismo elemento es orden-dependiente e
+  // impredecible) -- así cada pantalla puede ajustar el espaciado sin pelear contra el
+  // valor por defecto pensado para el uso de página completa.
+  const padding = className ?? (size === "md" ? "py-16" : "");
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-3", padding)}>
+      <span className={cn("relative inline-flex shrink-0", dimension)} role="status" aria-label={label ?? "Cargando"}>
+        <span className="absolute inset-0 rounded-full border-2 border-gold-pale/60" />
+        <span className="admin-loader-anillo absolute inset-0 rounded-full border-2 border-transparent border-t-gold border-r-gold-deep" />
+        <span className="admin-loader-anillo-interno absolute inset-[3px] rounded-full border-2 border-transparent border-b-gold-deep/70" />
+      </span>
+      {label && <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-soft/60">{label}</span>}
     </div>
   );
 }

@@ -18,8 +18,11 @@ import {
   Quotes,
   Question,
   Briefcase,
+  CurrencyCircleDollar,
+  ClockCounterClockwise,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-context";
+import { AdminLoader } from "@/components/admin/ui";
 
 type Rol = "ADMIN_GENERAL" | "ABOGADO";
 
@@ -51,6 +54,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/solicitudes", label: "Solicitudes", icon: Envelope, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/casos", label: "Casos", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      { href: "/admin/cobros", label: "Cobros Pendientes", icon: CurrencyCircleDollar, roles: ["ADMIN_GENERAL"] },
     ],
   },
   {
@@ -66,6 +70,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN_GENERAL"] },
       { href: "/admin/usuarios", label: "Usuarios", icon: Users, roles: ["ADMIN_GENERAL"] },
+      { href: "/admin/registro", label: "Registro del sistema", icon: ClockCounterClockwise, roles: ["ADMIN_GENERAL"] },
     ],
   },
 ];
@@ -88,8 +93,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   if (cargando || !sesion) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-paper text-sm text-ink-soft">
-        Cargando...
+      <div className="flex min-h-screen items-center justify-center bg-paper">
+        <AdminLoader />
       </div>
     );
   }

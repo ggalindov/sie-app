@@ -8,8 +8,7 @@ import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
 import { List, X, WhatsappLogo, Lock } from "@phosphor-icons/react";
 import { navLinks, siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { NavLinkUnderline } from "@/components/nav-link-underline";
+import { NavItemConPanel } from "@/components/nav-dropdown";
 import { HelpMenu } from "@/components/help-menu";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -18,6 +17,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 // layout raíz para todos los componentes motion de la app.
 export function SiteNav() {
   const [open, setOpen] = useState(false);
+  const [logoIluminado, setLogoIluminado] = useState(false);
   const pathname = usePathname();
   // Solo la home tiene un Hero de video oscuro de borde a borde detrás del nav, así
   // que solo ahí el texto puede nacer claro (--color-night-ink) y cruzar a oscuro al
@@ -72,29 +72,65 @@ export function SiteNav() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link
             href="/"
-            className="flex shrink-0 items-center py-1"
+            className="relative flex shrink-0 items-center py-1"
             onClick={() => setOpen(false)}
+            onMouseEnter={() => setLogoIluminado(true)}
+            onMouseLeave={() => setLogoIluminado(false)}
           >
-            <Image
-              src="/marca/logo.png"
-              alt={siteConfig.nombre}
-              width={52}
-              height={45}
-              className="h-11 w-auto object-contain md:h-12"
-              priority
+            {/* Iluminación, no giro (pedido explícito del usuario): en reposo el halo dorado
+                apenas respira (pulso lento e infinito); al pasar el mouse, el halo crece y el
+                propio logo se ilumina con un resplandor cálido -- nunca rota, el sello dorado
+                se queda quieto, solo cobra luz. El estado de hover vive en React (no
+                whileHover de Motion) porque el halo es pointer-events-none -- nunca podría
+                recibir su propio evento de hover, así que ambas capas leen el mismo estado
+                del <Link> que las contiene. */}
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-gold/30 blur-lg"
+              animate={
+                logoIluminado
+                  ? { opacity: 0.65, scale: 1.4 }
+                  : { opacity: [0.15, 0.35, 0.15], scale: 1 }
+              }
+              transition={
+                logoIluminado
+                  ? { duration: 0.5, ease: EASE }
+                  : { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
+              }
             />
+            <motion.div
+              animate={{
+                scale: logoIluminado ? 1.06 : 1,
+                filter: logoIluminado
+                  ? "brightness(1.18) drop-shadow(0 0 14px rgba(217,169,37,0.6))"
+                  : "brightness(1) drop-shadow(0 0 0px rgba(217,169,37,0))",
+              }}
+              transition={{ duration: 0.45, ease: EASE }}
+            >
+              <Image
+                src="/marca/logo.png"
+                alt={siteConfig.nombre}
+                width={52}
+                height={45}
+                className="h-11 w-auto object-contain md:h-12"
+                priority
+              />
+            </motion.div>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => (
-              <NavLinkUnderline key={link.href} href={link.href} label={link.label} />
+            {navLinks.map((link, i) => (
+              <NavItemConPanel
+                key={link.href}
+                href={link.href}
+                label={link.label}
+                align={i === 0 ? "left" : i === navLinks.length - 1 ? "right" : "center"}
+              />
             ))}
           </nav>
 
           <div className="flex items-center gap-2">
             <HelpMenu className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
-
-            <ThemeToggle className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
               <Link
@@ -200,11 +236,11 @@ export function SiteNav() {
               <div className="mt-8 flex items-center gap-4">
                 <HelpMenu
                   align="left"
+                  direction="up"
                   size={44}
                   onNavigate={() => setOpen(false)}
                   className="text-night-ink/80 hover:bg-night-ink/10 hover:text-night-ink"
                 />
-                <ThemeToggle size={44} className="text-night-ink/80 hover:bg-night-ink/10 hover:text-night-ink" />
                 <Link
                   href="/admin/login"
                   onClick={() => setOpen(false)}
