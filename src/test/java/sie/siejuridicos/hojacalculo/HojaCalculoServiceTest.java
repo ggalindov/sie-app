@@ -5,13 +5,20 @@ import com.google.api.services.sheets.v4.model.ValueRange;
 import org.junit.jupiter.api.Test;
 import sie.siejuridicos.caso.FuenteCaso;
 import sie.siejuridicos.hojacalculo.dto.FilaCasoHoja;
+import sie.siejuridicos.hojacalculo.dto.FilaSincronizacionHoja;
+import sie.siejuridicos.hojacalculo.dto.ResultadoSincronizacionHoja;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -150,5 +157,164 @@ class HojaCalculoServiceTest {
         HojaCalculoService servicio = new HojaCalculoService(SPREADSHEET_ID, sheets);
 
         assertTrue(servicio.buscarPorRadicado(FuenteCaso.JUDICIALES, "NO-EXISTE").isEmpty());
+    }
+
+    // --- listarParaSincronizar() / SUPERINTENDENCIA ------------------------------------------
+    //
+    // Auditoría de seguridad crítica pedida explícitamente: confirmar que la sincronización de
+    // Superintendencia trae exactamente los casos reales, sin duplicarlos ni cruzarlos, y que
+    // sigue siendo correcta aunque la firma edite la hoja insertando filas en medio de un
+    // bloque de entidad (Industria y Comercio, Financiera, Salud...) en vez de solo al final --
+    // el escenario que rompía la llave "fila-N" anterior (ver HojaCalculoService.
+    // huellaContenido()).
+
+    // SUPERINTENDENCIA!A4:M -- índices 0..12: B(1)=despacho/nombre superintendencia,
+    // D(3)=radicado, F(5)=demandante (también nombre del cliente), I(8)=estado,
+    // J(9)=fecha de revisión, L(11)=correo, M(12)=teléfono.
+    private static List<Object> filaSuper(String despacho, String radicado, String demandante, String correo) {
+        Object[] fila = new Object[13];
+        fila[1] = despacho;
+        fila[3] = radicado;
+        fila[5] = demandante;
+        fila[8] = "En trámite";
+        fila[9] = "01/01/2026";
+        fila[11] = correo;
+        return Arrays.asList(fila);
+    }
+
+    private Sheets sheetsSuperintendencia(List<List<Object>> filas) throws IOException {
+        return sheetsConFilas("SUPERINTENDENCIA!A4:M", filas);
+    }
+
+    private static Map<String, FilaSincronizacionHoja> porRadicado(ResultadoSincronizacionHoja resultado) {
+        return resultado.filas().stream()
+                .collect(Collectors.toMap(FilaSincronizacionHoja::radicadoId, Function.identity()));
+    }
+
+    @Test
+    void sincronizacionDeSuperintendenciaLeeLasColumnasCorrectas() throws IOException {
+        Sheets sheets = sheetsSuperintendencia(List.of(
+                filaSuper("Superintendencia de Industria y Comercio", "SIC-2026-001", "Juan Pérez", "juan@correo.com")
+        ));
+        HojaCalculoService servicio = new HojaCalculoService(SPREADSHEET_ID, sheets);
+
+        ResultadoSincronizacionHoja resultado = servicio.listarParaSincronizar();
+
+        assertEquals(1, resultado.filas().size());
+        FilaSincronizacionHoja fila = resultado.filas().get(0);
+        assertEquals(FuenteCaso.SUPERINTENDENCIA, fila.fuente());
+        assertEquals("SIC-2026-001", fila.radicadoId());
+        assertEquals("Juan Pérez", fila.nombreCliente());
+        assertEquals("juan@correo.com", fila.correoCliente());
+    }
+
+    // Bug real corregido en esta auditoría: antes la llave de sincronización de Superintendencia
+    // era el número de fila física ("fila-N"), estable solo si la hoja nunca inserta filas en
+    // medio. Esta prueba reproduce exactamente ese escenario -- una fila nueva insertada ENTRE
+    // dos casos que ya existían -- y confirma que los casos de abajo, aunque su posición física
+    // cambió, conservan la MISMA llave de sincronización que antes de la inserción. Con la
+    // llave anterior esta prueba habría fallado: "fila-2"/"fila-3" habrían pasado a identificar
+    // filas de contenido distinto tras la inserción, arriesgando que el radicado de un cliente
+    // se sobrescribiera con el de otro.
+    @Test
+    void unaFilaInsertadaEnMedioDeLaHojaNoCambiaLaLlaveDeLosCasosQueYaExistian() throws IOException {
+        // Radicados con al menos un dígito a propósito: radicadoValidoOVacio() descarta como
+        // "sin radicado todavía" cualquier valor sin dígitos (ver esa función), así que un
+        // radicado de prueba puramente alfabético no serviría de llave para este mapa.
+        List<List<Object>> antesDeInsertar = List.of(
+                filaSuper("Superintendencia Financiera", "RAD-100", "Ana Gómez", "ana@correo.com"),
+                filaSuper("Superintendencia de Salud", "RAD-200", "Beatriz Ruiz", "beatriz@correo.com"),
+                filaSuper("Superintendencia de Servicios Públicos", "RAD-300", "Carlos Díaz", "carlos@correo.com")
+        );
+        Sheets sheetsAntes = sheetsSuperintendencia(antesDeInsertar);
+        Map<String, FilaSincronizacionHoja> antes =
+                porRadicado(new HojaCalculoService(SPREADSHEET_ID, sheetsAntes).listarParaSincronizar());
+
+        // La firma agrega un caso nuevo justo DESPUÉS del primero, no al final de la hoja: todo
+        // lo que estaba después de "Ana Gómez" se corre una fila.
+        List<List<Object>> despuesDeInsertar = List.of(
+                filaSuper("Superintendencia Financiera", "RAD-100", "Ana Gómez", "ana@correo.com"),
+                filaSuper("Superintendencia de Industria y Comercio", "RAD-400", "Diana Torres", "diana@correo.com"),
+                filaSuper("Superintendencia de Salud", "RAD-200", "Beatriz Ruiz", "beatriz@correo.com"),
+                filaSuper("Superintendencia de Servicios Públicos", "RAD-300", "Carlos Díaz", "carlos@correo.com")
+        );
+        Sheets sheetsDespues = sheetsSuperintendencia(despuesDeInsertar);
+        Map<String, FilaSincronizacionHoja> despues =
+                porRadicado(new HojaCalculoService(SPREADSHEET_ID, sheetsDespues).listarParaSincronizar());
+
+        assertEquals(despues.get("RAD-100").numeroCaso(), antes.get("RAD-100").numeroCaso(),
+                "Ana Gómez no cambió de fila físicamente, su llave debe seguir igual.");
+        assertEquals(despues.get("RAD-200").numeroCaso(), antes.get("RAD-200").numeroCaso(),
+                "Beatriz Ruiz se corrió una fila hacia abajo por la inserción, pero su CONTENIDO "
+                        + "no cambió -- su llave de sincronización debe seguir siendo la misma para que "
+                        + "sincronizarDesdeHoja() la reconozca como el mismo caso, no cree un duplicado "
+                        + "ni le asigne por error el radicado de otra fila.");
+        assertEquals(despues.get("RAD-300").numeroCaso(), antes.get("RAD-300").numeroCaso(),
+                "Carlos Díaz se corrió dos filas hacia abajo, misma exigencia que Beatriz.");
+
+        // El caso nuevo debe tener una llave propia, distinta de los otros tres.
+        String llaveNueva = despues.get("RAD-400").numeroCaso();
+        assertNotEquals(antes.get("RAD-100").numeroCaso(), llaveNueva);
+        assertNotEquals(antes.get("RAD-200").numeroCaso(), llaveNueva);
+        assertNotEquals(antes.get("RAD-300").numeroCaso(), llaveNueva);
+    }
+
+    @Test
+    void dosCasosRealesDistintosNuncaComparenLaMismaLlave() throws IOException {
+        Sheets sheets = sheetsSuperintendencia(List.of(
+                filaSuper("Superintendencia Financiera", "RAD-A", "Ana Gómez", "ana@correo.com"),
+                filaSuper("Superintendencia de Salud", "RAD-B", "Beatriz Ruiz", "beatriz@correo.com")
+        ));
+        ResultadoSincronizacionHoja resultado = new HojaCalculoService(SPREADSHEET_ID, sheets).listarParaSincronizar();
+
+        assertEquals(2, resultado.filas().size());
+        assertNotEquals(resultado.filas().get(0).numeroCaso(), resultado.filas().get(1).numeroCaso());
+    }
+
+    // Colisión real de contenido (mismo despacho y mismo nombre de demandante en dos filas
+    // realmente distintas, ej. el mismo cliente con dos procesos separados contra la misma
+    // entidad): deben quedar desambiguadas con un sufijo, nunca fusionadas en un solo caso --
+    // si se fusionaran, uno de los dos radicados/clientes simplemente desaparecería de la
+    // sincronización.
+    @Test
+    void dosFilasConElMismoDespachoYElMismoDemandanteQuedanDesambiguadasNoFusionadas() throws IOException {
+        Sheets sheets = sheetsSuperintendencia(List.of(
+                filaSuper("Superintendencia Financiera", "RAD-1", "Ana Gómez", "ana@correo.com"),
+                filaSuper("Superintendencia Financiera", "RAD-2", "Ana Gómez", "ana@correo.com")
+        ));
+        ResultadoSincronizacionHoja resultado = new HojaCalculoService(SPREADSHEET_ID, sheets).listarParaSincronizar();
+
+        assertEquals(2, resultado.filas().size(), "Las dos filas deben sincronizarse, ninguna se pierde.");
+        String llave1 = resultado.filas().get(0).numeroCaso();
+        String llave2 = resultado.filas().get(1).numeroCaso();
+        assertNotEquals(llave1, llave2, "Deben quedar desambiguadas, nunca compartir la misma llave.");
+        assertEquals(llave1 + "-2", llave2);
+    }
+
+    // La llave de sincronización nunca debe depender del radicado: el radicado a propósito
+    // puede llegar vacío y completarse en una sincronización posterior (el despacho aún no lo
+    // asigna). Si el radicado formara parte de la llave, completarlo más adelante "perdería" el
+    // caso ya sincronizado en vez de actualizarlo -- CasoService.sincronizarDesdeHoja() dejaría
+    // de reconocerlo como el mismo caso.
+    @Test
+    void laLlaveNoCambiaCuandoElRadicadoPasaDeVacioAAsignado() throws IOException {
+        Sheets sheetsSinRadicado = sheetsSuperintendencia(List.of(
+                filaSuper("Superintendencia Financiera", "", "Ana Gómez", "ana@correo.com")
+        ));
+        ResultadoSincronizacionHoja sinRadicado =
+                new HojaCalculoService(SPREADSHEET_ID, sheetsSinRadicado).listarParaSincronizar();
+
+        Sheets sheetsConRadicado = sheetsSuperintendencia(List.of(
+                filaSuper("Superintendencia Financiera", "RAD-100-ASIGNADO", "Ana Gómez", "ana@correo.com")
+        ));
+        ResultadoSincronizacionHoja conRadicado =
+                new HojaCalculoService(SPREADSHEET_ID, sheetsConRadicado).listarParaSincronizar();
+
+        assertEquals(1, sinRadicado.filas().size());
+        assertEquals(1, conRadicado.filas().size());
+        assertNull(sinRadicado.filas().get(0).radicadoId(), "Todavía sin radicado real.");
+        assertEquals("RAD-100-ASIGNADO", conRadicado.filas().get(0).radicadoId(), "Ya con radicado real.");
+        assertEquals(sinRadicado.filas().get(0).numeroCaso(), conRadicado.filas().get(0).numeroCaso(),
+                "La llave debe ser la misma antes y después de que el despacho asigne el radicado.");
     }
 }

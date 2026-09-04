@@ -123,10 +123,14 @@ public class CasoService {
     // del usuario: "que todos en los paneles queden organizados por su número") -- no por
     // fecha de creación como antes. Se ordena en memoria, no con ORDER BY en la consulta,
     // porque numeroCaso es VARCHAR con formatos distintos según la fuente (dígitos puros en
-    // Judiciales/Superintendencia, "fila-N" sintético en Procesos Comisaría, ver
-    // HojaCalculoService): un ORDER BY de texto pondría "10" antes que "9". numeroOrdenable()
-    // extrae solo los dígitos y compara numéricamente; los casos MANUAL (sin numeroCaso) van
-    // al final de su grupo.
+    // Judiciales, huella de contenido "h-..." en Superintendencia/Procesos Comisaría, ver
+    // HojaCalculoService.huellaContenido()): un ORDER BY de texto pondría "10" antes que "9".
+    // numeroOrdenable() extrae solo los dígitos y compara numéricamente; los casos MANUAL (sin
+    // numeroCaso) y los de huella de contenido (que nunca tuvieron un número de caso real que
+    // ordenar -- extraer un dígito cualquiera de en medio del hex de la huella sería un orden
+    // sin ningún sentido) van al final de su grupo, ordenados ahí por fecha_creacion DESC
+    // gracias a que Comparator.thenComparingLong es un sort estable sobre el resultado de
+    // listarTodosConDetalle(), que ya viene en ese orden.
     @Transactional(readOnly = true)
     public List<CasoAdminResponse> listarTodos() {
         return casoRepository.listarTodosConDetalle().stream()
@@ -142,7 +146,12 @@ public class CasoService {
 
     private static long numeroOrdenable(Caso caso) {
         String numero = caso.getNumeroCaso();
-        if (numero == null) {
+        // "h-" = huella de contenido (ver HojaCalculoService.huellaContenido()), no un número
+        // de caso real: extraer el primer dígito de en medio de un hash (ej. "h-a3f9..." -> 3)
+        // ordenaría estos casos de forma arbitraria, no por ningún criterio real. Se tratan
+        // igual que MANUAL (Long.MAX_VALUE), cayendo al final de su grupo en el orden estable
+        // por fecha_creacion DESC que ya trae la consulta.
+        if (numero == null || numero.startsWith("h-")) {
             return Long.MAX_VALUE;
         }
         Matcher m = PRIMERA_RACHA_DE_DIGITOS.matcher(numero);
@@ -502,23 +511,62 @@ public class CasoService {
         }
     }
 
+    // Longitud máxima del radicado que se refleja en el Registro del Sistema (ver
+    // consultar() más abajo): el parámetro "codigo" lo manda el visitante sin autenticar, así
+    // que un valor absurdamente largo (abuso, no un radicado real -- ningún radicado real de
+    // la firma se acerca a esto) no debe generar una fila gigante en la bitácora.
+    private static final int LONGITUD_MAXIMA_RADICADO_EN_REGISTRO = 100;
+
     // Flujo de dos capas, clave para la seguridad: primero se valida que el radicado esté
     // registrado en NUESTRA tabla (solo el admin, autenticado, puede poblarla) antes de
     // consultar la hoja. Así el endpoint público nunca se convierte en un buscador de
     // cualquier fila de las hojas internas de la firma, que pueden tener más casos que los
     // que se comparten con clientes. La fuente del propio Caso local (nunca un parámetro que
     // mande el cliente) decide en cuál de las tres pestañas buscar.
-    @Transactional(readOnly = true)
+    //
+    // Cada intento de consulta queda en el Registro del Sistema (pedido explícito del
+    // usuario: "llevar data" de qué radicado consultó su estado y cuándo), tanto si el
+    // radicado existe como si no -- registrar() usa su propia transacción (REQUIRES_NEW, ver
+    // RegistroSistemaService), y un fallo al guardarlo nunca rompe la consulta real (se traga
+    // y se loguea ahí mismo).
+    //
+    // SIN readOnly=true a propósito, aunque este método no escribe nada directamente: bug
+    // real encontrado corriendo la suite completa contra Postgres real (no en un mock, ahí no
+    // se habría visto) -- Spring marca la conexión JDBC como de solo lectura para TODA la
+    // transacción, y Postgres rechaza el INSERT del registro incluso dentro de la transacción
+    // aparte de REQUIRES_NEW ("cannot execute INSERT in a read-only transaction"), porque esa
+    // transacción anidada corre sobre la misma conexión física que Spring ya marcó readOnly.
+    // El registro se tragaba el error y quedaba en silencio -- consultar() respondía bien,
+    // pero NUNCA se guardaba nada en la bitácora, justo la funcionalidad que se pidió.
+    @Transactional
     public CasoConsultaResponse consultar(String radicadoId) {
-        Caso caso = casoRepository.findByRadicadoId(radicadoId.strip())
-                .orElseThrow(() -> new RecursoNoEncontradoException("No encontramos ningún caso con ese radicado"));
+        String radicadoBuscado = radicadoId.strip();
+        String radicadoParaRegistro = radicadoBuscado.length() > LONGITUD_MAXIMA_RADICADO_EN_REGISTRO
+                ? radicadoBuscado.substring(0, LONGITUD_MAXIMA_RADICADO_EN_REGISTRO) + "…"
+                : radicadoBuscado;
 
-        if (caso.getFuente() == FuenteCaso.MANUAL) {
-            return CasoConsultaResponse.sinEstadoDisponible(caso);
+        Optional<Caso> caso = casoRepository.findByRadicadoId(radicadoBuscado);
+        if (caso.isEmpty()) {
+            registroSistemaService.registrar(
+                    TipoRegistroSistema.CONSULTA_ESTADO_CASO,
+                    "Radicado \"%s\" consultó su estado, pero no existe ningún caso registrado con ese radicado"
+                            .formatted(radicadoParaRegistro),
+                    false);
+            throw new RecursoNoEncontradoException("No encontramos ningún caso con ese radicado");
         }
 
-        Optional<FilaCasoHoja> fila = hojaCalculoService.buscarPorRadicado(caso.getFuente(), caso.getRadicadoId());
-        return fila.map(f -> CasoConsultaResponse.desde(caso, f))
-                .orElseGet(() -> CasoConsultaResponse.sinEstadoDisponible(caso));
+        registroSistemaService.registrar(
+                TipoRegistroSistema.CONSULTA_ESTADO_CASO,
+                "Radicado \"%s\" consultó su estado (%s)"
+                        .formatted(radicadoParaRegistro, caso.get().getFuente().getNombreVisible()),
+                true);
+
+        if (caso.get().getFuente() == FuenteCaso.MANUAL) {
+            return CasoConsultaResponse.sinEstadoDisponible(caso.get());
+        }
+
+        Optional<FilaCasoHoja> fila = hojaCalculoService.buscarPorRadicado(caso.get().getFuente(), caso.get().getRadicadoId());
+        return fila.map(f -> CasoConsultaResponse.desde(caso.get(), f))
+                .orElseGet(() -> CasoConsultaResponse.sinEstadoDisponible(caso.get()));
     }
 }

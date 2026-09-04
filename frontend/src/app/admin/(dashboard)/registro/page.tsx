@@ -35,6 +35,9 @@ const TIPOS_FILTRO: { valor: TipoRegistroSistema | "TODOS"; label: string }[] = 
   { valor: "INICIO_SESION", label: "Inicios de sesión" },
   { valor: "USUARIO_CREADO", label: "Usuarios creados" },
   { valor: "USUARIO_ACTIVO_CAMBIADO", label: "Cambios de estado de usuario" },
+  // Pedido explícito del usuario: llevar registro de qué radicado consultó su estado y
+  // cuándo (ver CasoService.consultar()), tanto si existe como si no.
+  { valor: "CONSULTA_ESTADO_CASO", label: "Consultas de estado de caso" },
 ];
 
 export default function RegistroSistemaPage() {

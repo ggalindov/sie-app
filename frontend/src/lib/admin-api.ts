@@ -511,7 +511,8 @@ export type TipoRegistroSistema =
   | "BOLETIN_ENVIADO"
   | "INICIO_SESION"
   | "USUARIO_CREADO"
-  | "USUARIO_ACTIVO_CAMBIADO";
+  | "USUARIO_ACTIVO_CAMBIADO"
+  | "CONSULTA_ESTADO_CASO";
 
 export type RegistroSistemaItem = {
   id: number;

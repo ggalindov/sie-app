@@ -162,7 +162,14 @@ export default function CasosAdminPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-ink">{c.nombreCliente}</p>
                   <Badge tone="gold">{c.fuenteVisible}</Badge>
-                  {c.numeroCaso && <Badge tone="neutral">Caso Nº {c.numeroCaso}</Badge>}
+                  {/* "h-..." es una huella de contenido interna (ver
+                      HojaCalculoService.huellaContenido()), no un número de caso real de la
+                      hoja de la firma -- Superintendencia y Procesos Comisaría nunca tuvieron
+                      una columna de "NO." confiable, así que no hay nada legible que mostrarle
+                      al admin ahí; se omite el badge en vez de mostrar un hash. */}
+                  {c.numeroCaso && !c.numeroCaso.startsWith("h-") && (
+                    <Badge tone="neutral">Caso Nº {c.numeroCaso}</Badge>
+                  )}
                 </div>
                 <p className="mt-3 text-sm text-ink-soft">
                   {c.correoCliente ?? "Sin correo capturado en la hoja"}

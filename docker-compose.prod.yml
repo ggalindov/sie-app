@@ -95,7 +95,15 @@ services:
         condition: service_healthy
     networks:
       - sie_red
-    mem_limit: ${BACKEND_MEM_LIMIT:-640m}
+    # Subido de 640m a 1024m tras un incidente real en producción: con MaxMetaspaceSize=128m
+    # (calibrado para un límite de 512m, ver Dockerfile) el backend empezó a lanzar
+    # OutOfMemoryError: Metaspace en /api/chatbot/mensaje -- el proyecto creció mucho desde esa
+    # calibración (cliente de Google Sheets, SDK de Anthropic en Kotlin, WhatsApp Cloud API,
+    # cifrado de campos, Registro del Sistema) y esas librerías nuevas empujaron el uso de
+    # Metaspace por encima del techo antiguo. El VPS tiene RAM de sobra (confirmado con
+    # `free -h`: 3.8G totales, 2.3G libres con los 4 contenedores ya corriendo), así que hay
+    # margen real para subir el límite en vez de exprimir la JVM (ver Dockerfile).
+    mem_limit: ${BACKEND_MEM_LIMIT:-1024m}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/salud"]
       interval: 30s

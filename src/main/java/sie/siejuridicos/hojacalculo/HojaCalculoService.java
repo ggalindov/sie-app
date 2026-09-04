@@ -23,7 +23,10 @@ import sie.siejuridicos.hojacalculo.dto.ResultadoSincronizacionHoja;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -56,17 +59,18 @@ import java.util.Optional;
 //   para personalizar el correo), I "ULTIMO ESTADO", J "FECHA DE REVISIÓN",
 //   L "CORREO DEL CLIENTE", M "TELÉFONO DEL CLIENTE".
 // - PROCESOS COMISARIA-: encabezados en la fila 2, datos desde la 3. NO tiene columna de
-//   número de caso (a diferencia de las otras dos) -- se usa el número de fila como llave
-//   sintética de sincronización (ver listarParaSincronizar). A "DESPACHO JUDICIAL",
-//   B "PARTES DEL PROCESO", C "TIPO", E "SUJETO PROCESAL REPRESENTADO", F "RADICADO",
+//   número de caso (a diferencia de las otras dos) -- se usa una huella de contenido como
+//   llave sintética de sincronización (ver listarParaSincronizar/huellaContenido).
+//   A "DESPACHO JUDICIAL", B "PARTES DEL PROCESO", C "TIPO", E "SUJETO PROCESAL REPRESENTADO", F "RADICADO",
 //   G "ULTIMA DECISIÓN", Q "CORREO DEL CLIENTE", R "TELÉFONO DEL CLIENTE".
 @Service
 public class HojaCalculoService {
 
     private static final Logger log = LoggerFactory.getLogger(HojaCalculoService.class);
 
-    // idxNumeroCaso == null significa "esta fuente no tiene columna de número de caso": se
-    // usa una llave sintética "fila-N" en su lugar (ver listarParaSincronizar). Cualquier
+    // idxNumeroCaso == null significa "esta fuente no tiene columna de número de caso": se usa
+    // una huella de contenido (despacho + nombre del cliente) como llave sintética en su lugar
+    // (ver listarParaSincronizar/huellaContenido). Cualquier
     // otro índice == null significa "esta fuente no tiene ese dato" (ej. SUPERINTENDENCIA no
     // tiene un "tipo de caso" separado): el campo correspondiente queda en null, tanto en la
     // consulta pública como en la sincronización, en vez de forzar un valor que no existe.
@@ -98,9 +102,11 @@ public class HojaCalculoService {
         // de tieneContenidoReal()): la columna "NO." de esta hoja NO es confiable -- se repite
         // dentro de un mismo bloque, se reinicia varias veces entre bloques de distintas
         // entidades (Industria y Comercio, Economía Solidaria, Financiera, Salud, Servicios
-        // Públicos...), y varias filas de casos reales la traen simplemente en blanco. Usar el
-        // número de fila física como llave (igual que Procesos Comisaría) es lo único que
-        // garantiza que ningún caso real se pierda ni se fusione con otro.
+        // Públicos...), y varias filas de casos reales la traen simplemente en blanco. La llave
+        // real usada es huellaContenido() (despacho + nombre del cliente/demandante, ver
+        // listarParaSincronizar) -- ni la columna "NO." ni la posición física de la fila, así
+        // que ningún caso real se pierde, se fusiona con otro, ni se cruza con el de un cliente
+        // distinto si la firma inserta una fila nueva en medio de un bloque existente.
         mapa.put(FuenteCaso.SUPERINTENDENCIA, new ConfiguracionFuente(
                 FuenteCaso.SUPERINTENDENCIA, "SUPERINTENDENCIA!A4:M",
                 null, 1, 5, null, null, 8, 9, 3, 5, 11, 12));
@@ -237,17 +243,31 @@ public class HojaCalculoService {
                 numeroCaso = valor;
             } else {
                 // Esta fuente (Procesos Comisaría, o Superintendencia -- ver comentario en
-                // construirConfiguraciones()) no usa una columna de "NO." como llave: el
-                // número de fila física hace de llave estable entre sincronizaciones, mientras
-                // el orden de las filas no cambie (la hoja crece agregando filas al final, no
-                // reordenando las existentes). Se filtran aquí mismo las filas realmente
-                // vacías (ver tieneContenidoReal) para no gastar un número de fila -- y no
-                // crear un caso fantasma -- en una fila de separación/nota entre bloques.
+                // construirConfiguraciones()) no usa una columna de "NO." como llave. Se filtran
+                // aquí mismo las filas realmente vacías (ver tieneContenidoReal) para no crear
+                // un caso fantasma a partir de una fila de separación/nota entre bloques.
                 if (!tieneContenidoReal(fila, config)) {
                     numeroFila++;
                     continue;
                 }
-                numeroCaso = "fila-" + numeroFila;
+                // Bug real encontrado con datos reales, corregido en esta auditoría: ANTES la
+                // llave era "fila-" + número de fila física, estable solo "mientras la hoja
+                // crezca agregando filas al final, no reordenando/insertando en medio". Esa
+                // condición es falsa en la práctica: la hoja de Superintendencia está organizada
+                // por bloques de entidad (Industria y Comercio, Economía Solidaria, Financiera,
+                // Salud, Servicios Públicos...) y la firma sí inserta filas nuevas en medio de un
+                // bloque existente, no solo al final. Cada inserción corre una posición todas las
+                // filas de abajo, así que en la siguiente sincronización "fila-15" dejaba de ser
+                // la misma fila real de antes -- el Caso ya guardado con esa llave se actualizaba
+                // en silencio con los datos de OTRA fila (en el peor caso, el radicado de un
+                // cliente distinto quedaba asignado al Caso equivocado: exactamente el cruce de
+                // información entre clientes que el sistema no puede permitir bajo ninguna
+                // causa). huellaContenido() usa el CONTENIDO de la fila (despacho + nombre del
+                // cliente/demandante), no su posición, así que insertar o borrar filas en
+                // cualquier parte de la hoja ya no afecta la llave de las demás.
+                numeroCaso = huellaContenido(
+                        valorEn(fila, config.idxDespacho()),
+                        config.idxNombreCliente() != null ? valorEn(fila, config.idxNombreCliente()) : "");
             }
             numeroFila++;
 
@@ -260,9 +280,48 @@ public class HojaCalculoService {
                     valorNuloSiVacio(fila, config.idxTelefonoCliente())
             ));
         }
-        // Solo hace falta desambiguar en fuentes con columna "NO." real (Procesos Comisaría ya
-        // usa "fila-N", único por construcción): ver desambiguarNumerosDuplicados().
-        return config.idxNumeroCaso() != null ? desambiguarNumerosDuplicados(resultado) : resultado;
+        // Se desambigua SIEMPRE, no solo en fuentes con columna "NO." real: la huella de
+        // contenido (huellaContenido) también puede colisionar -- dos casos reales distintos que
+        // por coincidencia comparten despacho Y nombre de cliente -- y necesita el mismo sufijo
+        // "-2", "-3"... para no fusionarse en un solo Caso (ver desambiguarNumerosDuplicados).
+        return desambiguarNumerosDuplicados(resultado);
+    }
+
+    // Huella determinística de identidad para fuentes sin columna de "NO." confiable (ver
+    // arriba). Usa SOLO despacho + nombre del cliente/demandante -- datos estructurales fijos
+    // desde que la fila se crea -- nunca radicado ni correo, que a propósito empiezan vacíos y
+    // se completan en una sincronización posterior (ver sincronizarDesdeHoja): si se incluyeran
+    // en la huella, completarlos más adelante cambiaría la llave y "perdería" el caso existente
+    // (se borraría por reconciliación y se crearía uno nuevo) en vez de actualizarlo en el
+    // mismo Caso, que es el comportamiento que sincronizarDesdeHoja espera.
+    //
+    // SHA-256 truncado a 16 caracteres hex (64 bits) hace una colisión accidental entre dos
+    // casos reales distintos prácticamente imposible al volumen de casos de una firma de
+    // abogados. El raro caso de colisión real (o de una fila sin despacho ni nombre
+    // identificable, solo radicado/correo) igual queda cubierto de forma segura por
+    // desambiguarNumerosDuplicados(), que ahora se aplica siempre.
+    //
+    // Nunca se loguea el texto de entrada (puede tener nombres de clientes reales) -- misma
+    // regla que el resto de esta clase.
+    private static String huellaContenido(String despacho, String identidad) {
+        String normalizado = normalizarTexto(despacho) + "␟" + normalizarTexto(identidad);
+        try {
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] digest = sha256.digest(normalizado.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) {
+                hex.append(String.format("%02x", digest[i]));
+            }
+            return "h-" + hex;
+        } catch (NoSuchAlgorithmException ex) {
+            // SHA-256 es un algoritmo estándar garantizado por el JDK (JEP 176 / especificación
+            // de Java Cryptography Architecture): esta rama es inalcanzable en la práctica.
+            throw new IllegalStateException("SHA-256 no disponible en esta JVM", ex);
+        }
+    }
+
+    private static String normalizarTexto(String texto) {
+        return texto == null ? "" : texto.strip().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
     }
 
     // Bug real encontrado con datos reales: la columna "NO." de la hoja de la firma NO es un
@@ -273,14 +332,14 @@ public class HojaCalculoService {
     // la mitad de los casos reales de Superintendencia nunca llegaban a sincronizarse porque
     // se fusionaban silenciosamente con otro caso que por casualidad compartía el mismo "NO.".
     //
-    // A la 2ª, 3ª... aparición de un mismo número (en el orden en que aparecen en la hoja) se
-    // le agrega un sufijo "-2", "-3"... antes de usarlo como llave de sincronización (ver
-    // CasoService.sincronizarDesdeHoja): la primera aparición no cambia (compatible con lo que
-    // ya estaba sincronizado), y el sufijo es estable entre sincronizaciones mientras el orden
-    // relativo de esas filas duplicadas ENTRE SÍ no cambie -- una hipótesis mucho más débil, y
-    // por lo tanto más segura, que asumir que la hoja completa nunca inserta filas en medio (lo
-    // que habría hecho falta si se usara el número de fila física como llave para todas las
-    // fuentes en vez de solo para Procesos Comisaría).
+    // A la 2ª, 3ª... aparición de un mismo número/huella (en el orden en que aparecen en la
+    // hoja) se le agrega un sufijo "-2", "-3"... antes de usarlo como llave de sincronización
+    // (ver CasoService.sincronizarDesdeHoja): la primera aparición no cambia (compatible con lo
+    // que ya estaba sincronizado), y el sufijo es estable entre sincronizaciones mientras el
+    // orden relativo de esas filas duplicadas ENTRE SÍ no cambie -- una hipótesis mucho más
+    // débil, y por lo tanto más segura, que asumir que la hoja completa nunca inserta filas en
+    // medio (justo la asunción que ya NO hace falta para SUPERINTENDENCIA/PROCESOS_COMISARIA
+    // desde que su llave es huellaContenido(), basada en contenido y no en posición).
     private static List<FilaSincronizacionHoja> desambiguarNumerosDuplicados(List<FilaSincronizacionHoja> filas) {
         Map<String, Integer> ocurrencias = new HashMap<>();
         List<FilaSincronizacionHoja> resultado = new ArrayList<>(filas.size());

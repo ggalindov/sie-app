@@ -63,13 +63,26 @@ EXPOSE 8080
 # OpenJDK para exactamente este perfil de máquina. JAVA_OPTS queda como variable de
 # entorno editable por si hay que afinar esto sin reconstruir la imagen.
 #
-# CORREGIDO tras auditoría: con el límite por defecto del contenedor (512m, ver
-# BACKEND_MEM_LIMIT en docker-compose.prod.yml), la combinación anterior de
-# MaxRAMPercentage=75% (384m de heap) + MaxMetaspaceSize=160m ya sumaba 544m, por encima
-# del límite duro de cgroup, ANTES de contar stacks de hilos, code cache del JIT o
-# buffers directos de Tomcat. Un mem_limit excedido es un OOM-kill duro del contenedor
-# (el kernel lo mata, no hay degradación suave). Bajado a 60%/128m: 512*0.6=307m de heap
-# + 128m de metaspace = 435m, dejando ~77m de colchón real para el resto de la JVM.
-ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=40.0 -XX:MaxMetaspaceSize=128m -Xss512k -Djava.security.egd=file:/dev/./urandom"
+# CORREGIDO dos veces -- primero por auditoría, luego por un incidente real en producción:
+#
+# 1) Auditoría inicial: con el límite del contenedor de ENTONCES (512m), la combinación
+#    anterior de MaxRAMPercentage=75% (384m de heap) + MaxMetaspaceSize=160m ya sumaba 544m,
+#    por encima del límite duro de cgroup, ANTES de contar stacks de hilos, code cache del
+#    JIT o buffers directos de Tomcat. Un mem_limit excedido es un OOM-kill duro del
+#    contenedor (el kernel lo mata, no hay degradación suave). Se bajó a 60%/128m.
+#
+# 2) Incidente real en producción (después de esa auditoría): el chatbot empezó a fallar con
+#    "OutOfMemoryError: Metaspace" en cada mensaje -- confirmado en los logs reales del
+#    backend, no una hipótesis. Causa: el proyecto creció mucho desde el ajuste de arriba
+#    (cliente de Google Sheets -- trae bastantes clases propias --, el SDK de Anthropic en
+#    Kotlin -- que el chatbot carga perezosamente recién en su primer uso real, coincidiendo
+#    justo con cuándo aparecía el error --, WhatsApp Cloud API, cifrado de campos, Registro
+#    del Sistema), y esas 128m de techo ya se quedaban cortas para el metaspace real que la
+#    aplicación necesita hoy. El límite del contenedor también subió (ver BACKEND_MEM_LIMIT
+#    en docker-compose.prod.yml, 640m -> 1024m: el VPS real tiene RAM de sobra, confirmado
+#    con `free -h` en el incidente), así que el metaspace pudo subir con margen real en vez
+#    de quedar otra vez al límite: 1024*0.6=614m de heap + 256m de metaspace = 870m, dejando
+#    ~154m de colchón para el resto de la JVM.
+ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=40.0 -XX:MaxMetaspaceSize=256m -Xss512k -Djava.security.egd=file:/dev/./urandom"
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
