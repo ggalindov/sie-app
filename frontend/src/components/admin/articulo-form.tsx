@@ -1,19 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { UploadSimple } from "@phosphor-icons/react";
 import type { Categoria } from "@/lib/api";
 import {
   crearArticulo,
   actualizarArticulo,
   listarCategorias,
+  subirImagenArticulo,
   ApiError,
   type ArticuloAdmin,
   type TipoContenido,
 } from "@/lib/admin-api";
 import { AdminButton } from "@/components/admin/ui";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
+
+// 10 MB: mismo límite que valida el backend (ver application.properties,
+// spring.servlet.multipart.max-file-size) -- se avisa aquí antes de subir el archivo entero
+// para no hacerle esperar la subida completa solo para enterarse al final de que era
+// demasiado grande.
+const TAMANO_MAXIMO_BYTES = 10 * 1024 * 1024;
 
 export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
   const router = useRouter();
@@ -22,6 +30,8 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
   const [idCategoria, setIdCategoria] = useState<number | "">(articulo?.categoria.id ?? "");
   const [resumen, setResumen] = useState(articulo?.resumen ?? "");
   const [imagenUrl, setImagenUrl] = useState(articulo?.imagenUrl ?? "");
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
+  const inputArchivoRef = useRef<HTMLInputElement>(null);
   const [tipoContenido, setTipoContenido] = useState<TipoContenido>(articulo?.tipoContenido ?? "BLOG");
   const [contenido, setContenido] = useState(articulo?.contenido ?? "");
   const [tiempoLecturaMin, setTiempoLecturaMin] = useState(articulo?.tiempoLecturaMin?.toString() ?? "");
@@ -30,6 +40,28 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
   useEffect(() => {
     listarCategorias().then(setCategorias).catch(() => toast.error("No se pudieron cargar las categorías."));
   }, []);
+
+  async function onSeleccionarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = ""; // permite volver a elegir el mismo archivo si se cancela/reintenta
+    if (!archivo) return;
+
+    if (archivo.size > TAMANO_MAXIMO_BYTES) {
+      toast.error("La imagen pesa más de 10 MB. Usa una más liviana o recórtala primero.");
+      return;
+    }
+
+    setSubiendoImagen(true);
+    try {
+      const { url } = await subirImagenArticulo(archivo);
+      setImagenUrl(url);
+      toast.success("Imagen subida.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo subir la imagen.");
+    } finally {
+      setSubiendoImagen(false);
+    }
+  }
 
   function validar(): string | null {
     if (!titulo.trim()) return "El título es obligatorio.";
@@ -184,18 +216,38 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
 
       <div className="space-y-2">
         <label htmlFor="imagenUrl" className="text-sm font-medium text-ink">
-          Imagen de portada (enlace)
+          Imagen de portada
         </label>
-        <input
-          id="imagenUrl"
-          value={imagenUrl}
-          onChange={(e) => setImagenUrl(e.target.value)}
-          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
-          placeholder="https://ejemplo.com/imagen.jpg"
-        />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            id="imagenUrl"
+            value={imagenUrl}
+            onChange={(e) => setImagenUrl(e.target.value)}
+            className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
+            placeholder="https://ejemplo.com/imagen.jpg"
+          />
+          <input
+            ref={inputArchivoRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/bmp"
+            onChange={onSeleccionarArchivo}
+            className="hidden"
+          />
+          <AdminButton
+            type="button"
+            variant="secondary"
+            disabled={subiendoImagen}
+            onClick={() => inputArchivoRef.current?.click()}
+            className="shrink-0"
+          >
+            <UploadSimple className="h-4 w-4" weight="light" />
+            {subiendoImagen ? "Subiendo..." : "Subir desde el computador"}
+          </AdminButton>
+        </div>
         <p className="text-xs text-ink-soft">
-          Se ve en la miniatura del listado del blog y también como imagen destacada arriba
-          del contenido, dentro del artículo.
+          Pega un enlace o sube una foto directamente (se optimiza sola: máximo 1600px de
+          lado y menos peso, sin que se note la diferencia). Se ve en la miniatura del
+          listado del blog y como imagen destacada arriba del contenido, dentro del artículo.
         </p>
         {imagenUrl.trim() && (
           <ImagenPreview url={imagenUrl.trim()} />

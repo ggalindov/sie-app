@@ -4,11 +4,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
+import sie.siejuridicos.usuario.UsuarioInterno;
 
 import java.time.LocalDateTime;
 
@@ -54,6 +58,23 @@ public class Solicitud {
 
     @Column(name = "recordatorio_enviado", nullable = false)
     private boolean recordatorioEnviado = false;
+
+    // Abogado responsable de la reunion (ver SolicitudService.agendarCita): nulo hasta que se
+    // agenda la primera cita. Es lo que separa el calendario por rol (SolicitudService.
+    // listarCalendario): ADMIN_GENERAL ve todas las reuniones, ABOGADO solo las suyas.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "abogado_asignado_id")
+    private UsuarioInterno abogadoAsignado;
+
+    @Column(name = "link_reunion")
+    private String linkReunion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_reunion", nullable = false)
+    private TipoReunion tipoReunion = TipoReunion.VIRTUAL;
+
+    @Column(name = "lugar_reunion")
+    private String lugarReunion;
 
     public Long getId() {
         return id;
@@ -141,5 +162,37 @@ public class Solicitud {
 
     public void setRecordatorioEnviado(boolean recordatorioEnviado) {
         this.recordatorioEnviado = recordatorioEnviado;
+    }
+
+    public UsuarioInterno getAbogadoAsignado() {
+        return abogadoAsignado;
+    }
+
+    public void setAbogadoAsignado(UsuarioInterno abogadoAsignado) {
+        this.abogadoAsignado = abogadoAsignado;
+    }
+
+    public String getLinkReunion() {
+        return linkReunion;
+    }
+
+    public void setLinkReunion(String linkReunion) {
+        this.linkReunion = linkReunion;
+    }
+
+    public TipoReunion getTipoReunion() {
+        return tipoReunion;
+    }
+
+    public void setTipoReunion(TipoReunion tipoReunion) {
+        this.tipoReunion = tipoReunion;
+    }
+
+    public String getLugarReunion() {
+        return lugarReunion;
+    }
+
+    public void setLugarReunion(String lugarReunion) {
+        this.lugarReunion = lugarReunion;
     }
 }

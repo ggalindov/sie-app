@@ -90,6 +90,19 @@ rem trae el numero fijo pedido (+57 312 4781583); solo cambialo si la firma pide
 set WHATSAPP_TEMPLATE_SOLICITUD_NAME=nueva_solicitud
 set WHATSAPP_ADMIN_NUMERO=+573124781583
 
+rem Confirmacion de reunion agendada desde el Calendario del panel (correo + WhatsApp al
+rem cliente, con fecha, hora y link de acceso). Plantilla DISTINTA a las anteriores, debe
+rem aprobarse aparte en Meta (ver DEPLOY.md seccion 2.5). Sin WHATSAPP_ACCESS_TOKEN/
+rem PHONE_NUMBER_ID configurados arriba, la confirmacion sigue llegando solo por correo.
+set WHATSAPP_TEMPLATE_CITA_NAME=confirmacion_cita
+
+rem Aviso de blog/noticia publicado (correo siempre + WhatsApp a este unico numero fijo,
+rem pedido explicito del usuario -- no es el de un cliente ni el de atencion general de la
+rem firma). A diferencia de las demas notificaciones de WhatsApp, esta es de TEXTO LIBRE (no
+rem plantilla): solo se entrega mientras este numero tenga una ventana de servicio abierta
+rem con el numero de WhatsApp de la firma (le haya escrito algo en las ultimas 24h).
+set WHATSAPP_NUMERO_AVISO_BLOG=3126029742
+
 rem Credenciales reales (Gmail u otras): NUNCA las pongas aqui arriba, este archivo esta
 rem versionado en git y se sube al repositorio. Crea "run.local.bat" (esta en .gitignore,
 rem nunca se sube) junto a este script con las mismas variables set MAIL_USERNAME=... /

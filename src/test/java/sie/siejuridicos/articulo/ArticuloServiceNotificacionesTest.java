@@ -14,6 +14,7 @@ import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.usuario.UsuarioInterno;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
+import sie.siejuridicos.whatsapp.WhatsAppService;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,11 +48,14 @@ class ArticuloServiceNotificacionesTest {
     @Mock
     private EmailService emailService;
     @Mock
+    private WhatsAppService whatsAppService;
+    @Mock
     private RegistroSistemaService registroSistemaService;
 
     private ArticuloService crearServicio() {
         return new ArticuloService(articuloRepository, categoriaRepository, usuarioInternoRepository,
-                suscriptorMarketingRepository, boletinEnviadoRepository, emailService, registroSistemaService);
+                suscriptorMarketingRepository, boletinEnviadoRepository, emailService, whatsAppService,
+                registroSistemaService, "https://siejuridicos.com");
     }
 
     private static Categoria categoria(long id) {

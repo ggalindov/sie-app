@@ -48,21 +48,45 @@ import java.util.Optional;
 // correo) y errores operativos, nunca a nivel INFO.
 //
 // Tres pestañas soportadas (ver FuenteCaso), cada una con su propia estructura de columnas
-// -- confirmadas leyendo la fila de encabezados real de cada una, no adivinadas:
-// - JUDICIALES: encabezados en la fila 6, datos desde la 7. B "NO.", D "DESPACHO JUDICIAL",
-//   E "PARTES DEL PROCESO", F "TIPO", H "SUJETO PROCESAL REPRESENTADO", I "RADICADO",
-//   J "ULTIMA DECISIÓN", K "ESTADO", M "REVISADO" (se usa como fecha de actualización: en
-//   la práctica siempre trae una fecha real, pese al nombre de la columna),
-//   T "CORREO DEL CLIENTE", U "TELÉFONO DEL CLIENTE".
-// - SUPERINTENDENCIA: encabezados en la fila 3, datos desde la 4. A "NO.",
-//   B "NOMBRE SUPERINTENDECIA", D "RADICADO", F "DEMANDANTE" (also el nombre del cliente
-//   para personalizar el correo), I "ULTIMO ESTADO", J "FECHA DE REVISIÓN",
-//   L "CORREO DEL CLIENTE", M "TELÉFONO DEL CLIENTE".
-// - PROCESOS COMISARIA-: encabezados en la fila 2, datos desde la 3. NO tiene columna de
-//   número de caso (a diferencia de las otras dos) -- se usa una huella de contenido como
-//   llave sintética de sincronización (ver listarParaSincronizar/huellaContenido).
-//   A "DESPACHO JUDICIAL", B "PARTES DEL PROCESO", C "TIPO", E "SUJETO PROCESAL REPRESENTADO", F "RADICADO",
-//   G "ULTIMA DECISIÓN", Q "CORREO DEL CLIENTE", R "TELÉFONO DEL CLIENTE".
+// -- confirmadas leyendo en vivo la fila de encabezados real de cada una (y varias filas de
+// datos reales) con la propia cuenta de servicio, no adivinadas ni copiadas del hoja anterior.
+// Hoja reemplazada por completo el 2026-09-08 ("se estandarizaron los textos y formatos", ver
+// GOOGLE_SHEETS_ID) -- spreadsheet, nombres de pestaña Y columnas cambiaron de la versión
+// anterior, por eso esta sección se reescribió entera en vez de solo ajustar índices.
+//
+// - JUDICIALES: encabezados en la fila 2, datos desde la 3. A "NO.", B "DESPACHO JUDICIAL",
+//   C "PARTES DEL PROCESO", D "TIPO", E "APODERADO(A)" (abogado interno de la firma, nunca se
+//   expone), F "SUJETO PROCESAL REPRESENTADO" (nombre del cliente), G "RADICADO",
+//   H "ÚLTIMA DECISIÓN", I "ESTADO" (a pesar del nombre, en la práctica SIEMPRE trae una
+//   fecha real -- mismo patrón de columna mal nombrada que ya existía en la hoja anterior,
+//   se usa como fecha de actualización), J "UBICACIÓN Y ÚLTIMA ACTUALIZACIÓN" (texto
+//   describiendo en qué etapa/lugar del proceso está, ej. "SECRETARIA-LETRA",
+//   "REANUDACIÓN" -- esto es lo que de verdad describe el "estado" para el cliente),
+//   P "CORREO DEL CLIENTE", Q "TELÉFONO DEL CLIENTE". Columnas K "PENDIENTE", L "CORREO"
+//   (del despacho, no del cliente), M "AUDIENCIAS", N "SUSTITUCIONES", O "OBSERVACIONES" son
+//   notas internas de la firma, no se exponen.
+// - PROCESOS COMISARÍA (nombre de pestaña sin guion al final, con tilde -- distinto del de la
+//   hoja anterior): encabezados en la fila 2, datos desde la 3. NO tiene columna de número de
+//   caso (igual que antes) -- se usa una huella de contenido como llave sintética de
+//   sincronización (ver listarParaSincronizar/huellaContenido). A "DESPACHO JUDICIAL",
+//   B "PARTES DEL PROCESO", C "TIPO", D "APODERADO(A)" (interno, no se expone),
+//   E "SUJETO PROCESAL REPRESENTADO", F "RADICADO", G "ÚLTIMA DECISIÓN",
+//   M "CORREO DEL CLIENTE", N "TELÉFONO DEL CLIENTE". Esta fuente nunca tuvo columna de
+//   "estado" ni "fecha de actualización" propia (columna H "UBICACIÓN Y ÚLTIMA
+//   ACTUALIZACIÓN" existe en la hoja pero llega vacía en la práctica), igual que antes.
+// - SUPERINTENDENCIA: encabezados en la fila 3, datos desde la 4. A "NO." (igual que antes,
+//   NO es confiable: se repite y se reinicia varias veces, confirmado de nuevo en la hoja
+//   nueva -- sigue sin usarse como llave). B "SUPERINTENDENCIA", C "AÑO" (no se usa: el
+//   radicado de la columna D ya es único en la práctica, ver unique=true en Caso.radicadoId
+//   y la detección de duplicados en CasoService.sincronizarDesdeHoja -- combinarlo con el año
+//   añadiría complejidad sin necesidad real hoy), D "RADICADO", E "C.C. / NIT" (del cliente,
+//   no se usa, ya se tiene su correo/teléfono), F "DEMANDANTE" (también el nombre del
+//   cliente, para personalizar el correo), G "DEMANDADO" (nuevo: antes no existía como
+//   columna separada -- se combina con F para armar "informacionCaso", ver idxContraparte),
+//   H "ESTADO" (nuevo: pese al nombre trae fecha + una decisión breve, análogo a la "última
+//   decisión" de Judiciales), I "ÚLTIMO ESTADO" (igual letra y rol que en la hoja anterior),
+//   J "FECHA DE REVISIÓN" (igual letra y rol que en la hoja anterior), L "CORREO DEL
+//   CLIENTE", M "TELÉFONO DEL CLIENTE" (ambas en la misma letra que en la hoja anterior).
 @Service
 public class HojaCalculoService {
 
@@ -80,6 +104,12 @@ public class HojaCalculoService {
             Integer idxNumeroCaso,
             int idxDespacho,
             int idxInformacionCaso,
+            // Solo Superintendencia la usa (columna "DEMANDADO", separada de "DEMANDANTE"):
+            // cuando no es null, informacionCaso se arma combinando idxInformacionCaso +
+            // idxContraparte ("Demandante: ... / Demandado: ..."), igual formato que Judiciales
+            // y Procesos Comisaría ya traen pre-combinado en una sola columna de la hoja. Ver
+            // combinarPartes().
+            Integer idxContraparte,
             Integer idxTipoCaso,
             Integer idxUltimaDecision,
             Integer idxEstado,
@@ -96,23 +126,30 @@ public class HojaCalculoService {
     private static Map<FuenteCaso, ConfiguracionFuente> construirConfiguraciones() {
         Map<FuenteCaso, ConfiguracionFuente> mapa = new EnumMap<>(FuenteCaso.class);
         mapa.put(FuenteCaso.JUDICIALES, new ConfiguracionFuente(
-                FuenteCaso.JUDICIALES, "JUDICIALES!B7:U",
-                0, 2, 3, 4, 8, 9, 11, 7, 6, 18, 19));
-        // idxNumeroCaso=null a propósito (bug real encontrado con datos reales, ver comentario
-        // de tieneContenidoReal()): la columna "NO." de esta hoja NO es confiable -- se repite
-        // dentro de un mismo bloque, se reinicia varias veces entre bloques de distintas
-        // entidades (Industria y Comercio, Economía Solidaria, Financiera, Salud, Servicios
-        // Públicos...), y varias filas de casos reales la traen simplemente en blanco. La llave
-        // real usada es huellaContenido() (despacho + nombre del cliente/demandante, ver
-        // listarParaSincronizar) -- ni la columna "NO." ni la posición física de la fila, así
-        // que ningún caso real se pierde, se fusiona con otro, ni se cruza con el de un cliente
-        // distinto si la firma inserta una fila nueva en medio de un bloque existente.
+                FuenteCaso.JUDICIALES, "JUDICIALES!A3:Q",
+                null, 1, 2, null, 3, 7, 9, 8, 6, 5, 15, 16));
+        // idxNumeroCaso=null a propósito -- CAMBIO CRÍTICO DE INTEGRIDAD encontrado en esta
+        // migración a la hoja nueva, no en la anterior: JUDICIALES SÍ confiaba en la columna
+        // "NO." como llave estable (a diferencia de las otras dos fuentes, ver más abajo),
+        // porque en la hoja anterior esa numeración nunca se reordenaba. La hoja nueva llegó
+        // "con los textos y formatos estandarizados" -- en la práctica eso reordenó/renumeró
+        // filas, confirmado en vivo al arrancar contra la hoja nueva: decenas de radicados
+        // reales (Nº4 en adelante) salieron marcados como "ya asignado a otro caso", porque el
+        // Nº4 de ahora ya no es el mismo caso real que era el Nº4 antes -- si esto no se
+        // hubiera detectado (la detección de duplicados de sincronizarDesdeHoja ya existía y
+        // SÍ frenó el cruce de radicado), el sistema habría reasignado el radicado de un
+        // cliente al Caso local de otro cliente distinto, exactamente el cruce de información
+        // que no se puede permitir bajo ninguna circunstancia. La solución robusta es la misma
+        // que ya se usaba para SUPERINTENDENCIA/PROCESOS_COMISARIA: dejar de confiar en
+        // cualquier número o posición de fila y usar huellaContenido() (despacho + nombre del
+        // cliente/sujeto representado) como llave, inmune a que la firma reordene o renumere
+        // filas en el futuro.
         mapa.put(FuenteCaso.SUPERINTENDENCIA, new ConfiguracionFuente(
                 FuenteCaso.SUPERINTENDENCIA, "SUPERINTENDENCIA!A4:M",
-                null, 1, 5, null, null, 8, 9, 3, 5, 11, 12));
+                null, 1, 5, 6, null, 7, 8, 9, 3, 5, 11, 12));
         mapa.put(FuenteCaso.PROCESOS_COMISARIA, new ConfiguracionFuente(
-                FuenteCaso.PROCESOS_COMISARIA, "'PROCESOS COMISARIA-'!A3:R",
-                null, 0, 1, 2, 6, null, null, 5, 4, 16, 17));
+                FuenteCaso.PROCESOS_COMISARIA, "'PROCESOS COMISARÍA'!A3:N",
+                null, 0, 1, null, 2, 6, null, null, 5, 4, 12, 13));
         return mapa;
     }
 
@@ -194,9 +231,12 @@ public class HojaCalculoService {
         String buscado = radicadoId.strip();
         for (List<Object> fila : filas) {
             if (valorEn(fila, config.idxRadicado()).equalsIgnoreCase(buscado)) {
+                String informacionCaso = config.idxContraparte() != null
+                        ? combinarPartes(valorEn(fila, config.idxInformacionCaso()), valorEn(fila, config.idxContraparte()))
+                        : valorEn(fila, config.idxInformacionCaso());
                 return Optional.of(new FilaCasoHoja(
                         valorEn(fila, config.idxDespacho()),
-                        valorEn(fila, config.idxInformacionCaso()),
+                        informacionCaso,
                         config.idxTipoCaso() != null ? valorEn(fila, config.idxTipoCaso()) : null,
                         config.idxUltimaDecision() != null ? valorEn(fila, config.idxUltimaDecision()) : null,
                         config.idxEstado() != null ? valorEn(fila, config.idxEstado()) : null,
@@ -205,6 +245,24 @@ public class HojaCalculoService {
             }
         }
         return Optional.empty();
+    }
+
+    // Solo se usa cuando la hoja trae demandante/demandado en columnas separadas
+    // (Superintendencia, ver idxContraparte) -- Judiciales y Procesos Comisaría ya traen esto
+    // pre-combinado como texto en una sola columna de la propia hoja, no pasan por aquí.
+    private static String combinarPartes(String demandante, String demandado) {
+        boolean tieneDemandante = !demandante.isBlank();
+        boolean tieneDemandado = !demandado.isBlank();
+        if (!tieneDemandante && !tieneDemandado) {
+            return "";
+        }
+        if (!tieneDemandado) {
+            return "Demandante: " + demandante;
+        }
+        if (!tieneDemandante) {
+            return "Demandado: " + demandado;
+        }
+        return "Demandante: " + demandante + "\nDemandado: " + demandado;
     }
 
     // Trae TODAS las filas de las TRES hojas, para que CasoService.sincronizarDesdeHoja()

@@ -47,6 +47,8 @@ WHATSAPP_TEMPLATE_COBRO_NAME=$(pedir "Nombre de la plantilla de recordatorio de 
 WHATSAPP_APP_SECRET=$(pedir "App Secret de la app de Meta (Configuración básica en Meta Business Manager, deja vacío para configurarlo después)")
 WHATSAPP_TEMPLATE_SOLICITUD_NAME=$(pedir "Nombre de la plantilla de aviso interno de nueva solicitud ya aprobada por Meta" "nueva_solicitud")
 WHATSAPP_ADMIN_NUMERO=$(pedir "Número de WhatsApp interno que recibe el aviso de cada nueva solicitud" "+573124781583")
+WHATSAPP_TEMPLATE_CITA_NAME=$(pedir "Nombre de la plantilla de confirmación de reunión agendada ya aprobada por Meta" "confirmacion_cita")
+WHATSAPP_NUMERO_AVISO_BLOG=$(pedir "Número fijo que recibe el aviso de blog/noticia publicado (texto libre, sin plantilla)" "3126029742")
 
 # Contraseñas/secretos generados de verdad, nunca placeholders que alguien tenga que
 # acordarse de cambiar. 48 bytes en base64 da de sobra los 256 bits mínimos que exige
@@ -99,6 +101,8 @@ WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET}
 
 WHATSAPP_TEMPLATE_SOLICITUD_NAME=${WHATSAPP_TEMPLATE_SOLICITUD_NAME}
 WHATSAPP_ADMIN_NUMERO=${WHATSAPP_ADMIN_NUMERO}
+WHATSAPP_TEMPLATE_CITA_NAME=${WHATSAPP_TEMPLATE_CITA_NAME}
+WHATSAPP_NUMERO_AVISO_BLOG=${WHATSAPP_NUMERO_AVISO_BLOG}
 EOF
 
 chmod 600 .env.prod

@@ -16,6 +16,7 @@ import sie.siejuridicos.articulo.Articulo;
 import sie.siejuridicos.articulo.TipoContenido;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.solicitud.Solicitud;
+import sie.siejuridicos.solicitud.TipoReunion;
 
 import java.io.UnsupportedEncodingException;
 import java.time.Year;
@@ -145,12 +146,45 @@ public class EmailService {
         enviarHtml(correoAdmin, "Nueva solicitud: " + solicitud.getNombre(), cuerpo);
     }
 
+    // true solo si de verdad hay algo que mostrar para el tipo de reunión guardado: una
+    // reunión creada antes de que existiera este campo podría no tener ni link ni lugar --
+    // se prefiere degradar con gracia (omitir el bloque) a que un correo transaccional falle
+    // por un NullPointerException en formatted().
+    private boolean hayDetalleDeAcceso(Solicitud solicitud) {
+        if (solicitud.getTipoReunion() == TipoReunion.PRESENCIAL) {
+            return solicitud.getLugarReunion() != null && !solicitud.getLugarReunion().isBlank();
+        }
+        return solicitud.getLinkReunion() != null && !solicitud.getLinkReunion().isBlank();
+    }
+
+    // Bloque de acceso a la reunión dentro del cuerpo del correo al cliente: un botón dorado
+    // con el link (Meet o Zoom) si es VIRTUAL, o un bloque con la dirección si es PRESENCIAL
+    // -- mismo estilo de "cita" con filo dorado que ya usa enviarConfirmacionYPromocionSolicitud
+    // para el mensaje recibido, así el lugar no queda como texto plano suelto en medio del correo.
+    private String bloqueAccesoReunion(Solicitud solicitud) {
+        if (!hayDetalleDeAcceso(solicitud)) {
+            return "";
+        }
+        if (solicitud.getTipoReunion() == TipoReunion.PRESENCIAL) {
+            return """
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 20px;background-color:#F7F4EC;border-left:3px solid %s;">
+                    <tr><td style="padding:14px 18px;">
+                    <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Lugar de la reunión</p>
+                    <p style="margin:0;">%s</p>
+                    </td></tr>
+                    </table>
+                    """.formatted(COLOR_DORADO, COLOR_DORADO, escaparHtml(solicitud.getLugarReunion()));
+        }
+        return botonCta("Unirme a la reunión", solicitud.getLinkReunion());
+    }
+
     @Async
     public void enviarConfirmacionCita(Solicitud solicitud) {
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
-                <p style="margin:0 0 16px;">Confirmamos tu cita con %s para el
-                <strong>%s</strong>.</p>
+                <p style="margin:0 0 16px;">Confirmamos tu reunión con %s para el
+                <strong>%s</strong></p>
+                %s
                 <p style="margin:0 0 20px;">Si necesitas reprogramarla, por favor contáctanos respondiendo
                 este correo%s.</p>
                 %s
@@ -158,47 +192,64 @@ public class EmailService {
                 escaparHtml(solicitud.getNombre()),
                 nombreFirma,
                 solicitud.getFechaCita().format(FORMATO_FECHA_CITA),
+                bloqueAccesoReunion(solicitud),
                 whatsappUrl.isBlank() ? "" : " o escribiéndonos por WhatsApp",
                 firmaCierre()
         );
-        enviarHtml(solicitud.getCorreo(), "Confirmación de tu cita - " + nombreFirma, cuerpo);
+        enviarHtml(solicitud.getCorreo(), "Confirmación de tu reunión - " + nombreFirma, cuerpo);
     }
 
     @Async
     public void enviarNotificacionAdminNuevaCita(Solicitud solicitud) {
+        boolean esVirtual = solicitud.getTipoReunion() == TipoReunion.VIRTUAL;
+        boolean hayDetalle = hayDetalleDeAcceso(solicitud);
+        boolean hayResponsable = solicitud.getAbogadoAsignado() != null;
         String cuerpo = """
-                <p style="margin:0 0 12px;">Se agendó una nueva cita para el
-                <strong>%s</strong>.</p>
+                <p style="margin:0 0 12px;">Se agendó una nueva reunión %s para el
+                <strong>%s</strong></p>
                 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;border-collapse:collapse;">
-                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;width:120px;">Cliente</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;width:140px;">Cliente</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
                     <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;">Correo</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
-                    <tr><td style="padding:6px 0;color:#736C5C;">Teléfono</td><td style="padding:6px 0;">%s</td></tr>
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;">Teléfono</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;">Responsable</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;color:#736C5C;vertical-align:top;">%s</td><td style="padding:6px 0;word-break:break-all;">%s</td></tr>
                 </table>
                 """.formatted(
+                esVirtual ? "virtual" : "presencial",
                 solicitud.getFechaCita().format(FORMATO_FECHA_CITA),
                 escaparHtml(solicitud.getNombre()),
                 escaparHtml(solicitud.getCorreo()),
-                solicitud.getTelefono() == null ? "(no proporcionado)" : escaparHtml(solicitud.getTelefono())
+                solicitud.getTelefono() == null ? "(no proporcionado)" : escaparHtml(solicitud.getTelefono()),
+                hayResponsable ? escaparHtml(solicitud.getAbogadoAsignado().getNombre()) : "(sin asignar)",
+                esVirtual ? "Link de la reunión" : "Lugar de la reunión",
+                !hayDetalle
+                        ? "(no proporcionado)"
+                        : esVirtual
+                                ? "<a href=\"%s\" style=\"color:%s;\">%s</a>".formatted(
+                                        solicitud.getLinkReunion(), COLOR_DORADO, escaparHtml(solicitud.getLinkReunion()))
+                                : escaparHtml(solicitud.getLugarReunion())
         );
-        enviarHtml(correoAdmin, "Nueva cita agendada: " + solicitud.getNombre(), cuerpo);
+        enviarHtml(correoAdmin, "Nueva reunión agendada: " + solicitud.getNombre(), cuerpo);
     }
 
     @Async
     public void enviarRecordatorioCita(Solicitud solicitud) {
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
-                <p style="margin:0 0 20px;">Este es un recordatorio de tu cita <strong>hoy</strong> con
-                %s, a las <strong>%s</strong>.</p>
+                <p style="margin:0 0 20px;">Este es un recordatorio de tu reunión <strong>hoy</strong> con
+                %s, a las <strong>%s</strong></p>
+                %s
                 %s
                 %s
                 """.formatted(
                 escaparHtml(solicitud.getNombre()),
                 nombreFirma,
                 solicitud.getFechaCita().format(DateTimeFormatter.ofPattern("h:mm a", Locale.of("es", "CO"))),
+                bloqueAccesoReunion(solicitud),
                 botonWhatsapp(),
                 firmaCierre()
         );
-        enviarHtml(solicitud.getCorreo(), "Recordatorio: tu cita es hoy - " + nombreFirma, cuerpo);
+        enviarHtml(solicitud.getCorreo(), "Recordatorio: tu reunión es hoy - " + nombreFirma, cuerpo);
     }
 
     // Boletín automático (ver ArticuloService.notificarPublicacion): se dispara de inmediato
@@ -436,13 +487,21 @@ public class EmailService {
         if (whatsappUrl.isBlank()) {
             return "";
         }
+        return botonCta("Escríbenos por WhatsApp", whatsappUrl);
+    }
+
+    // Botón dorado genérico (mismo "sello" visual que .cta-boton del sitio público, ver
+    // CLAUDE.md): usado tanto para el enlace de WhatsApp como para el link de acceso a una
+    // reunión (ver enviarConfirmacionCita/enviarRecordatorioCita) -- un solo lugar define
+    // cómo se ve un botón de acción en un correo, en vez de repetir la tabla HTML por cada uso.
+    private String botonCta(String texto, String url) {
         return """
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
                 <tr><td style="background-color:%s;border-radius:4px;">
-                <a href="%s" style="display:inline-block;padding:12px 22px;color:#181611;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;">Escríbenos por WhatsApp</a>
+                <a href="%s" style="display:inline-block;padding:12px 22px;color:#181611;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;text-decoration:none;">%s</a>
                 </td></tr>
                 </table>
-                """.formatted(COLOR_DORADO, whatsappUrl);
+                """.formatted(COLOR_DORADO, url, escaparHtml(texto));
     }
 
     // Encabezado con el logo real (vía cid:, embebido, no un enlace externo), cuerpo

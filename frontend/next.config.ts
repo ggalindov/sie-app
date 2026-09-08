@@ -25,10 +25,15 @@ const csp = [
   `script-src 'self' 'unsafe-inline'${esDesarrollo ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // https: (sin restringir a un host) porque la imagen de portada de un
-  // artículo es un enlace externo que el admin pega a mano (RF: "poner el
-  // enlace de la imagen"), no un asset propio del sitio: no hay una lista
-  // fija de dominios que permitir de antemano.
-  "img-src 'self' data: blob: https:",
+  // artículo puede ser un enlace externo que el admin pega a mano, no un
+  // asset propio del sitio: no hay una lista fija de dominios que permitir
+  // de antemano. apiOrigin además, explícito: las imágenes SUBIDAS desde el
+  // computador (ver ImagenArticuloService) las sirve el propio backend, y en
+  // desarrollo ese origen es http://localhost:8080 -- no "https:", así que
+  // sin este agregado la regla de arriba no lo cubriría y la imagen no
+  // cargaría en el panel ni en el sitio público al probar en local. En
+  // producción ya está cubierto por "https:" (apiOrigin es el mismo dominio).
+  `img-src 'self' data: blob: https: ${apiOrigin}`,
   "font-src 'self' data:",
   "media-src 'self'",
   `connect-src 'self' ${apiOrigin}`,

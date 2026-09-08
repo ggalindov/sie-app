@@ -227,7 +227,9 @@
       "Bash(timeout 30 ssh -i ~/.ssh/sie_juridicos_vps root@2.24.126.28 \"cd /root/sie-juridicos && docker compose -f docker-compose.prod.yml logs backend --since 2h 2>&1 | grep -iE 'chatbot|anthropic|claude' | tail -60\")",
       "Bash(timeout 30 ssh -i ~/.ssh/sie_juridicos_vps root@2.24.126.28 \"cd /root/sie-juridicos && docker compose -f docker-compose.prod.yml logs backend --since 2h 2>&1 | grep -B2 -A 25 'Error no controlado en /api/chatbot/mensaje' | head -80\")",
       "Bash(timeout 20 ssh -i ~/.ssh/sie_juridicos_vps root@2.24.126.28 \"cd /root/sie-juridicos && docker inspect sie-juridicos-prod-backend-1 --format '{{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}'; docker stats --no-stream sie-juridicos-prod-backend-1\")",
-      "Bash(timeout 20 ssh -i ~/.ssh/sie_juridicos_vps root@2.24.126.28 \"free -h && echo --- && docker stats --no-stream\")"
+      "Bash(timeout 20 ssh -i ~/.ssh/sie_juridicos_vps root@2.24.126.28 \"free -h && echo --- && docker stats --no-stream\")",
+      "Bash(grep -iE \"^MapPin\\\\.d\\\\.ts$\")",
+      "Bash(timeout 90 bash -c ' *)"
     ]
   }
 }

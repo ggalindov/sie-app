@@ -223,6 +223,62 @@ Mientras la plantilla esté en revisión, el aviso simplemente no se envía por 
 error visible para el visitante ni para el admin) — el correo de notificación al admin sigue
 llegando con normalidad.
 
+### 2.5 Confirmación de reunión agendada (calendario)
+
+Cuando un abogado o el admin agenda una reunión desde el Calendario del panel
+(`/admin/calendario` o el botón "Agendar reunión" de Solicitudes), el sistema le confirma al
+cliente la fecha, hora y cómo acceder (link de Meet/Zoom si es virtual, dirección si es
+presencial) por correo y, si el teléfono es un celular colombiano válido, también por
+WhatsApp. Es una plantilla NUEVA y aparte de las tres anteriores.
+
+1. En el mismo Administrador de plantillas de Meta (ver 2.2), crea una plantilla:
+   - Categoría: **Utilidad** — confirma un trámite que el cliente ya solicitó, no publicidad.
+   - Nombre: `confirmacion_cita` (o el que prefieras, debe coincidir EXACTO con
+     `WHATSAPP_TEMPLATE_CITA_NAME`).
+   - Idioma: Español.
+   - Cuerpo sugerido (3 variables, en este orden: nombre, fecha y hora, detalle de acceso —
+     el mismo texto sirve para reuniones virtuales, donde la variable trae
+     "Será virtual, únete aquí: <link>", y presenciales, donde trae "Será presencial, en:
+     <dirección>" — siempre dice de entrada si es virtual o presencial, para que quede claro
+     sin tener que interpretar si lo que sigue es un link o una dirección):
+     ```
+     Hola {{1}}, confirmamos tu reunión con SIE Jurídicos para el {{2}}
+     {{3}}
+     ```
+   - Envíala a aprobación.
+2. Con la plantilla ya **aprobada**, completa en `.env.prod`: `WHATSAPP_TEMPLATE_CITA_NAME`
+   (solo si usaste un nombre distinto de plantilla).
+
+Mientras la plantilla esté en revisión, la confirmación simplemente no se envía por WhatsApp
+(sin error visible para el cliente ni para quien agenda) — el correo de confirmación, que no
+depende de Meta, sigue llegando con normalidad con el mismo link de acceso.
+
+### 2.6 Aviso de blog/noticia publicado
+
+Cada vez que un artículo pasa a PUBLICADO (ver `ArticuloService.notificarPublicacion`), además
+del correo interno a redes sociales y el boletín a suscriptores, se manda un WhatsApp a un
+**único número fijo** (pedido explícito del usuario, `WHATSAPP_NUMERO_AVISO_BLOG`) avisando
+que se publicó contenido nuevo, con el título y el link directo al artículo.
+
+**A diferencia de las cuatro notificaciones anteriores, esta es de texto libre, no de
+plantilla** — pedido explícito del usuario: como siempre va al mismo único destinatario
+interno (nunca a un cliente distinto cada vez), no necesita pasar por aprobación de Meta.
+No hay nada que crear en el Administrador de plantillas para este aviso.
+
+Ojo con la limitación real de la propia API de WhatsApp (no de este código, no se puede
+evitar con nada de configuración): un mensaje de texto libre iniciado por el negocio **solo
+se entrega mientras exista una "ventana de servicio al cliente" abierta** con ese número —
+las últimas 24 horas desde que esa persona le escribió algo al número de WhatsApp de la
+firma. Si `WHATSAPP_NUMERO_AVISO_BLOG` no le ha escrito nada al número de la firma en ese
+lapso, Meta rechaza el envío silenciosamente (mismo comportamiento con gracia del resto de
+esta clase: sin error visible para nadie, el correo interno a redes sociales sigue llegando
+con normalidad). Si se necesita que este aviso llegue siempre, sin depender de que alguien
+mantenga la conversación activa, la solución sería aprobar una plantilla para este caso
+también (mismo procedimiento de las secciones anteriores).
+
+Completa en `.env.prod`: `WHATSAPP_NUMERO_AVISO_BLOG` (ya trae el número fijo pedido,
+`3126029742`; cámbialo solo si piden otro).
+
 ## 3. Levantar el stack
 
 ```bash
@@ -271,7 +327,43 @@ Reconstruye solo lo que cambió y reinicia esos contenedores; Postgres y sus dat
 tocan (viven en un volumen con nombre, `sie_juridicos_data`, que persiste entre
 despliegues).
 
-## 6. Respaldo de la base de datos
+## 6. Imágenes de portada de artículos
+
+Desde `/admin/articulos`, además de pegar una URL externa, ahora se puede subir una imagen
+directamente desde el computador (ver `ImagenArticuloService`). El backend la redimensiona
+(máximo 1600px de lado), corrige la orientación y la recomprime siempre a JPEG calidad 82% —
+una foto de celular sin editar queda casi siempre por debajo de 300 KB.
+
+**Por qué necesita un volumen aparte**: el filesystem del propio contenedor del backend es
+efímero (se recrea en cada `docker compose up -d --build`). Sin un volumen con nombre, cada
+imagen subida se perdería en el siguiente despliegue. `docker-compose.prod.yml` ya declara
+`sie_juridicos_uploads`, montado en `/data/uploads` dentro del contenedor del backend
+(`IMAGENES_ARTICULOS_PATH=/data/uploads/articulos`) — no requiere ninguna variable nueva en
+`.env.prod`, funciona solo con levantar el stack normalmente.
+
+**Organización por mes**: las imágenes quedan en subcarpetas `yyyy-MM` (ej.
+`/data/uploads/articulos/2026-09/`). Esto es a propósito, para poder limpiar meses viejos más
+adelante sin tener que identificar imagen por imagen:
+
+```bash
+# Ver cuánto pesa cada mes
+docker compose -f docker-compose.prod.yml exec backend du -sh /data/uploads/articulos/*
+
+# Borrar un mes completo (irreversible: cualquier artículo, incluso publicado, que
+# todavía referencie una imagen de ese mes se queda sin portada)
+docker compose -f docker-compose.prod.yml exec backend rm -rf /data/uploads/articulos/2025-01
+```
+
+**Este volumen no está incluido en `scripts/respaldo-db.sh`** (ese script solo respalda
+Postgres). Si quieres respaldar también las imágenes, un `tar` puntual del volumen basta —
+no corre solo, hay que programarlo aparte si se necesita:
+
+```bash
+docker run --rm -v sie-juridicos-prod_sie_juridicos_uploads:/data -v $(pwd):/respaldo alpine \
+  tar czf /respaldo/uploads-$(date +%F).tar.gz -C /data .
+```
+
+## 7. Respaldo de la base de datos
 
 Respaldo manual puntual:
 
@@ -297,7 +389,7 @@ respaldos se pierden con él. Para protección real ante ese escenario, hay que 
 también a almacenamiento externo (S3, Backblaze B2, un bucket de otro proveedor) — eso
 requiere credenciales de ese servicio externo que hay que gestionar aparte.
 
-## 7. Administrar la base de datos manualmente (opcional)
+## 8. Administrar la base de datos manualmente (opcional)
 
 No hay pgAdmin en producción a propósito (correrlo 24/7 solo gasta RAM). Si necesitas
 entrar puntualmente:
@@ -329,3 +421,4 @@ producción.)
 | `application-prod.properties` | Ajustes de producción del backend (logging, proxies de confianza, sin el módulo de docker-compose de desarrollo) |
 | `.env.prod` | Todas las credenciales y configuración específica de este despliegue (nunca en git) |
 | `secrets/google-sheets-service-account.json` | Llave de solo lectura al Google Sheets de casos, montada como secreto de Compose (nunca en git, ver sección 2.1) |
+| Volumen `sie_juridicos_uploads` | Imágenes de portada de artículos subidas desde el panel, organizadas por mes (ver sección 6) |

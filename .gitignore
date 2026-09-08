@@ -13,6 +13,11 @@ backend_run.log
 # jamás debe terminar en el repo.
 secrets/
 
+# Imágenes de portada de artículos subidas en desarrollo local (ver ImagenArticuloService,
+# app.almacenamiento.imagenes-articulos). En producción viven en un volumen de Docker, no en
+# el repo; en local caen aquí por default.
+uploads/
+
 ### STS ###
 .apt_generated
 .classpath

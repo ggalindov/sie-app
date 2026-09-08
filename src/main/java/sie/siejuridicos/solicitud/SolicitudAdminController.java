@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,8 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import sie.siejuridicos.common.excel.ExcelExporter;
+import sie.siejuridicos.security.UsuarioInternoPrincipal;
 import sie.siejuridicos.solicitud.dto.ActualizarEstadoSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.AgendarCitaRequest;
+import sie.siejuridicos.solicitud.dto.ResponsableReunionResponse;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
 
 import java.time.LocalDate;
@@ -44,6 +47,33 @@ public class SolicitudAdminController {
         return ResponseEntity.ok(solicitudService.listar(estado, desde, hasta));
     }
 
+    // Calendario visual de reuniones: citas dentro de [desde, hasta], acotadas por rol (ver
+    // SolicitudService.listarCalendario) -- ADMIN_GENERAL puede además filtrar por un
+    // abogado puntual con abogadoId, un ABOGADO lo ignora y siempre ve solo lo suyo.
+    @GetMapping("/calendario")
+    public ResponseEntity<List<SolicitudResponse>> calendario(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Long abogadoId,
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(solicitudService.listarCalendario(desde, hasta, abogadoId, principal));
+    }
+
+    // Usuarios internos activos entre los que se puede elegir responsable al agendar (ver
+    // AgendarCitaRequest.abogadoId) -- alimenta el selector del calendario y el filtro por
+    // abogado que ve ADMIN_GENERAL. Solo ADMIN_GENERAL lo usa de verdad (ver
+    // agendar-reunion-modal.tsx: necesitaResponsable = rolActual === "ADMIN_GENERAL"; un
+    // ABOGADO que agenda siempre queda asignado a sí mismo, ver SolicitudService.agendarCita)
+    // -- sin este @PreAuthorize a nivel de método, un ABOGADO podía llamar esta ruta
+    // directamente (heredaba solo el permiso de clase, compartido con ADMIN_GENERAL) y ver la
+    // lista completa de abogados/admins de la firma, un dato que UsuarioInternoController ya
+    // restringe correctamente a solo ADMIN_GENERAL.
+    @GetMapping("/responsables")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<List<ResponsableReunionResponse>> responsables() {
+        return ResponseEntity.ok(solicitudService.listarResponsables());
+    }
+
     // Mismos filtros que /listar (estado/desde/hasta): descarga exactamente lo que se
     // está viendo en pantalla, no siempre la tabla completa.
     @GetMapping("/exportar")
@@ -64,14 +94,20 @@ public class SolicitudAdminController {
                     s.estado().name(),
                     s.notasInternas() != null ? s.notasInternas() : "",
                     s.fechaCreacion(),
-                    s.fechaCita() != null ? s.fechaCita() : ""
+                    s.fechaCita() != null ? s.fechaCita() : "",
+                    s.abogadoAsignadoNombre() != null ? s.abogadoAsignadoNombre() : "",
+                    s.fechaCita() != null ? s.tipoReunion().name() : "",
+                    s.tipoReunion() == TipoReunion.PRESENCIAL
+                            ? (s.lugarReunion() != null ? s.lugarReunion() : "")
+                            : (s.linkReunion() != null ? s.linkReunion() : "")
             ));
         }
 
         byte[] archivo = ExcelExporter.generar(
                 "Solicitudes",
                 List.of("Nombre", "Correo", "Teléfono", "Mensaje", "Origen", "Estado",
-                        "Notas internas", "Fecha de creación", "Fecha de cita"),
+                        "Notas internas", "Fecha de creación", "Fecha de cita", "Responsable de la reunión",
+                        "Tipo de reunión", "Acceso a la reunión (link o lugar)"),
                 filas
         );
 
@@ -90,7 +126,8 @@ public class SolicitudAdminController {
 
     @PatchMapping("/{id}/cita")
     public ResponseEntity<SolicitudResponse> agendarCita(@PathVariable Long id,
-                                                           @Valid @RequestBody AgendarCitaRequest request) {
-        return ResponseEntity.ok(solicitudService.agendarCita(id, request.fechaHora()));
+                                                           @Valid @RequestBody AgendarCitaRequest request,
+                                                           @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(solicitudService.agendarCita(id, request, principal));
     }
 }

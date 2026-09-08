@@ -100,6 +100,17 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Redimensiona, corrige orientación EXIF y recomprime la imagen de portada que se
+             sube desde el computador (ver articulo.ImagenArticuloService). Se eligió en vez
+             de hacerlo a mano con javax.imageio: leer el tag de orientación EXIF crudo de un
+             JPEG y aplicar la rotación/espejado correspondiente (8 valores posibles) es
+             tedioso y fácil de dejar mal; esta librería ya lo resuelve en una sola llamada,
+             sin dependencias transitivas propias. Versión explícita: no está en el BOM. -->
+        <dependency>
+            <groupId>net.coobird</groupId>
+            <artifactId>thumbnailator</artifactId>
+            <version>0.4.20</version>
+        </dependency>
         <!-- Generación real de .xlsx para las exportaciones de Solicitudes y Marketing
              (panel admin). Versión explícita: no está en el BOM de Spring Boot. -->
         <dependency>

@@ -28,7 +28,8 @@ public class SolicitudPublicoController {
         if (CampoTrampa.esBot(request.sitioWeb())) {
             return ResponseEntity.status(HttpStatus.CREATED).body(new SolicitudResponse(
                     0L, request.nombre(), request.correo(), request.telefono(), request.mensaje(),
-                    OrigenSolicitud.FORMULARIO, EstadoSolicitud.NUEVO, null, LocalDateTime.now(), null, null
+                    OrigenSolicitud.FORMULARIO, EstadoSolicitud.NUEVO, null, LocalDateTime.now(), null, null,
+                    null, null, null, null, null
             ));
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(solicitudService.crear(request));

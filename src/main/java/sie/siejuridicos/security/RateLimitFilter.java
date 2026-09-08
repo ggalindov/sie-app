@@ -63,6 +63,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
             // sin autenticación ni token, así que se acotan igual para que no se puedan
             // scrapear en volumen -- 60/min por IP es generoso de sobra para una visita real
             // al sitio (varias llamadas por carga de página) pero corta un raspado masivo.
+            // Va ANTES que la entrada de /api/articulos de abajo: encontrarLimite() devuelve
+            // la primera coincidencia por prefijo, y GET /api/articulos/imagenes/{mes}/{archivo}
+            // (portadas servidas por ImagenArticuloService) empieza con ese mismo prefijo --
+            // bug real encontrado en auditoría: sin esta entrada específica, cada imagen de
+            // portada cargada consumía el mismo cupo de 60/min que el listado del blog, y un
+            // visitante navegando varias páginas u artículos rápido podía recibir 429 en las
+            // imágenes. Las imágenes ya se sirven con Cache-Control: immutable de un año (ver
+            // ImagenArticuloController), así que un límite más generoso aquí es seguro.
+            new RegistroLimite("GET", "/api/articulos/imagenes", 120),
             new RegistroLimite("GET", "/api/articulos", 60),
             new RegistroLimite("GET", "/api/categorias", 60),
             new RegistroLimite("GET", "/api/testimonios", 60),

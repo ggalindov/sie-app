@@ -11,6 +11,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 // Envía la notificación del radicado por WhatsApp (línea de atención de la firma) usando la
@@ -35,6 +38,8 @@ public class WhatsAppService {
     private static final Logger log = LoggerFactory.getLogger(WhatsAppService.class);
 
     private static final String VERSION_API = "v21.0";
+    private static final DateTimeFormatter FORMATO_FECHA_CITA =
+            DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'a las' h:mm a", Locale.of("es", "CO"));
     // Un número colombiano real: 10 dígitos empezando en 3 (celular), con o sin el
     // indicativo de país 57 ya puesto. Cualquier otra cosa (vacío, con letras, de otro país
     // sin el indicativo puesto) se descarta antes de intentar enviar -- mejor no enviar nada
@@ -50,6 +55,7 @@ public class WhatsAppService {
     private final String nombrePlantilla;
     private final String nombrePlantillaCobro;
     private final String nombrePlantillaSolicitud;
+    private final String nombrePlantillaCita;
     private final String codigoIdiomaPlantilla;
     private final String sitioWeb;
     // A dónde llega el aviso de "nueva solicitud" (ver enviarNotificacionAdminNuevaSolicitud):
@@ -58,6 +64,12 @@ public class WhatsAppService {
     // al arrancar (mismo formato que exige la API de Meta) para no tener que renormalizarlo
     // en cada envío.
     private final String numeroAdminNotificaciones;
+    // A dónde llega el aviso de "se publicó un blog nuevo" (ver enviarAvisoBlogPublicado) --
+    // pedido explícito del usuario: un único número fijo para este aviso en particular,
+    // 3126029742, deliberadamente separado de numeroAdminNotificaciones (esa línea es la de
+    // atención general de la firma; esta es de quien sube el contenido a redes, ver también
+    // EmailService.enviarAvisoRedesSociales -- mismo destinatario conceptual, canal distinto).
+    private final String numeroAvisoBlog;
     private final boolean configurado;
 
     public WhatsAppService(
@@ -66,17 +78,21 @@ public class WhatsAppService {
             @Value("${app.whatsapp.plantilla-nombre:notificacion_radicado}") String nombrePlantilla,
             @Value("${app.whatsapp.plantilla-cobro-nombre:recordatorio_cobro}") String nombrePlantillaCobro,
             @Value("${app.whatsapp.plantilla-solicitud-nombre:nueva_solicitud}") String nombrePlantillaSolicitud,
+            @Value("${app.whatsapp.plantilla-cita-nombre:confirmacion_cita}") String nombrePlantillaCita,
             @Value("${app.whatsapp.plantilla-idioma:es}") String codigoIdiomaPlantilla,
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
+            @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
             @Value("${app.firma.sitio-web}") String sitioWeb) {
         this.accessToken = accessToken;
         this.phoneNumberId = phoneNumberId;
         this.nombrePlantilla = nombrePlantilla;
         this.nombrePlantillaCobro = nombrePlantillaCobro;
         this.nombrePlantillaSolicitud = nombrePlantillaSolicitud;
+        this.nombrePlantillaCita = nombrePlantillaCita;
         this.codigoIdiomaPlantilla = codigoIdiomaPlantilla;
         this.sitioWeb = sitioWeb;
         this.numeroAdminNotificaciones = normalizarCelular(numeroAdminNotificaciones);
+        this.numeroAvisoBlog = normalizarCelular(numeroAvisoBlog);
         this.configurado = !accessToken.isBlank() && !phoneNumberId.isBlank();
         if (!configurado) {
             log.warn("WhatsApp Cloud API no configurado (faltan WHATSAPP_ACCESS_TOKEN / "
@@ -86,6 +102,10 @@ public class WhatsAppService {
         if (this.numeroAdminNotificaciones == null) {
             log.warn("app.whatsapp.admin-numero ('{}') no es un celular colombiano reconocible -- "
                     + "el aviso de nuevas solicitudes por WhatsApp no se podrá enviar.", numeroAdminNotificaciones);
+        }
+        if (this.numeroAvisoBlog == null) {
+            log.warn("app.whatsapp.numero-aviso-blog ('{}') no es un celular colombiano reconocible -- "
+                    + "el aviso de blog publicado por WhatsApp no se podrá enviar.", numeroAvisoBlog);
         }
     }
 
@@ -237,6 +257,57 @@ public class WhatsAppService {
         }
     }
 
+    // Aviso a quien sube el contenido a redes sociales de que se publicó un blog/noticia
+    // nuevo (ver ArticuloService.notificarPublicacion) -- SIEMPRE se manda, sin importar si
+    // hay suscriptores del boletín o no, mismo criterio que
+    // EmailService.enviarAvisoRedesSociales. A un único número fijo (ver numeroAvisoBlog),
+    // nunca al teléfono de un cliente.
+    //
+    // A DIFERENCIA de las demás notificaciones de esta clase, esta es de texto libre
+    // ("type": "text"), NO de plantilla -- pedido explícito del usuario: un único destinatario
+    // interno fijo, no un cliente nuevo cada vez, así que no hace falta pasar por aprobación
+    // de Meta para esta en particular. Ojo con la limitación real de la propia API de
+    // WhatsApp (no de este código): un mensaje de texto libre iniciado por el negocio SOLO se
+    // entrega mientras exista una "ventana de servicio al cliente" abierta con ese número (las
+    // últimas 24h desde que esa persona le escribió algo al número de WhatsApp de la firma) --
+    // si nadie le escribe al número de la firma desde 3126029742 dentro de esas 24h, Meta
+    // rechaza el envío (no es un bug de esta clase, es una regla dura de la plataforma). Si
+    // eso llega a pasar, la solución sería aprobar una plantilla para este aviso también.
+    @Async
+    public void enviarAvisoBlogPublicado(String titulo, String url) {
+        if (!configurado || numeroAvisoBlog == null) {
+            return;
+        }
+        try {
+            String cuerpo = construirCuerpoTextoBlog(titulo, url);
+            HttpRequest solicitud = HttpRequest.newBuilder()
+                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                    .timeout(Duration.ofSeconds(8))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                    .build();
+            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+            if (respuesta.statusCode() >= 300) {
+                log.warn("Meta respondió {} al enviar el aviso de blog publicado por WhatsApp", respuesta.statusCode());
+            }
+        } catch (Exception ex) {
+            log.warn("No se pudo enviar el aviso de blog publicado por WhatsApp: {}", ex.getMessage());
+        }
+    }
+
+    private String construirCuerpoTextoBlog(String titulo, String url) {
+        String mensaje = "Se acaba de publicar contenido nuevo en el sitio: " + titulo + ". Puedes verlo aquí: " + url;
+        return """
+                {
+                  "messaging_product": "whatsapp",
+                  "to": "%s",
+                  "type": "text",
+                  "text": { "body": "%s" }
+                }
+                """.formatted(numeroAvisoBlog, escaparJson(mensaje));
+    }
+
     private String construirCuerpoPlantillaSolicitud(String nombreCliente, String correoCliente,
                                                        String telefonoCliente, String mensaje) {
         String telefonoTexto = (telefonoCliente == null || telefonoCliente.isBlank())
@@ -270,6 +341,81 @@ public class WhatsAppService {
                 escaparJson(correoCliente),
                 escaparJson(telefonoTexto),
                 escaparJson(mensaje)
+        );
+    }
+
+    // Confirmación de reunión agendada (ver SolicitudService.agendarCita): a diferencia de
+    // las demás plantillas, esta la dispara un abogado/admin desde el panel, no un evento
+    // automático del sistema -- mismo criterio de "solo plantilla aprobada", plantilla
+    // DISTINTA a las de radicado/cobro/solicitud, debe aprobarse aparte en Meta Business
+    // Manager (ver DEPLOY.md) antes de que este envío funcione de verdad en producción. Sin
+    // aprobar, Meta simplemente responde error y el flujo sigue con normalidad por correo
+    // (mismo comportamiento con gracia que el resto de esta clase).
+    //
+    // detalleAcceso cubre los dos tipos de reunión con una sola plantilla aprobada: para una
+    // reunión VIRTUAL es "Será virtual, únete aquí: <link>", para una PRESENCIAL es "Será
+    // presencial, en: <lugar>" (ver SolicitudService.detalleAccesoParaWhatsApp) -- siempre
+    // dice de entrada el tipo, para que quede claro sin tener que interpretar si lo que sigue
+    // es un link o una dirección. Así tampoco hace falta aprobar una segunda plantilla en
+    // Meta solo para el caso presencial.
+    @Async
+    public void enviarConfirmacionCita(String nombreCliente, String telefono, LocalDateTime fechaHora, String detalleAcceso) {
+        if (!configurado) {
+            return;
+        }
+        String celular = normalizarCelular(telefono);
+        if (celular == null) {
+            log.warn("No se pudo enviar la confirmación de la reunión por WhatsApp: el teléfono guardado no "
+                    + "es un celular colombiano reconocible.");
+            return;
+        }
+        try {
+            String fechaTexto = fechaHora.format(FORMATO_FECHA_CITA);
+            String cuerpo = construirCuerpoPlantillaCita(celular, nombreCliente, fechaTexto, detalleAcceso);
+            HttpRequest solicitud = HttpRequest.newBuilder()
+                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                    .timeout(Duration.ofSeconds(8))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                    .build();
+            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+            if (respuesta.statusCode() >= 300) {
+                log.warn("Meta respondió {} al enviar la confirmación de reunión por WhatsApp", respuesta.statusCode());
+            }
+        } catch (Exception ex) {
+            log.warn("No se pudo enviar la confirmación de reunión por WhatsApp: {}", ex.getMessage());
+        }
+    }
+
+    private String construirCuerpoPlantillaCita(String celular, String nombreCliente, String fechaTexto, String detalleAcceso) {
+        return """
+                {
+                  "messaging_product": "whatsapp",
+                  "to": "%s",
+                  "type": "template",
+                  "template": {
+                    "name": "%s",
+                    "language": { "code": "%s" },
+                    "components": [
+                      {
+                        "type": "body",
+                        "parameters": [
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """.formatted(
+                celular,
+                nombrePlantillaCita,
+                codigoIdiomaPlantilla,
+                escaparJson(nombreCliente),
+                escaparJson(fechaTexto),
+                escaparJson(detalleAcceso)
         );
     }
 

@@ -38,10 +38,24 @@ RUN for intento in 1 2 3; do \
 FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
+# Zona horaria del propio contenedor (no solo de la JVM, que ya se fija aparte y de forma
+# más confiable en SieJuridicosApplication.main con TimeZone.setDefault): esto es lo que
+# usan `docker logs` y cualquier timestamp que no pase por la JVM, para que coincidan con
+# la hora real de la firma en vez de UTC.
+ENV TZ=America/Bogota
+
 # Usuario sin privilegios: si algo dentro del contenedor llega a ejecutar código arbitrario
 # (una dependencia comprometida, por ejemplo), que no corra como root.
 RUN addgroup -S sie && adduser -S sie -G sie
 COPY --from=build /build/app.jar app.jar
+
+# Punto de montaje del volumen de imágenes de artículos (ver docker-compose.prod.yml,
+# IMAGENES_ARTICULOS_PATH). Se crea y se le da dueño ANTES de montar el volumen y ANTES de
+# cambiar a USER sie: Docker copia el dueño/permisos de esta carpeta hacia el volumen la
+# primera vez que lo monta (si ya existiera contenido en el volumen, esto no lo toca) -- sin
+# este paso, el volumen quedaría de root y "sie" no podría escribir ninguna imagen.
+RUN mkdir -p /data/uploads && chown -R sie:sie /data/uploads
+
 USER sie
 
 # El propio backend ya expone un healthcheck minimalista sin autenticación

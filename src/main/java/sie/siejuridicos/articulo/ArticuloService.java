@@ -20,6 +20,8 @@ import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
+import sie.siejuridicos.whatsapp.WhatsAppService;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.text.Normalizer;
 import java.util.List;
@@ -38,7 +40,9 @@ public class ArticuloService {
     private final SuscriptorMarketingRepository suscriptorMarketingRepository;
     private final BoletinEnviadoRepository boletinEnviadoRepository;
     private final EmailService emailService;
+    private final WhatsAppService whatsAppService;
     private final RegistroSistemaService registroSistemaService;
+    private final String sitioWeb;
 
     public ArticuloService(ArticuloRepository articuloRepository,
                             CategoriaRepository categoriaRepository,
@@ -46,14 +50,18 @@ public class ArticuloService {
                             SuscriptorMarketingRepository suscriptorMarketingRepository,
                             BoletinEnviadoRepository boletinEnviadoRepository,
                             EmailService emailService,
-                            RegistroSistemaService registroSistemaService) {
+                            WhatsAppService whatsAppService,
+                            RegistroSistemaService registroSistemaService,
+                            @Value("${app.firma.sitio-web}") String sitioWeb) {
         this.articuloRepository = articuloRepository;
         this.categoriaRepository = categoriaRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.suscriptorMarketingRepository = suscriptorMarketingRepository;
         this.boletinEnviadoRepository = boletinEnviadoRepository;
         this.emailService = emailService;
+        this.whatsAppService = whatsAppService;
         this.registroSistemaService = registroSistemaService;
+        this.sitioWeb = sitioWeb;
     }
 
     @Transactional(readOnly = true)
@@ -153,8 +161,11 @@ public class ArticuloService {
     private void notificarPublicacion(Articulo publicado) {
         // Aviso a quien sube el contenido a redes sociales (pedido explícito del usuario):
         // independiente de si hay suscriptores del boletín o no -- se publicó de verdad, así
-        // que hay que avisar sin importar el tamaño de la lista de abajo.
+        // que hay que avisar sin importar el tamaño de la lista de abajo. El aviso por
+        // WhatsApp (nuevo, mismo criterio) va SIEMPRE a un único número fijo (ver
+        // WhatsAppService.enviarAvisoBlogPublicado), no depende de suscriptores.
         emailService.enviarAvisoRedesSociales(publicado);
+        whatsAppService.enviarAvisoBlogPublicado(publicado.getTitulo(), sitioWeb + "/blog/" + publicado.getSlug());
 
         List<SuscriptorMarketing> destinatarios = suscriptorMarketingRepository.findByActivoTrueOrderByFechaSuscripcionDesc();
         if (destinatarios.isEmpty()) {

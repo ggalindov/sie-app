@@ -109,11 +109,22 @@ public class CasoService {
 
         Caso guardado = casoRepository.save(caso);
 
-        emailService.enviarCodigoCaso(cliente.getNombre(), cliente.getCorreo(), guardado.getRadicadoId());
-        guardado.setCorreoEnviado(true);
+        // Variantes SÍNCRONAS a propósito -- bug real encontrado en auditoría (reportado por
+        // el usuario: "no me llegó el WhatsApp al usuario de prueba" mientras el panel
+        // mostraba "enviado"): antes se llamaba a las versiones @Async (dispara y olvida) y
+        // se marcaba correoEnviado/whatsappEnviado en true de inmediato, sin esperar ninguna
+        // confirmación real -- así Meta respondiera un error (plantilla no aprobada,
+        // token vencido, número inválido) o que el SMTP fallara, el panel igual mostraba
+        // "enviado". Un solo correo + un solo WhatsApp (nunca un lote) es una espera aceptable
+        // dentro de la misma respuesta HTTP de "crear caso" -- mismo criterio de veracidad que
+        // ya usa correctamente enviarCorreosPendientes() para el envío masivo.
+        boolean correoExitoso = emailService.enviarCodigoCasoSincrono(
+                cliente.getNombre(), cliente.getCorreo(), guardado.getRadicadoId());
+        guardado.setCorreoEnviado(correoExitoso);
         if (whatsAppService.isConfigurado() && cliente.getTelefono() != null) {
-            whatsAppService.enviarCodigoCaso(cliente.getNombre(), cliente.getTelefono(), guardado.getRadicadoId());
-            guardado.setWhatsappEnviado(true);
+            boolean whatsappExitoso = whatsAppService.enviarCodigoCasoSincrono(
+                    cliente.getNombre(), cliente.getTelefono(), guardado.getRadicadoId());
+            guardado.setWhatsappEnviado(whatsappExitoso);
         }
 
         return CasoAdminResponse.desde(guardado);

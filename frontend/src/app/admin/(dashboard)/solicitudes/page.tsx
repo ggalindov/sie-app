@@ -1,20 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { CalendarPlus, DownloadSimple, X } from "@phosphor-icons/react";
+import { CalendarBlank, CalendarPlus, DownloadSimple } from "@phosphor-icons/react";
 import {
   listarSolicitudes,
   actualizarEstadoSolicitud,
-  agendarCita,
   exportarSolicitudes,
+  listarResponsables,
   ApiError,
+  type Responsable,
   type Solicitud,
   type EstadoSolicitud,
 } from "@/lib/admin-api";
+import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { AgendarReunionModal } from "@/components/admin/agendar-reunion-modal";
 
 const ESTADOS: EstadoSolicitud[] = ["NUEVO", "CONTACTADO", "CERRADO"];
 
@@ -43,7 +46,10 @@ function formatearFecha(iso: string | null) {
 
 export default function SolicitudesPage() {
   const searchParams = useSearchParams();
+  const { sesion } = useAuth();
+  const esAdmin = sesion?.rol === "ADMIN_GENERAL";
   const [solicitudes, setSolicitudes] = useState<Solicitud[] | null>(null);
+  const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoSolicitud | "">(
     (searchParams.get("estado") as EstadoSolicitud) ?? "",
   );
@@ -51,6 +57,12 @@ export default function SolicitudesPage() {
   const [hasta, setHasta] = useState("");
   const [modalCitaId, setModalCitaId] = useState<number | null>(null);
   const [descargando, setDescargando] = useState(false);
+
+  useEffect(() => {
+    if (esAdmin) {
+      listarResponsables().then(setResponsables).catch(() => {});
+    }
+  }, [esAdmin]);
 
   async function onDescargar() {
     setDescargando(true);
@@ -99,14 +111,22 @@ export default function SolicitudesPage() {
         title="Solicitudes"
         description="Leads recibidos por el formulario y el chatbot."
         action={
-          <AdminButton
-            variant="secondary"
-            onClick={onDescargar}
-            disabled={descargando || !solicitudes?.length}
-          >
-            <DownloadSimple className="h-4 w-4" weight="light" />
-            {descargando ? "Generando..." : "Descargar Excel"}
-          </AdminButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/admin/calendario">
+              <AdminButton variant="ghost">
+                <CalendarBlank className="h-4 w-4" weight="light" />
+                Ver calendario
+              </AdminButton>
+            </Link>
+            <AdminButton
+              variant="secondary"
+              onClick={onDescargar}
+              disabled={descargando || !solicitudes?.length}
+            >
+              <DownloadSimple className="h-4 w-4" weight="light" />
+              {descargando ? "Generando..." : "Descargar Excel"}
+            </AdminButton>
+          </div>
         }
       />
 
@@ -159,7 +179,8 @@ export default function SolicitudesPage() {
                 <p className="mt-2 text-sm text-ink-soft">{s.mensaje}</p>
                 <p className="mt-2 text-xs text-ink-soft">
                   Recibida {formatearFecha(s.fechaCreacion)}
-                  {s.fechaCita && ` · Cita: ${formatearFecha(s.fechaCita)}`}
+                  {s.fechaCita && ` · Reunión: ${formatearFecha(s.fechaCita)}`}
+                  {s.fechaCita && s.abogadoAsignadoNombre && ` (${s.abogadoAsignadoNombre})`}
                 </p>
               </div>
 
@@ -177,7 +198,7 @@ export default function SolicitudesPage() {
                 </select>
                 <AdminButton variant="ghost" onClick={() => setModalCitaId(s.id)} className="text-xs">
                   <CalendarPlus className="h-4 w-4" weight="light" />
-                  {s.fechaCita ? "Reprogramar" : "Agendar cita"}
+                  {s.fechaCita ? "Reprogramar" : "Agendar reunión"}
                 </AdminButton>
               </div>
             </AdminCard>
@@ -185,8 +206,10 @@ export default function SolicitudesPage() {
         </div>
       )}
 
-      <ModalAgendarCita
+      <AgendarReunionModal
         solicitud={solicitudCita}
+        responsables={responsables}
+        rolActual={esAdmin ? "ADMIN_GENERAL" : "ABOGADO"}
         onClose={() => setModalCitaId(null)}
         onAgendada={(actualizada) => {
           setSolicitudes((prev) => prev?.map((s) => (s.id === actualizada.id ? actualizada : s)) ?? null);
@@ -194,77 +217,5 @@ export default function SolicitudesPage() {
         }}
       />
     </div>
-  );
-}
-
-function ModalAgendarCita({
-  solicitud,
-  onClose,
-  onAgendada,
-}: {
-  solicitud: Solicitud | null;
-  onClose: () => void;
-  onAgendada: (s: Solicitud) => void;
-}) {
-  const [fechaHora, setFechaHora] = useState("");
-  const [enviando, setEnviando] = useState(false);
-
-  useEffect(() => {
-    setFechaHora("");
-  }, [solicitud?.id]);
-
-  async function onSubmit() {
-    if (!solicitud || !fechaHora) return;
-    setEnviando(true);
-    try {
-      const actualizada = await agendarCita(solicitud.id, fechaHora);
-      toast.success("Cita agendada. Se notificó al cliente y al administrador.");
-      onAgendada(actualizada);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "No se pudo agendar la cita.");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  return (
-    <Dialog.Root open={!!solicitud} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface p-6 shadow-2xl ring-1 ring-line">
-          <div className="flex items-center justify-between">
-            <Dialog.Title className="font-display text-lg text-ink">Agendar cita</Dialog.Title>
-            <Dialog.Close className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5">
-              <X className="h-4 w-4" />
-            </Dialog.Close>
-          </div>
-          <Dialog.Description className="mt-1 text-sm text-ink-soft">
-            {solicitud?.nombre}
-          </Dialog.Description>
-
-          <div className="mt-5 space-y-2">
-            <label htmlFor="fechaHora" className="text-sm font-medium text-ink">
-              Fecha y hora
-            </label>
-            <input
-              id="fechaHora"
-              type="datetime-local"
-              value={fechaHora}
-              onChange={(e) => setFechaHora(e.target.value)}
-              min={new Date().toISOString().slice(0, 16)}
-              className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
-            />
-          </div>
-
-          <AdminButton
-            onClick={onSubmit}
-            disabled={!fechaHora || enviando}
-            className="mt-6 w-full"
-          >
-            {enviando ? "Guardando..." : "Confirmar cita"}
-          </AdminButton>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }

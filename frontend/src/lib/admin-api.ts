@@ -116,6 +116,7 @@ export function cambiarContrasena(contrasenaActual: string, contrasenaNueva: str
 
 export type EstadoSolicitud = "NUEVO" | "CONTACTADO" | "CERRADO";
 export type OrigenSolicitud = "FORMULARIO" | "CHATBOT" | "WHATSAPP";
+export type TipoReunion = "VIRTUAL" | "PRESENCIAL";
 
 export type Solicitud = {
   id: number;
@@ -129,6 +130,17 @@ export type Solicitud = {
   fechaCreacion: string;
   fechaActualizacionEstado: string | null;
   fechaCita: string | null;
+  tipoReunion: TipoReunion;
+  linkReunion: string | null;
+  lugarReunion: string | null;
+  abogadoAsignadoId: number | null;
+  abogadoAsignadoNombre: string | null;
+};
+
+export type Responsable = {
+  id: number;
+  nombre: string;
+  rol: "ADMIN_GENERAL" | "ABOGADO";
 };
 
 export function listarSolicitudes(filtros?: {
@@ -151,11 +163,34 @@ export function actualizarEstadoSolicitud(id: number, nuevoEstado: EstadoSolicit
   });
 }
 
-export function agendarCita(id: number, fechaHora: string) {
+export function agendarCita(
+  id: number,
+  datos: {
+    fechaHora: string;
+    correo: string;
+    telefono?: string;
+    tipoReunion: TipoReunion;
+    linkReunion?: string;
+    lugarReunion?: string;
+    abogadoId?: number;
+  },
+) {
   return pedido<Solicitud>(`/api/admin/solicitudes/${id}/cita`, {
     method: "PATCH",
-    body: JSON.stringify({ fechaHora }),
+    body: JSON.stringify(datos),
   });
+}
+
+// ---------- Calendario de reuniones ----------
+
+export function listarCalendario(filtros: { desde: string; hasta: string; abogadoId?: number }): Promise<Solicitud[]> {
+  const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+  if (filtros.abogadoId) params.set("abogadoId", String(filtros.abogadoId));
+  return pedido<Solicitud[]>(`/api/admin/solicitudes/calendario?${params.toString()}`);
+}
+
+export function listarResponsables(): Promise<Responsable[]> {
+  return pedido<Responsable[]>("/api/admin/solicitudes/responsables");
 }
 
 export function exportarSolicitudes(filtros?: {
@@ -232,6 +267,39 @@ export function actualizarArticulo(
 
 export function eliminarArticulo(id: number) {
   return pedido<void>(`/api/admin/articulos/${id}`, { method: "DELETE" });
+}
+
+// Subida de la imagen de portada desde el computador (ver ImagenArticuloService en el
+// backend). No pasa por pedido(): ese wrapper fija "Content-Type: application/json" en
+// todas las peticiones, y eso rompería el multipart/form-data -- el navegador tiene que
+// poner su propio Content-Type con el boundary, así que aquí NO se declara ninguno.
+export async function subirImagenArticulo(archivo: File): Promise<{ url: string }> {
+  const token = obtenerToken();
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+
+  const res = await fetch(`${API_URL}/api/admin/articulos/imagenes`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  // Mismo tratamiento que pedido() para un 401 -- bug real encontrado en auditoría: esta
+  // función no pasa por pedido() (ver comentario de arriba sobre el Content-Type), así que
+  // antes solo lanzaba el error sin limpiar el token viejo ni redirigir. El admin se quedaba
+  // en /admin/articulos con una sesión ya inválida, viendo el toast de error pero sin que
+  // el panel lo mandara de vuelta al login como sí ocurre con cualquier otra llamada.
+  if (res.status === 401) {
+    borrarToken();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/admin/login")) {
+      window.location.href = "/admin/login";
+    }
+    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
+  }
+  if (!res.ok) {
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+  return res.json();
 }
 
 // ---------- Usuarios internos ----------

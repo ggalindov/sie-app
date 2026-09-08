@@ -20,6 +20,7 @@ import {
   Briefcase,
   CurrencyCircleDollar,
   ClockCounterClockwise,
+  CalendarBlank,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
@@ -53,6 +54,7 @@ const navGroups: NavGroup[] = [
     titulo: "Gestión",
     items: [
       { href: "/admin/solicitudes", label: "Solicitudes", icon: Envelope, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      { href: "/admin/calendario", label: "Calendario", icon: CalendarBlank, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/casos", label: "Casos", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/cobros", label: "Cobros Pendientes", icon: CurrencyCircleDollar, roles: ["ADMIN_GENERAL"] },
     ],

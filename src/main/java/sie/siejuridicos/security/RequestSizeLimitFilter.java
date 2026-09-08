@@ -42,6 +42,22 @@ public class RequestSizeLimitFilter extends OncePerRequestFilter {
         this.objectMapper = objectMapper;
     }
 
+    // Las subidas multipart (ej. POST /api/admin/articulos/imagen, hasta 10MB) ya tienen su
+    // propio límite duro vía spring.servlet.multipart.max-file-size/max-request-size --
+    // bug real encontrado en auditoría: con el límite general de 2MB (pensado para el JSON
+    // de formularios públicos como /api/solicitudes) aplicándose también aquí, CUALQUIER
+    // subida de imagen de más de 2MB (una foto de celular sin editar típica pesa 3-8MB, el
+    // caso de uso explícito del propio ImagenArticuloService) se rechazaba con 413 antes de
+    // llegar al controlador, inutilizando la función por completo. Esta ruta además ya
+    // requiere autenticación de rol ADMIN_GENERAL/ABOGADO (ver ArticuloAdminController), a
+    // diferencia de los endpoints públicos sin token que este filtro sí debe seguir
+    // protegiendo contra payloads JSON anormalmente grandes.
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        String contentType = request.getContentType();
+        return contentType != null && contentType.toLowerCase(java.util.Locale.ROOT).startsWith("multipart/form-data");
+    }
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                      @NonNull HttpServletResponse response,

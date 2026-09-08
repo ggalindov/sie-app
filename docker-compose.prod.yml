@@ -88,6 +88,17 @@ services:
       # Aviso interno de nueva solicitud (formulario público) a la línea de la firma.
       - WHATSAPP_TEMPLATE_SOLICITUD_NAME=${WHATSAPP_TEMPLATE_SOLICITUD_NAME:-nueva_solicitud}
       - WHATSAPP_ADMIN_NUMERO=${WHATSAPP_ADMIN_NUMERO:-+573124781583}
+      # Confirmación de reunión agendada desde el Calendario del panel (ver DEPLOY.md 2.5).
+      - WHATSAPP_TEMPLATE_CITA_NAME=${WHATSAPP_TEMPLATE_CITA_NAME:-confirmacion_cita}
+      # Aviso de blog/noticia publicado, correo siempre + WhatsApp de TEXTO LIBRE (no
+      # plantilla) a un único número fijo (ver DEPLOY.md 2.6).
+      - WHATSAPP_NUMERO_AVISO_BLOG=${WHATSAPP_NUMERO_AVISO_BLOG:-3126029742}
+      # Imágenes de portada de artículos subidas desde el panel (ver ImagenArticuloService):
+      # ruta absoluta dentro del volumen montado abajo, no la ruta relativa de desarrollo
+      # local -- el filesystem del contenedor en sí es efímero entre despliegues.
+      - IMAGENES_ARTICULOS_PATH=/data/uploads/articulos
+    volumes:
+      - sie_juridicos_uploads:/data/uploads
     secrets:
       - google_sheets_credentials
     depends_on:
@@ -190,6 +201,10 @@ networks:
 
 volumes:
   sie_juridicos_data:
+  # Imágenes de portada de artículos subidas desde el panel (ver ImagenArticuloService),
+  # organizadas en subcarpetas por mes dentro de él. Volumen aparte del de Postgres para
+  # poder respaldarlo/limpiarlo por separado sin tocar la base de datos.
+  sie_juridicos_uploads:
   caddy_data:
   caddy_config:
 
