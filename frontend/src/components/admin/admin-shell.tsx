@@ -111,16 +111,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
     .filter((grupo) => grupo.items.length > 0);
 
   return (
-    <div className="flex min-h-screen bg-paper">
+    // h-dvh + overflow-hidden en el contenedor raíz (en vez del min-h-screen anterior, que
+    // dejaba crecer la fila completa con el contenido y arrastraba el sidebar en el scroll
+    // de la página) -- pedido explícito del usuario: en una lista larga (solicitudes, casos,
+    // cobros) el panel lateral debe quedar fijo y que solo se desplace el contenido. Cada
+    // columna maneja su propio scroll interno (nav del sidebar y <main>), con min-h-0 para
+    // que los hijos flex puedan encogerse por debajo de su alto de contenido -- sin eso el
+    // min-height:auto por defecto de un flex item anula el overflow-y-auto interno.
+    <div className="flex h-dvh overflow-hidden bg-paper">
       {/* Sidebar desktop */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-surface lg:flex">
+      <aside className="hidden w-64 min-h-0 shrink-0 flex-col border-r border-line bg-surface lg:flex">
         <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} />
       </aside>
 
       {/* Sidebar móvil */}
       {menuAbierto && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="w-72 flex-col border-r border-line bg-surface flex">
+          <div className="flex w-72 min-h-0 flex-col border-r border-line bg-surface">
             <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} />
           </div>
           <button
@@ -132,7 +139,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-line bg-surface px-4 lg:hidden">
           <div className="flex items-center gap-2">
             <Image src="/marca/logo.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />
@@ -148,7 +155,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-8 sm:px-8 lg:py-10">
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-8 sm:px-8 lg:py-10">
           {children}
         </main>
       </div>
@@ -181,7 +188,7 @@ function SidebarContent({
         <span className="relative font-display text-base font-semibold text-ink">Panel</span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-5">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
         {grupos.map((grupo, i) => (
           <div key={grupo.titulo} className={i > 0 ? "mt-5 border-t border-line pt-4" : ""}>
             <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft/60">

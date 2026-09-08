@@ -17,8 +17,9 @@ public interface UsuarioInternoRepository extends JpaRepository<UsuarioInterno, 
     long countByRolAndActivoTrue(RolUsuario rol);
 
     // usado por SolicitudService: a quién se le puede asignar la responsabilidad de una
-    // reunión desde el calendario (selector del admin, ver AgendarCitaRequest.abogadoId) --
-    // cualquier usuario interno activo, no solo rol ABOGADO, porque el propio ADMIN_GENERAL
-    // también puede quedar como responsable de una reunión.
+    // reunión desde el calendario (selector de responsables, ver
+    // AgendarCitaRequest.responsablesIds) -- cualquier usuario interno activo, no solo rol
+    // ABOGADO, porque el propio ADMIN_GENERAL también puede quedar como responsable de una
+    // reunión.
     List<UsuarioInterno> findByActivoTrueOrderByNombreAsc();
 }

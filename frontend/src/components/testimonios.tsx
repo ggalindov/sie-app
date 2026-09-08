@@ -22,6 +22,26 @@ export function Testimonios({ media }: { media: ReactNode }) {
       });
   }, []);
 
+  // Link directo "abre el popup de testimonio solo" (pedido explícito del usuario, para
+  // mandarle a un cliente un mensaje con un link que lo lleve directo a dejar su
+  // testimonio): ?abrir=testimonio en la URL del home. window.location.search en vez de
+  // useSearchParams() de Next a propósito -- ese hook exige envolver la página en un
+  // <Suspense>, y sacaría "/" de la generación estática (ver build); leerlo a mano en un
+  // efecto (que de por sí solo corre en el cliente) logra lo mismo sin ese costo. El modal
+  // ya es un Dialog con overlay fijo (ver TestimonioFormModal), así que aparece encima sin
+  // importar en qué parte de la página esté el visitante al cargar.
+  useEffect(() => {
+    try {
+      const parametros = new URLSearchParams(window.location.search);
+      if (parametros.get("abrir") === "testimonio") {
+        setModalAbierto(true);
+      }
+    } catch {
+      // no crítico: en el peor caso el visitante solo tiene que hacer clic en "Deja tu
+      // testimonio" a mano.
+    }
+  }, []);
+
   const todos = [
     ...testimoniosBase.map((t) => ({
       cita: t.cita,

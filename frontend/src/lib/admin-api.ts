@@ -115,7 +115,7 @@ export function cambiarContrasena(contrasenaActual: string, contrasenaNueva: str
 // ---------- Solicitudes ----------
 
 export type EstadoSolicitud = "NUEVO" | "CONTACTADO" | "CERRADO";
-export type OrigenSolicitud = "FORMULARIO" | "CHATBOT" | "WHATSAPP";
+export type OrigenSolicitud = "FORMULARIO" | "CHATBOT" | "WHATSAPP" | "PANEL";
 export type TipoReunion = "VIRTUAL" | "PRESENCIAL";
 
 export type Solicitud = {
@@ -133,8 +133,7 @@ export type Solicitud = {
   tipoReunion: TipoReunion;
   linkReunion: string | null;
   lugarReunion: string | null;
-  abogadoAsignadoId: number | null;
-  abogadoAsignadoNombre: string | null;
+  responsables: Responsable[];
 };
 
 export type Responsable = {
@@ -142,6 +141,22 @@ export type Responsable = {
   nombre: string;
   rol: "ADMIN_GENERAL" | "ABOGADO";
 };
+
+// Crea una solicitud directamente desde el panel (ver SolicitudService.crearDirecta), para
+// poder agendarle una reunión a un caso ya existente o a un cliente fuera del sistema --
+// nunca dispara los correos/WhatsApp de "recibimos tu solicitud" (el cliente se entera con
+// la confirmación de la reunión en sí, en el siguiente paso).
+export function crearSolicitudDirecta(datos: {
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  mensaje?: string;
+}): Promise<Solicitud> {
+  return pedido<Solicitud>("/api/admin/solicitudes/directa", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
 
 export function listarSolicitudes(filtros?: {
   estado?: EstadoSolicitud;
@@ -172,7 +187,7 @@ export function agendarCita(
     tipoReunion: TipoReunion;
     linkReunion?: string;
     lugarReunion?: string;
-    abogadoId?: number;
+    responsablesIds?: number[];
   },
 ) {
   return pedido<Solicitud>(`/api/admin/solicitudes/${id}/cita`, {
@@ -515,6 +530,20 @@ export function enviarCorreosPendientesCasos(): Promise<ResumenEnvioCorreosCasos
   return pedido<ResumenEnvioCorreosCasos>("/api/admin/casos/enviar-pendientes", { method: "POST" });
 }
 
+export type ResumenReporteSemanalCasos = {
+  casosConReporte: number;
+  correosEnviados: number;
+  correosFallidos: number;
+  whatsappEnviados: number;
+  whatsappFallidos: number;
+};
+
+// Disparo manual del reporte semanal a todos los clientes con caso activo (además del
+// automático de los lunes, ver ReporteSemanalCasosScheduler en el backend).
+export function enviarReporteSemanalCasos(): Promise<ResumenReporteSemanalCasos> {
+  return pedido<ResumenReporteSemanalCasos>("/api/admin/casos/enviar-reporte-semanal", { method: "POST" });
+}
+
 // ---------- Cobros Pendientes ----------
 // Igual que Casos: el panel no carga clientes a mano, sincronizarCobros() trae/actualiza todo
 // desde las dos pestañas del Google Sheets de cobros (Empresas, Personas Naturales) y elimina
@@ -573,6 +602,7 @@ export function enviarRecordatoriosCobros(): Promise<ResumenEnvioRecordatoriosCo
 export type TipoRegistroSistema =
   | "SINCRONIZACION_CASOS"
   | "ENVIO_NOTIFICACIONES_CASOS"
+  | "REPORTE_SEMANAL_CASOS"
   | "SINCRONIZACION_COBROS"
   | "ENVIO_RECORDATORIOS_COBROS"
   | "RECORDATORIO_CITA"

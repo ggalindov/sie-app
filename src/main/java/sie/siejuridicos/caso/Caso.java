@@ -60,6 +60,21 @@ public class Caso {
     @Column(name = "radicado_id", unique = true)
     private String radicadoId;
 
+    // Nombre TAL COMO aparece en la hoja para ESTA fila puntual (columna de "sujeto procesal
+    // representado"/"demandante", ver HojaCalculoService) -- bug real reportado por el
+    // usuario: el panel mostraba nombres viejos/equivocados porque antes se mostraba
+    // cliente.getNombre(), compartido entre TODOS los casos del mismo Cliente (mismo
+    // correo), y CasoService.actualizarDatosCliente() deliberadamente NUNCA actualiza ese
+    // nombre compartido cuando el cliente tiene más de un caso (para no pisarlo con una
+    // etiqueta corta específica de otro caso, ver el comentario de ese método). Este campo
+    // es AL REVÉS: vive en el Caso, no en el Cliente, así que cada caso siempre refleja el
+    // nombre real y actual de SU PROPIA fila, sin importar cuántos otros casos comparta ese
+    // cliente. Null en los casos MANUAL (no vienen de ninguna hoja) -- CasoAdminResponse cae
+    // de vuelta a cliente.getNombre() en ese caso.
+    @Convert(converter = CampoCifradoConverter.class)
+    @Column(name = "nombre_en_hoja")
+    private String nombreEnHoja;
+
     // Si ya se le envió al cliente el correo con su número de radicado. Empieza en false al
     // sincronizar o crear un caso (incluso si ya tiene radicado): el envío real lo dispara el
     // botón "Enviar correos pendientes" del panel (ver CasoService.enviarCorreosPendientes()),
@@ -122,6 +137,14 @@ public class Caso {
 
     public void setRadicadoId(String radicadoId) {
         this.radicadoId = radicadoId;
+    }
+
+    public String getNombreEnHoja() {
+        return nombreEnHoja;
+    }
+
+    public void setNombreEnHoja(String nombreEnHoja) {
+        this.nombreEnHoja = nombreEnHoja;
     }
 
     public boolean isCorreoEnviado() {

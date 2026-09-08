@@ -6,6 +6,8 @@ import sie.siejuridicos.solicitud.Solicitud;
 import sie.siejuridicos.solicitud.TipoReunion;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 
 public record SolicitudResponse(
         Long id,
@@ -22,14 +24,16 @@ public record SolicitudResponse(
         TipoReunion tipoReunion,
         String linkReunion,
         String lugarReunion,
-        Long abogadoAsignadoId,
-        String abogadoAsignadoNombre
+        List<ResponsableReunionResponse> responsables
 ) {
     public static SolicitudResponse desde(Solicitud solicitud) {
-        // abogadoAsignado es LAZY: acceder a getNombre() aqui exige que la transaccion siga
-        // abierta (@Transactional en el metodo que llama a este mapeo, ver SolicitudService) --
-        // fuera de una transaccion activa lanzaria LazyInitializationException.
-        boolean tieneAbogado = solicitud.getAbogadoAsignado() != null;
+        // responsables es LAZY: recorrerlo aqui exige que la transaccion siga abierta
+        // (@Transactional en el metodo que llama a este mapeo, ver SolicitudService) -- fuera
+        // de una transaccion activa lanzaria LazyInitializationException.
+        List<ResponsableReunionResponse> responsables = solicitud.getResponsables().stream()
+                .map(ResponsableReunionResponse::desde)
+                .sorted(Comparator.comparing(ResponsableReunionResponse::nombre))
+                .toList();
         return new SolicitudResponse(
                 solicitud.getId(),
                 solicitud.getNombre(),
@@ -45,8 +49,7 @@ public record SolicitudResponse(
                 solicitud.getTipoReunion(),
                 solicitud.getLinkReunion(),
                 solicitud.getLugarReunion(),
-                tieneAbogado ? solicitud.getAbogadoAsignado().getId() : null,
-                tieneAbogado ? solicitud.getAbogadoAsignado().getNombre() : null
+                responsables
         );
     }
 }

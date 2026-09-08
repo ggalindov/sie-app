@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import sie.siejuridicos.caso.dto.CasoAdminResponse;
 import sie.siejuridicos.caso.dto.CrearCasoRequest;
 import sie.siejuridicos.caso.dto.ResumenEnvioCorreos;
+import sie.siejuridicos.caso.dto.ResumenReporteSemanal;
 import sie.siejuridicos.caso.dto.ResumenSincronizacion;
 
 import java.util.List;
@@ -56,5 +57,12 @@ public class CasoAdminController {
     @PostMapping("/enviar-pendientes")
     public ResponseEntity<ResumenEnvioCorreos> enviarPendientes() {
         return ResponseEntity.ok(casoService.enviarCorreosPendientes());
+    }
+
+    // Disparo manual del reporte semanal (además del automático de los lunes, ver
+    // ReporteSemanalCasosScheduler) -- para probarlo o adelantarlo sin esperar al próximo ciclo.
+    @PostMapping("/enviar-reporte-semanal")
+    public ResponseEntity<ResumenReporteSemanal> enviarReporteSemanal() {
+        return ResponseEntity.ok(casoService.enviarReporteSemanal());
     }
 }

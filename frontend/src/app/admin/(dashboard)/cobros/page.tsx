@@ -36,6 +36,27 @@ const ESTADOS_FILTRO: { valor: EstadoRespuestaPago; label: string }[] = [
   { valor: "APROBADO", label: "Respuesta de pago aprobada" },
 ];
 
+// Apartado nuevo pedido explícitamente por el usuario: "saber quiénes dijeron que sí en
+// nuestro portal de WhatsApp". A propósito SEPARADO del filtro de arriba -- ese es sobre
+// pagoEsteMes (si de verdad pagó, columna "PAGO ESTE MES" de la hoja, la marca el admin a
+// mano); este es sobre respondioMensaje (si el cliente presionó Sí/No al botón de respuesta
+// rápida del recordatorio de WhatsApp, ver WhatsAppWebhookController/CobroService). Un
+// cliente puede haber dicho que sí por WhatsApp sin que el pago ya esté confirmado, o
+// viceversa -- son dos preguntas distintas.
+type RespuestaCobroWhatsapp = "TODOS" | "SI" | "NO" | "SIN_RESPONDER";
+
+const RESPUESTAS_WHATSAPP_FILTRO: { valor: RespuestaCobroWhatsapp; label: string }[] = [
+  { valor: "TODOS", label: "Todos" },
+  { valor: "SI", label: "Respuesta de cobro aceptada" },
+  { valor: "NO", label: "Respuesta de cobro rechazada" },
+  { valor: "SIN_RESPONDER", label: "Sin responder por WhatsApp" },
+];
+
+function respuestaCobroWhatsapp(c: ClienteCobro): Exclude<RespuestaCobroWhatsapp, "TODOS"> {
+  if (!c.respondioMensaje) return "SIN_RESPONDER";
+  return c.respondioMensaje.toLowerCase().startsWith("s") ? "SI" : "NO";
+}
+
 // Un cliente con honorarios en $0 nunca genera cobro (pedido explícito), pero igual se
 // muestra en el listado -- el admin sigue queriendo verlo como cliente activo, solo no le
 // llegan recordatorios.
@@ -56,6 +77,7 @@ export default function CobrosAdminPage() {
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCobro | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoRespuestaPago>("TODOS");
+  const [filtroRespuestaWhatsapp, setFiltroRespuestaWhatsapp] = useState<RespuestaCobroWhatsapp>("TODOS");
 
   const cargar = useCallback(() => {
     listarCobros()
@@ -80,7 +102,8 @@ export default function CobrosAdminPage() {
     clientes?.filter(
       (c) =>
         (filtroTipo === "TODOS" || c.tipo === filtroTipo) &&
-        (filtroEstado === "TODOS" || estadoRespuestaPago(c) === filtroEstado),
+        (filtroEstado === "TODOS" || estadoRespuestaPago(c) === filtroEstado) &&
+        (filtroRespuestaWhatsapp === "TODOS" || respuestaCobroWhatsapp(c) === filtroRespuestaWhatsapp),
     ) ?? null;
 
   async function onSincronizar() {
@@ -187,6 +210,31 @@ export default function CobrosAdminPage() {
                   }`}
                 >
                   {e.label} <span className="opacity-70">({cantidad})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Apartado nuevo pedido explícito: filtrar por si el cliente respondió Sí/No al
+              botón de WhatsApp del recordatorio -- independiente de si el pago ya está
+              marcado como aprobado o no (se combina con los dos filtros de arriba). */}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {RESPUESTAS_WHATSAPP_FILTRO.map((r) => {
+              const cantidad =
+                r.valor === "TODOS" ? clientes.length : clientes.filter((c) => respuestaCobroWhatsapp(c) === r.valor).length;
+              if (r.valor !== "TODOS" && cantidad === 0) return null;
+              return (
+                <button
+                  key={r.valor}
+                  type="button"
+                  onClick={() => setFiltroRespuestaWhatsapp(r.valor)}
+                  className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                    filtroRespuestaWhatsapp === r.valor
+                      ? "bg-emerald-700 text-white"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  {r.label} <span className="opacity-70">({cantidad})</span>
                 </button>
               );
             })}

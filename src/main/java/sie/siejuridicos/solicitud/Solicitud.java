@@ -9,12 +9,15 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import sie.siejuridicos.usuario.UsuarioInterno;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "solicitudes")
@@ -59,12 +62,19 @@ public class Solicitud {
     @Column(name = "recordatorio_enviado", nullable = false)
     private boolean recordatorioEnviado = false;
 
-    // Abogado responsable de la reunion (ver SolicitudService.agendarCita): nulo hasta que se
-    // agenda la primera cita. Es lo que separa el calendario por rol (SolicitudService.
-    // listarCalendario): ADMIN_GENERAL ve todas las reuniones, ABOGADO solo las suyas.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "abogado_asignado_id")
-    private UsuarioInterno abogadoAsignado;
+    // Responsables (abogados/admin) vinculados a la reunion (ver SolicitudService.agendarCita):
+    // vacio hasta que se agenda la primera cita. Reemplaza al antiguo campo unico
+    // abogadoAsignado (@ManyToOne) -- pedido explicito del usuario: "vincular a 1 o mas
+    // responsables a la llamada, quiere decir mas abogados". Es lo que separa el calendario por
+    // rol (SolicitudService.listarCalendario): ADMIN_GENERAL ve todas las reuniones, un ABOGADO
+    // solo aquellas donde el es uno de los responsables.
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "solicitud_responsables",
+            joinColumns = @JoinColumn(name = "solicitud_id"),
+            inverseJoinColumns = @JoinColumn(name = "usuario_interno_id")
+    )
+    private Set<UsuarioInterno> responsables = new LinkedHashSet<>();
 
     @Column(name = "link_reunion")
     private String linkReunion;
@@ -164,12 +174,12 @@ public class Solicitud {
         this.recordatorioEnviado = recordatorioEnviado;
     }
 
-    public UsuarioInterno getAbogadoAsignado() {
-        return abogadoAsignado;
+    public Set<UsuarioInterno> getResponsables() {
+        return responsables;
     }
 
-    public void setAbogadoAsignado(UsuarioInterno abogadoAsignado) {
-        this.abogadoAsignado = abogadoAsignado;
+    public void setResponsables(Set<UsuarioInterno> responsables) {
+        this.responsables = responsables;
     }
 
     public String getLinkReunion() {

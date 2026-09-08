@@ -12,6 +12,7 @@ import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.marketing.SuscriptorMarketingService;
 import sie.siejuridicos.security.UsuarioInternoPrincipal;
 import sie.siejuridicos.solicitud.dto.AgendarCitaRequest;
+import sie.siejuridicos.solicitud.dto.CrearSolicitudDirectaRequest;
 import sie.siejuridicos.solicitud.dto.CrearSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.ResponsableReunionResponse;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
@@ -24,8 +25,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class SolicitudService {
@@ -77,9 +80,34 @@ public class SolicitudService {
         }
     }
 
+    // Crea una solicitud directamente desde el panel para poder agendarle una reunión --
+    // pedido explícito del usuario: "reunión para alguno de los casos ya existentes o
+    // reunión para cliente fuera del sistema". A diferencia de crear() (formulario público),
+    // NO pasa por fn_crear_solicitud (ese chequeo de duplicado exacto correo+mensaje en 24h
+    // es una defensa antispam del formulario público sin autenticar; aquí quien crea el
+    // registro ya es un abogado/admin autenticado, bloquearlo por "duplicado" no protege
+    // nada) y NO dispara los correos/WhatsApp de "recibimos tu solicitud" -- el cliente se
+    // entera con la confirmación de la reunión en sí, en el siguiente paso (agendarCita).
+    @Transactional
+    public SolicitudResponse crearDirecta(CrearSolicitudDirectaRequest request) {
+        Solicitud solicitud = new Solicitud();
+        solicitud.setNombre(request.nombre());
+        solicitud.setCorreo(request.correo());
+        solicitud.setTelefono(request.telefono());
+        solicitud.setMensaje(request.mensaje() == null || request.mensaje().isBlank()
+                ? "Reunión agendada directamente desde el panel administrativo."
+                : request.mensaje());
+        solicitud.setOrigen(OrigenSolicitud.PANEL);
+        try {
+            return SolicitudResponse.desde(solicitudRepository.save(solicitud));
+        } catch (DataAccessException ex) {
+            throw ErroresBaseDatos.traducir(ex);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<SolicitudResponse> listar(EstadoSolicitud estado, LocalDate desde, LocalDate hasta) {
-        Specification<Solicitud> spec = fetchAbogadoAsignado();
+        Specification<Solicitud> spec = fetchResponsables();
 
         if (estado != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("estado"), estado));
@@ -114,12 +142,14 @@ public class SolicitudService {
                 cb.isNotNull(root.get("fechaCita")),
                 cb.greaterThanOrEqualTo(root.get("fechaCita"), desdeInicio),
                 cb.lessThan(root.get("fechaCita"), hastaFin)
-        )).and(fetchAbogadoAsignado());
+        )).and(fetchResponsables());
 
         boolean esAbogado = actor.getUsuario().getRol() == RolUsuario.ABOGADO;
         Long abogadoObligatorio = esAbogado ? actor.getId() : filtroAbogadoId;
         if (abogadoObligatorio != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("abogadoAsignado").get("id"), abogadoObligatorio));
+            // responsables es @ManyToMany: la pertenencia se valida con un join propio (no con
+            // root.get(), que solo sirve para navegar un @ManyToOne por su columna FK).
+            spec = spec.and((root, query, cb) -> cb.equal(root.join("responsables").get("id"), abogadoObligatorio));
         }
 
         return solicitudRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "fechaCita")).stream()
@@ -127,25 +157,29 @@ public class SolicitudService {
                 .toList();
     }
 
-    // N+1 encontrado en auditoría: SolicitudResponse.desde() lee
-    // solicitud.getAbogadoAsignado().getNombre() para cada fila con responsable asignado, y
-    // como la asociación es @ManyToOne(LAZY) sin este fetch, cada solicitud con reunión
-    // agendada disparaba una consulta extra a usuarios_internos en cada carga de
-    // /admin/solicitudes, /admin/calendario y en la exportación a Excel. Seguro de anexar en
-    // ambos métodos: ninguno pagina con Pageable (solo Sort), así que JpaSpecificationExecutor
-    // nunca ejecuta una query de conteo aparte donde un fetch join sería inválido/redundante.
-    private static Specification<Solicitud> fetchAbogadoAsignado() {
+    // N+1 encontrado en auditoría: SolicitudResponse.desde() recorre
+    // solicitud.getResponsables() para cada fila, y como la asociación es @ManyToMany(LAZY)
+    // sin este fetch, cada solicitud con reunión agendada disparaba una consulta extra a
+    // usuarios_internos en cada carga de /admin/solicitudes, /admin/calendario y en la
+    // exportación a Excel. Seguro de anexar en ambos métodos: ninguno pagina con Pageable
+    // (solo Sort), así que JpaSpecificationExecutor nunca ejecuta una query de conteo aparte
+    // donde un fetch join sería inválido/redundante.
+    private static Specification<Solicitud> fetchResponsables() {
         return (root, query, cb) -> {
-            // abogadoAsignado es @ManyToOne: el fetch nunca duplica filas (a diferencia de un
-            // fetch sobre una colección @OneToMany), así que no hace falta query.distinct().
-            root.fetch("abogadoAsignado", jakarta.persistence.criteria.JoinType.LEFT);
+            // A diferencia del antiguo abogadoAsignado (@ManyToOne, nunca duplicaba filas),
+            // responsables es @ManyToMany: este fetch SI puede devolver una fila por cada
+            // responsable de una misma solicitud -- query.distinct() es obligatorio para no
+            // listar la misma solicitud repetida cuando tiene 2+ responsables.
+            root.fetch("responsables", jakarta.persistence.criteria.JoinType.LEFT);
+            query.distinct(true);
             return cb.conjunction();
         };
     }
 
-    // Usuarios internos activos entre los que ADMIN_GENERAL puede elegir al agendar una
-    // reunión (ver AgendarCitaRequest.abogadoId). Un ABOGADO no necesita esta lista: siempre
-    // queda asignado a sí mismo (ver agendarCita), nunca elige.
+    // Usuarios internos activos entre los que se puede elegir responsable al agendar una
+    // reunión (ver AgendarCitaRequest.responsablesIds). ADMIN_GENERAL elige desde cero; un
+    // ABOGADO ya queda incluido a sí mismo automáticamente (ver resolverResponsables) pero
+    // también necesita esta lista para poder sumar colegas como corresponsables.
     @Transactional(readOnly = true)
     public List<ResponsableReunionResponse> listarResponsables() {
         return usuarioInternoRepository.findByActivoTrueOrderByNombreAsc().stream()
@@ -163,19 +197,21 @@ public class SolicitudService {
         }
     }
 
-    // Agenda (o reprograma) la reunión de una solicitud. Quién queda como responsable
-    // depende de quién agenda, no de lo que venga en el request -- un ABOGADO no puede
-    // asignarle su reunión a otra persona ni dejarla sin dueño (eso rompería la regla del
-    // calendario: "cada abogado ve solo las suyas"), así que request.abogadoId() se ignora
-    // por completo cuando el actor es ABOGADO. Solo ADMIN_GENERAL elige responsable, y debe
-    // ser un usuario interno activo real (se valida contra la base, nunca se confía en el id
-    // recibido a ciegas).
+    // Agenda (o reprograma) la reunión de una solicitud. Quiénes quedan como responsables
+    // depende de quién agenda y de lo que venga en el request -- pedido explícito del
+    // usuario: "tanto admin como abogado pueda vincular a 1 o mas responsables a la llamada,
+    // quiere decir mas abogados". Un ABOGADO nunca puede quedar fuera de su propia reunión
+    // (eso rompería la regla del calendario: "un abogado ve las reuniones donde es
+    // responsable"), así que se le suma siempre a sí mismo aunque no venga en
+    // request.responsablesIds() -- pero sí puede sumar colegas si los incluye. ADMIN_GENERAL
+    // debe elegir al menos un responsable. Cada id recibido se valida contra la base (nunca
+    // se confía en un id recibido a ciegas).
     @Transactional
     public SolicitudResponse agendarCita(Long id, AgendarCitaRequest request, UsuarioInternoPrincipal actor) {
         Solicitud solicitud = solicitudRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe la solicitud con id " + id));
 
-        UsuarioInterno responsable = resolverResponsable(request.abogadoId(), actor);
+        Set<UsuarioInterno> responsables = resolverResponsables(request.responsablesIds(), actor);
 
         solicitud.setCorreo(request.correo());
         // telefono es opcional en el request: si no se manda (o llega en blanco), se
@@ -184,7 +220,7 @@ public class SolicitudService {
             solicitud.setTelefono(request.telefono());
         }
         aplicarTipoReunion(solicitud, request);
-        solicitud.setAbogadoAsignado(responsable);
+        solicitud.setResponsables(responsables);
         solicitud.setFechaCita(request.fechaHora());
         // si se reprograma una cita cuyo recordatorio ya se había enviado, se rearma para la nueva fecha
         solicitud.setRecordatorioEnviado(false);
@@ -197,6 +233,20 @@ public class SolicitudService {
                 actualizada.getFechaCita(), detalleAccesoParaWhatsApp(actualizada));
 
         return SolicitudResponse.desde(actualizada);
+    }
+
+    // Recordatorio 1 hora antes de la reunión (ver RecordatorioCitaScheduler) -- pedido
+    // explícito del usuario: "1 hora antes de la reunión les debe volver a mandar su
+    // recordatorio SIEMPRE", por los dos canales (antes el recordatorio del día solo iba por
+    // correo). Reutiliza la MISMA plantilla de WhatsApp que la confirmación inicial
+    // (confirmacion_cita): el contenido -- fecha, hora, link/dirección -- es exactamente el
+    // mismo dato, solo cambia cuándo se manda; no amerita una segunda plantilla aparte que
+    // aprobar en Meta solo para esto.
+    public void enviarRecordatorioCita(Solicitud solicitud) {
+        emailService.enviarRecordatorioCita(solicitud);
+        whatsAppService.enviarConfirmacionCita(
+                solicitud.getNombre(), solicitud.getTelefono(),
+                solicitud.getFechaCita(), detalleAccesoParaWhatsApp(solicitud));
     }
 
     // Valida y aplica linkReunion/lugarReunion segun tipoReunion -- son mutuamente
@@ -275,18 +325,30 @@ public class SolicitudService {
         return "Será virtual, únete aquí: " + solicitud.getLinkReunion();
     }
 
-    private UsuarioInterno resolverResponsable(Long abogadoIdSolicitado, UsuarioInternoPrincipal actor) {
-        if (actor.getUsuario().getRol() == RolUsuario.ABOGADO) {
-            return actor.getUsuario();
+    private Set<UsuarioInterno> resolverResponsables(List<Long> idsSolicitados, UsuarioInternoPrincipal actor) {
+        boolean esAbogado = actor.getUsuario().getRol() == RolUsuario.ABOGADO;
+        Set<Long> ids = idsSolicitados == null ? Set.of() : new LinkedHashSet<>(idsSolicitados);
+        if (!esAbogado && ids.isEmpty()) {
+            throw new EntidadInvalidaException("Selecciona al menos un responsable de la reunión.");
         }
-        if (abogadoIdSolicitado == null) {
-            throw new EntidadInvalidaException("Selecciona el responsable de la reunión.");
+
+        Set<UsuarioInterno> responsables = new LinkedHashSet<>();
+        if (esAbogado) {
+            // El abogado que agenda siempre queda incluido, sin importar si lo mandó en la
+            // lista: es lo que garantiza que la reunión nunca le desaparezca de su calendario.
+            responsables.add(actor.getUsuario());
         }
-        UsuarioInterno responsable = usuarioInternoRepository.findById(abogadoIdSolicitado)
-                .orElseThrow(() -> new EntidadInvalidaException("El responsable seleccionado no existe."));
-        if (!responsable.isActivo()) {
-            throw new EntidadInvalidaException("El responsable seleccionado no está activo.");
+        for (Long idSolicitado : ids) {
+            if (esAbogado && idSolicitado.equals(actor.getId())) {
+                continue;
+            }
+            UsuarioInterno responsable = usuarioInternoRepository.findById(idSolicitado)
+                    .orElseThrow(() -> new EntidadInvalidaException("El responsable seleccionado no existe."));
+            if (!responsable.isActivo()) {
+                throw new EntidadInvalidaException("El responsable seleccionado no está activo.");
+            }
+            responsables.add(responsable);
         }
-        return responsable;
+        return responsables;
     }
 }

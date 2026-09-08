@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { ArrowsClockwise, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   listarCasos,
   crearCaso,
   sincronizarCasos,
   enviarCorreosPendientesCasos,
+  enviarReporteSemanalCasos,
   ApiError,
   type CasoAdmin,
   type FuenteCaso,
@@ -34,6 +35,7 @@ export default function CasosAdminPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoPendientes, setEnviandoPendientes] = useState(false);
+  const [enviandoReporteSemanal, setEnviandoReporteSemanal] = useState(false);
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
 
   const cargar = useCallback(() => {
@@ -103,6 +105,35 @@ export default function CasosAdminPage() {
     }
   }
 
+  async function onEnviarReporteSemanal() {
+    if (!window.confirm("¿Enviar el reporte semanal a TODOS los clientes con caso activo ahora mismo? Esto normalmente se envía solo, automáticamente, cada lunes -- úsalo solo para adelantarlo o probarlo.")) {
+      return;
+    }
+    setEnviandoReporteSemanal(true);
+    toast.info(
+      "Enviando el reporte semanal a todos los clientes con caso activo -- va uno por uno con una pausa entre cada uno. Puede tardar varios minutos con muchos casos.",
+    );
+    try {
+      const resumen = await enviarReporteSemanalCasos();
+      if (resumen.casosConReporte === 0) {
+        toast.info("No hay casos con radicado asignado todavía.");
+      } else {
+        toast.success(
+          `${resumen.correosEnviados} correo(s) y ${resumen.whatsappEnviados} WhatsApp enviados de ${resumen.casosConReporte} caso(s) con radicado.`,
+        );
+        if (resumen.correosFallidos > 0 || resumen.whatsappFallidos > 0) {
+          toast.error(
+            `${resumen.correosFallidos} correo(s) y ${resumen.whatsappFallidos} WhatsApp fallaron -- revisa el Registro del sistema para el detalle.`,
+          );
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo enviar el reporte semanal.");
+    } finally {
+      setEnviandoReporteSemanal(false);
+    }
+  }
+
   return (
     <div>
       <AdminPageHeader
@@ -117,6 +148,10 @@ export default function CasosAdminPage() {
             <AdminButton variant="secondary" onClick={onEnviarPendientes} disabled={enviandoPendientes}>
               <EnvelopeSimple className="h-4 w-4" weight="bold" />
               {enviandoPendientes ? "Enviando..." : "Enviar notificaciones pendientes"}
+            </AdminButton>
+            <AdminButton variant="secondary" onClick={onEnviarReporteSemanal} disabled={enviandoReporteSemanal}>
+              <Bell className="h-4 w-4" weight="bold" />
+              {enviandoReporteSemanal ? "Enviando..." : "Enviar reporte semanal"}
             </AdminButton>
             <AdminButton onClick={onSincronizar} disabled={sincronizando}>
               <ArrowsClockwise className={`h-4 w-4 ${sincronizando ? "admin-loader-anillo" : ""}`} weight="bold" />

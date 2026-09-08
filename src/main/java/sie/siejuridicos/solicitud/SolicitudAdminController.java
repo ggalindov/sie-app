@@ -8,9 +8,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,12 +21,14 @@ import sie.siejuridicos.common.excel.ExcelExporter;
 import sie.siejuridicos.security.UsuarioInternoPrincipal;
 import sie.siejuridicos.solicitud.dto.ActualizarEstadoSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.AgendarCitaRequest;
+import sie.siejuridicos.solicitud.dto.CrearSolicitudDirectaRequest;
 import sie.siejuridicos.solicitud.dto.ResponsableReunionResponse;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 // Reglas de rol reforzadas también en SecurityConfig (/api/admin/**); @PreAuthorize
 // queda como segunda capa de defensa a nivel de método.
@@ -37,6 +41,14 @@ public class SolicitudAdminController {
 
     public SolicitudAdminController(SolicitudService solicitudService) {
         this.solicitudService = solicitudService;
+    }
+
+    // Crea una solicitud directamente desde el panel (Calendario), para poder agendarle una
+    // reunión a un cliente que no llegó por el formulario público -- un caso ya existente en
+    // el sistema, o alguien completamente nuevo (ver SolicitudService.crearDirecta).
+    @PostMapping("/directa")
+    public ResponseEntity<SolicitudResponse> crearDirecta(@Valid @RequestBody CrearSolicitudDirectaRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(solicitudService.crearDirecta(request));
     }
 
     @GetMapping
@@ -60,16 +72,13 @@ public class SolicitudAdminController {
     }
 
     // Usuarios internos activos entre los que se puede elegir responsable al agendar (ver
-    // AgendarCitaRequest.abogadoId) -- alimenta el selector del calendario y el filtro por
-    // abogado que ve ADMIN_GENERAL. Solo ADMIN_GENERAL lo usa de verdad (ver
-    // agendar-reunion-modal.tsx: necesitaResponsable = rolActual === "ADMIN_GENERAL"; un
-    // ABOGADO que agenda siempre queda asignado a sí mismo, ver SolicitudService.agendarCita)
-    // -- sin este @PreAuthorize a nivel de método, un ABOGADO podía llamar esta ruta
-    // directamente (heredaba solo el permiso de clase, compartido con ADMIN_GENERAL) y ver la
-    // lista completa de abogados/admins de la firma, un dato que UsuarioInternoController ya
-    // restringe correctamente a solo ADMIN_GENERAL.
+    // AgendarCitaRequest.responsablesIds) -- alimenta el selector del calendario, el filtro
+    // por abogado de ADMIN_GENERAL y el multi-select de corresponsables. Antes esta ruta
+    // quedaba restringida solo a ADMIN_GENERAL (un ABOGADO siempre quedaba asignado a sí
+    // mismo, nunca elegía), pero ahora un ABOGADO también necesita ver esta lista para poder
+    // sumar colegas como corresponsables de su propia reunión -- por eso hereda el permiso de
+    // clase (ADMIN_GENERAL o ABOGADO) en vez de restringirse más.
     @GetMapping("/responsables")
-    @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<List<ResponsableReunionResponse>> responsables() {
         return ResponseEntity.ok(solicitudService.listarResponsables());
     }
@@ -95,7 +104,7 @@ public class SolicitudAdminController {
                     s.notasInternas() != null ? s.notasInternas() : "",
                     s.fechaCreacion(),
                     s.fechaCita() != null ? s.fechaCita() : "",
-                    s.abogadoAsignadoNombre() != null ? s.abogadoAsignadoNombre() : "",
+                    s.responsables().stream().map(ResponsableReunionResponse::nombre).collect(Collectors.joining(", ")),
                     s.fechaCita() != null ? s.tipoReunion().name() : "",
                     s.tipoReunion() == TipoReunion.PRESENCIAL
                             ? (s.lugarReunion() != null ? s.lugarReunion() : "")

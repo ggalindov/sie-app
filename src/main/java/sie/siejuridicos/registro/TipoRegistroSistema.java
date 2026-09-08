@@ -6,6 +6,7 @@ package sie.siejuridicos.registro;
 public enum TipoRegistroSistema {
     SINCRONIZACION_CASOS("Sincronización de casos"),
     ENVIO_NOTIFICACIONES_CASOS("Envío de notificaciones de casos"),
+    REPORTE_SEMANAL_CASOS("Reporte semanal de casos"),
     SINCRONIZACION_COBROS("Sincronización de cobros"),
     ENVIO_RECORDATORIOS_COBROS("Envío de recordatorios de cobro"),
     RECORDATORIO_CITA("Recordatorio de cita"),

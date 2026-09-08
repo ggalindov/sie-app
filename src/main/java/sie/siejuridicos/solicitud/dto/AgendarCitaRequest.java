@@ -8,13 +8,16 @@ import jakarta.validation.constraints.Size;
 import sie.siejuridicos.solicitud.TipoReunion;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 // correo/telefono llegan como los datos vigentes del cliente en el momento de agendar (el
 // formulario los muestra precargados desde la solicitud, pero editables: es el punto natural
-// para corregir un dato mal escrito antes de que salga la notificacion). abogadoId es
-// obligatorio solo si quien agenda es ADMIN_GENERAL (elige a quien queda asignada la reunion);
-// si agenda un ABOGADO, SolicitudService.agendarCita lo ignora y usa siempre al propio
-// abogado -- ver ese metodo para el porque.
+// para corregir un dato mal escrito antes de que salga la notificacion). responsablesIds son
+// los usuarios internos que quedan vinculados como responsables de la reunion -- pedido
+// explicito del usuario: "vincular a 1 o mas responsables a la llamada, quiere decir mas
+// abogados". Si quien agenda es ABOGADO, SolicitudService.agendarCita lo incluye siempre a el
+// mismo aunque no venga en la lista (y puede sumar colegas si los agrega aqui); si agenda
+// ADMIN_GENERAL, debe venir con al menos un id -- ver ese metodo para el porque.
 //
 // linkReunion y lugarReunion son mutuamente excluyentes segun tipoReunion, no se puede
 // validar eso solo con anotaciones (@NotBlank no admite "obligatorio solo si..."), asi que
@@ -49,6 +52,6 @@ public record AgendarCitaRequest(
         @Size(max = 300, message = "El lugar de la reunión no puede superar los 300 caracteres")
         String lugarReunion,
 
-        Long abogadoId
+        List<Long> responsablesIds
 ) {
 }

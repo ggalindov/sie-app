@@ -12,6 +12,7 @@ import sie.siejuridicos.solicitud.dto.CrearSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/solicitudes")
@@ -29,7 +30,7 @@ public class SolicitudPublicoController {
             return ResponseEntity.status(HttpStatus.CREATED).body(new SolicitudResponse(
                     0L, request.nombre(), request.correo(), request.telefono(), request.mensaje(),
                     OrigenSolicitud.FORMULARIO, EstadoSolicitud.NUEVO, null, LocalDateTime.now(), null, null,
-                    null, null, null, null, null
+                    null, null, null, List.of()
             ));
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(solicitudService.crear(request));

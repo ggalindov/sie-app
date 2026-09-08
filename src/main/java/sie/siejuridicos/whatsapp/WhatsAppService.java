@@ -56,6 +56,7 @@ public class WhatsAppService {
     private final String nombrePlantillaCobro;
     private final String nombrePlantillaSolicitud;
     private final String nombrePlantillaCita;
+    private final String nombrePlantillaReporteSemanal;
     private final String codigoIdiomaPlantilla;
     private final String sitioWeb;
     // A dónde llega el aviso de "nueva solicitud" (ver enviarNotificacionAdminNuevaSolicitud):
@@ -79,6 +80,7 @@ public class WhatsAppService {
             @Value("${app.whatsapp.plantilla-cobro-nombre:recordatorio_cobro}") String nombrePlantillaCobro,
             @Value("${app.whatsapp.plantilla-solicitud-nombre:nueva_solicitud}") String nombrePlantillaSolicitud,
             @Value("${app.whatsapp.plantilla-cita-nombre:confirmacion_cita}") String nombrePlantillaCita,
+            @Value("${app.whatsapp.plantilla-reporte-semanal-nombre:reporte_semanal_caso}") String nombrePlantillaReporteSemanal,
             @Value("${app.whatsapp.plantilla-idioma:es}") String codigoIdiomaPlantilla,
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
             @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
@@ -89,6 +91,7 @@ public class WhatsAppService {
         this.nombrePlantillaCobro = nombrePlantillaCobro;
         this.nombrePlantillaSolicitud = nombrePlantillaSolicitud;
         this.nombrePlantillaCita = nombrePlantillaCita;
+        this.nombrePlantillaReporteSemanal = nombrePlantillaReporteSemanal;
         this.codigoIdiomaPlantilla = codigoIdiomaPlantilla;
         this.sitioWeb = sitioWeb;
         this.numeroAdminNotificaciones = normalizarCelular(numeroAdminNotificaciones);
@@ -182,6 +185,77 @@ public class WhatsAppService {
                     radicadoId, ex.getMessage());
             return false;
         }
+    }
+
+    // Reporte semanal de caso (ver CasoService.enviarReporteSemanal) -- mismas 3 variables
+    // que enviarCodigoCasoSincrono (nombre, radicado, enlace), plantilla DISTINTA aparte
+    // porque el texto es de "recordatorio recurrente", no de "aquí está tu código por primera
+    // vez". Sin variante @Async: este reporte siempre se manda en lote, nunca aislado.
+    public boolean enviarReporteSemanalCasoSincrono(String nombreCliente, String telefono, String radicadoId) {
+        if (!configurado) {
+            return false;
+        }
+        if (radicadoId == null || radicadoId.isBlank()) {
+            log.warn("Se intentó enviar el reporte semanal de caso por WhatsApp sin un radicado real -- se canceló el envío.");
+            return false;
+        }
+        String celular = normalizarCelular(telefono);
+        if (celular == null) {
+            log.warn("No se pudo enviar el reporte semanal de caso por WhatsApp: el teléfono guardado no "
+                    + "es un celular colombiano reconocible.");
+            return false;
+        }
+        try {
+            String cuerpo = construirCuerpoPlantillaReporteSemanal(celular, nombreCliente, radicadoId);
+            HttpRequest solicitud = HttpRequest.newBuilder()
+                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                    .timeout(Duration.ofSeconds(8))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                    .build();
+            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+            if (respuesta.statusCode() >= 300) {
+                log.warn("Meta respondió {} al enviar el reporte semanal de caso por WhatsApp", respuesta.statusCode());
+                return false;
+            }
+            return true;
+        } catch (Exception ex) {
+            log.warn("No se pudo enviar el reporte semanal de caso por WhatsApp: {}", ex.getMessage());
+            return false;
+        }
+    }
+
+    private String construirCuerpoPlantillaReporteSemanal(String celular, String nombreCliente, String radicadoId) {
+        String enlace = sitioWeb + "/consulta-caso";
+        return """
+                {
+                  "messaging_product": "whatsapp",
+                  "to": "%s",
+                  "type": "template",
+                  "template": {
+                    "name": "%s",
+                    "language": { "code": "%s" },
+                    "components": [
+                      {
+                        "type": "body",
+                        "parameters": [
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """.formatted(
+                celular,
+                nombrePlantillaReporteSemanal,
+                codigoIdiomaPlantilla,
+                escaparJson(nombreCliente),
+                escaparJson(radicadoId),
+                escaparJson(enlace)
+        );
     }
 
     // Recordatorio mensual de cobro (ver cobro.CobroService.enviarRecordatorios): usa una

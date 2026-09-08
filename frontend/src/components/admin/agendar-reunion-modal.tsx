@@ -63,7 +63,7 @@ export function AgendarReunionModal({
   const [tipoReunion, setTipoReunion] = useState<TipoReunion>("VIRTUAL");
   const [linkReunion, setLinkReunion] = useState("");
   const [lugarReunion, setLugarReunion] = useState("");
-  const [abogadoId, setAbogadoId] = useState("");
+  const [responsablesIds, setResponsablesIds] = useState<number[]>([]);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
@@ -82,17 +82,24 @@ export function AgendarReunionModal({
     setTipoReunion(solicitud.tipoReunion ?? "VIRTUAL");
     setLinkReunion(solicitud.linkReunion ?? "");
     setLugarReunion(solicitud.lugarReunion ?? "");
-    setAbogadoId(solicitud.abogadoAsignadoId ? String(solicitud.abogadoAsignadoId) : "");
+    setResponsablesIds(solicitud.responsables.map((r) => r.id));
   }, [solicitud, fechaInicial]);
 
   const esVirtual = tipoReunion === "VIRTUAL";
   const linkValido = esVirtual && esLinkDeMeetOZoom(linkReunion.trim());
+  // ADMIN_GENERAL debe elegir al menos un responsable explícitamente; un ABOGADO que agenda
+  // siempre queda incluido a sí mismo (ver SolicitudService.resolverResponsables), así que
+  // aquí no se exige mínimo -- solo puede sumar colegas de forma opcional.
   const necesitaResponsable = rolActual === "ADMIN_GENERAL";
   const puedeEnviar =
     !!fechaHora &&
     !!correo.trim() &&
     (esVirtual ? linkValido : !!lugarReunion.trim()) &&
-    (!necesitaResponsable || !!abogadoId);
+    (!necesitaResponsable || responsablesIds.length > 0);
+
+  function alternarResponsable(id: number) {
+    setResponsablesIds((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
+  }
 
   async function onSubmit() {
     if (!solicitud || !puedeEnviar) return;
@@ -105,7 +112,7 @@ export function AgendarReunionModal({
         tipoReunion,
         linkReunion: esVirtual ? linkReunion.trim() : undefined,
         lugarReunion: esVirtual ? undefined : lugarReunion.trim(),
-        abogadoId: necesitaResponsable ? Number(abogadoId) : undefined,
+        responsablesIds,
       });
       toast.success("Reunión agendada. Se notificó al cliente por correo y WhatsApp.");
       onAgendada(actualizada);
@@ -225,22 +232,33 @@ export function AgendarReunionModal({
               </Campo>
             )}
 
-            {necesitaResponsable && (
-              <Campo label="Responsable de la reunión" icon={<UserCircle className="h-4 w-4" weight="light" />}>
-                <select
-                  value={abogadoId}
-                  onChange={(e) => setAbogadoId(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
-                >
-                  <option value="">Selecciona un responsable...</option>
-                  {responsables.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.nombre} {r.rol === "ADMIN_GENERAL" ? "(Admin)" : "(Abogado)"}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-            )}
+            <Campo label="Responsables de la reunión" icon={<UserCircle className="h-4 w-4" weight="light" />}>
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-line bg-paper p-2">
+                {responsables.length === 0 ? (
+                  <p className="px-2 py-1.5 text-xs text-ink-soft">Cargando responsables...</p>
+                ) : (
+                  responsables.map((r) => (
+                    <label
+                      key={r.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-ink hover:bg-ink/5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={responsablesIds.includes(r.id)}
+                        onChange={() => alternarResponsable(r.id)}
+                        className="h-4 w-4 rounded border-line accent-gold-deep"
+                      />
+                      {r.nombre} <span className="text-xs text-ink-soft">{r.rol === "ADMIN_GENERAL" ? "(Admin)" : "(Abogado)"}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-soft">
+                {necesitaResponsable
+                  ? "Selecciona al menos un responsable."
+                  : "Quedas incluido automáticamente. Marca a quién más participa (opcional)."}
+              </p>
+            </Campo>
           </div>
 
           <AdminButton onClick={onSubmit} disabled={!puedeEnviar || enviando} className="mt-6 w-full">

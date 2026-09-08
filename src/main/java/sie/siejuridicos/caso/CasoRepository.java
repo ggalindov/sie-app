@@ -31,6 +31,14 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
             + "WHERE c.radicadoId IS NOT NULL AND (c.correoEnviado = false OR c.whatsappEnviado = false)")
     List<Caso> listarPendientesDeNotificacion();
 
+    // Reporte semanal (ver CasoService.enviarReporteSemanal()): TODOS los casos con radicado
+    // ya asignado, sin importar el estado de correoEnviado/whatsappEnviado -- esos dos
+    // indicadores son del aviso ÚNICO de "aquí está tu código", algo completamente aparte de
+    // este recordatorio recurrente semanal. JOIN FETCH por el mismo motivo de siempre: evita
+    // N+1 al leer cliente.getCorreo()/getTelefono() de cada uno.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente WHERE c.radicadoId IS NOT NULL")
+    List<Caso> listarConRadicado();
+
     // JOIN FETCH evita N+1 al listar (cliente es LAZY): una sola consulta en vez de una
     // extra por cada caso listado en /admin/casos.
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente ORDER BY c.fechaCreacion DESC")

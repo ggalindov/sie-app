@@ -113,13 +113,14 @@ export function CalendarioMensual({
               </span>
               <div className="flex flex-col gap-1">
                 {visibles.map((evento) => {
-                  const color = mostrarResponsable ? colorResponsable(evento.abogadoAsignadoNombre) : colorResponsable(null);
+                  const nombresResponsables = evento.responsables.map((r) => r.nombre).join(", ");
+                  const color = mostrarResponsable ? colorResponsable(evento.responsables[0]?.nombre ?? null) : colorResponsable(null);
                   const hora = new Date(evento.fechaCita!).toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
                   return (
                     <span
                       key={evento.id}
                       className={cn("truncate rounded-md px-1.5 py-0.5 text-[10.5px] font-medium leading-tight sm:text-[11px]", color.bg, color.text)}
-                      title={`${hora} · ${evento.nombre} · ${evento.tipoReunion === "PRESENCIAL" ? "Presencial" : "Virtual"}${mostrarResponsable && evento.abogadoAsignadoNombre ? ` · ${evento.abogadoAsignadoNombre}` : ""}`}
+                      title={`${hora} · ${evento.nombre} · ${evento.tipoReunion === "PRESENCIAL" ? "Presencial" : "Virtual"}${mostrarResponsable && nombresResponsables ? ` · ${nombresResponsables}` : ""}`}
                     >
                       {hora} {evento.nombre}
                     </span>

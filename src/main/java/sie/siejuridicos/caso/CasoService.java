@@ -8,6 +8,7 @@ import sie.siejuridicos.caso.dto.CasoAdminResponse;
 import sie.siejuridicos.caso.dto.CasoConsultaResponse;
 import sie.siejuridicos.caso.dto.CrearCasoRequest;
 import sie.siejuridicos.caso.dto.ResumenEnvioCorreos;
+import sie.siejuridicos.caso.dto.ResumenReporteSemanal;
 import sie.siejuridicos.caso.dto.ResumenSincronizacion;
 import sie.siejuridicos.common.cifrado.CifradoService;
 import sie.siejuridicos.common.exception.ConflictoNegocioException;
@@ -269,6 +270,14 @@ public class CasoService {
                 if (actualizarDatosCliente(caso, fila, correo)) {
                     cambio = true;
                 }
+                // SIEMPRE se actualiza (a diferencia del nombre compartido del Cliente, ver
+                // comentario de Caso.nombreEnHoja): vive en el propio Caso, así que no hay
+                // riesgo de pisar el nombre de OTRO caso del mismo cliente.
+                String nombreDeLaFila = fila.nombreCliente();
+                if (nombreDeLaFila != null && !nombreDeLaFila.equals(caso.getNombreEnHoja())) {
+                    caso.setNombreEnHoja(nombreDeLaFila);
+                    cambio = true;
+                }
                 if (cambio) {
                     actualizados++;
                 }
@@ -307,6 +316,7 @@ public class CasoService {
             nuevoCaso.setFuente(fila.fuente());
             nuevoCaso.setNumeroCaso(numeroCaso);
             nuevoCaso.setRadicadoId(radicadoAUsar);
+            nuevoCaso.setNombreEnHoja(fila.nombreCliente());
             casoRepository.save(nuevoCaso);
             nuevos++;
         }
@@ -500,6 +510,59 @@ public class CasoService {
                 correosFallidos == 0 && whatsappFallidos == 0);
 
         return new ResumenEnvioCorreos(correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos);
+    }
+
+    // Reporte semanal a TODOS los clientes con caso activo (pedido explícito del usuario:
+    // "1 vez a la semana... un reporte de cómo va su caso, tanto por WhatsApp como por
+    // correo"). A diferencia de enviarCorreosPendientes() (que solo notifica una vez, al
+    // primer canal que le falte), este SIEMPRE reenvía a todos los que tengan radicado --
+    // es un recordatorio recurrente, no una notificación pendiente. Mismo criterio de
+    // secuencial-con-pausa que enviarCorreosPendientes(), por el mismo incidente real de
+    // Gmail bloqueando la cuenta ante un lote sin pausa.
+    public ResumenReporteSemanal enviarReporteSemanal() {
+        List<Caso> casos = casoRepository.listarConRadicado();
+        int correosEnviados = 0;
+        int correosFallidos = 0;
+        int whatsappEnviados = 0;
+        int whatsappFallidos = 0;
+
+        for (Caso caso : casos) {
+            Cliente cliente = caso.getCliente();
+            String nombre = caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : cliente.getNombre();
+            String radicado = caso.getRadicadoId();
+
+            if (cliente.getCorreo() != null) {
+                String correo = cliente.getCorreo();
+                boolean exito = enviarConReintento(
+                        () -> emailService.enviarReporteSemanalCasoSincrono(nombre, correo, radicado));
+                if (exito) {
+                    correosEnviados++;
+                } else {
+                    correosFallidos++;
+                }
+                pausar(PAUSA_ENTRE_ENVIOS_MS);
+            }
+            if (whatsAppService.isConfigurado() && cliente.getTelefono() != null) {
+                String telefono = cliente.getTelefono();
+                boolean exito = enviarConReintento(
+                        () -> whatsAppService.enviarReporteSemanalCasoSincrono(nombre, telefono, radicado));
+                if (exito) {
+                    whatsappEnviados++;
+                } else {
+                    whatsappFallidos++;
+                }
+                pausar(PAUSA_ENTRE_ENVIOS_MS);
+            }
+        }
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.REPORTE_SEMANAL_CASOS,
+                "%d caso(s) con reporte, %d correo(s) enviado(s), %d fallido(s); %d WhatsApp enviado(s), %d fallido(s)"
+                        .formatted(casos.size(), correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos),
+                null,
+                correosFallidos == 0 && whatsappFallidos == 0);
+
+        return new ResumenReporteSemanal(casos.size(), correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos);
     }
 
     // Un reintento después de una pausa corta antes de darse por vencido: la mayoría de

@@ -180,7 +180,7 @@ export default function SolicitudesPage() {
                 <p className="mt-2 text-xs text-ink-soft">
                   Recibida {formatearFecha(s.fechaCreacion)}
                   {s.fechaCita && ` · Reunión: ${formatearFecha(s.fechaCita)}`}
-                  {s.fechaCita && s.abogadoAsignadoNombre && ` (${s.abogadoAsignadoNombre})`}
+                  {s.fechaCita && s.responsables.length > 0 && ` (${s.responsables.map((r) => r.nombre).join(", ")})`}
                 </p>
               </div>
 

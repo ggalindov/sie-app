@@ -17,6 +17,7 @@ import sie.siejuridicos.articulo.TipoContenido;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.solicitud.Solicitud;
 import sie.siejuridicos.solicitud.TipoReunion;
+import sie.siejuridicos.usuario.UsuarioInterno;
 
 import java.io.UnsupportedEncodingException;
 import java.time.Year;
@@ -203,7 +204,7 @@ public class EmailService {
     public void enviarNotificacionAdminNuevaCita(Solicitud solicitud) {
         boolean esVirtual = solicitud.getTipoReunion() == TipoReunion.VIRTUAL;
         boolean hayDetalle = hayDetalleDeAcceso(solicitud);
-        boolean hayResponsable = solicitud.getAbogadoAsignado() != null;
+        boolean hayResponsable = !solicitud.getResponsables().isEmpty();
         String cuerpo = """
                 <p style="margin:0 0 12px;">Se agendó una nueva reunión %s para el
                 <strong>%s</strong></p>
@@ -220,7 +221,11 @@ public class EmailService {
                 escaparHtml(solicitud.getNombre()),
                 escaparHtml(solicitud.getCorreo()),
                 solicitud.getTelefono() == null ? "(no proporcionado)" : escaparHtml(solicitud.getTelefono()),
-                hayResponsable ? escaparHtml(solicitud.getAbogadoAsignado().getNombre()) : "(sin asignar)",
+                hayResponsable
+                        ? escaparHtml(solicitud.getResponsables().stream()
+                                .map(UsuarioInterno::getNombre)
+                                .collect(Collectors.joining(", ")))
+                        : "(sin asignar)",
                 esVirtual ? "Link de la reunión" : "Lugar de la reunión",
                 !hayDetalle
                         ? "(no proporcionado)"
@@ -236,8 +241,8 @@ public class EmailService {
     public void enviarRecordatorioCita(Solicitud solicitud) {
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
-                <p style="margin:0 0 20px;">Este es un recordatorio de tu reunión <strong>hoy</strong> con
-                %s, a las <strong>%s</strong></p>
+                <p style="margin:0 0 20px;">Este es un recordatorio de tu reunión <strong>en aproximadamente una
+                hora</strong> con %s, a las <strong>%s</strong></p>
                 %s
                 %s
                 %s
@@ -249,7 +254,7 @@ public class EmailService {
                 botonWhatsapp(),
                 firmaCierre()
         );
-        enviarHtml(solicitud.getCorreo(), "Recordatorio: tu reunión es hoy - " + nombreFirma, cuerpo);
+        enviarHtml(solicitud.getCorreo(), "Recordatorio: tu reunión es en una hora - " + nombreFirma, cuerpo);
     }
 
     // Boletín automático (ver ArticuloService.notificarPublicacion): se dispara de inmediato
@@ -436,6 +441,47 @@ public class EmailService {
                 firmaCierre()
         );
         return enviarHtml(correo, "Tu número de radicado para consultar tu caso - " + nombreFirma, cuerpo, false);
+    }
+
+    // Reporte semanal de caso (pedido explícito del usuario: "1 vez a la semana un reporte
+    // de cómo va su caso... quizás en esa semana hubo actualización"). NUNCA se envía el
+    // reporte con el estado ya resuelto adentro: la información real vive en la hoja de la
+    // firma (ver HojaCalculoService) y consultarla aquí, una por una, para cientos de casos
+    // cada semana, sería lento y le pegaría fuerte a la cuota de la API de Google Sheets. En
+    // vez de eso el correo/WhatsApp es un empujón para que el cliente mismo entre a
+    // /consulta-caso con su radicado -- misma filosofía que el aviso inicial de radicado,
+    // solo que recurrente y con el texto orientado a "puede haber novedades esta semana".
+    // Variante síncrona desde el inicio (a diferencia de enviarCodigoCaso, no existe versión
+    // @Async): este reporte SIEMPRE se manda en lote (ver
+    // CasoService.enviarReporteSemanal()), nunca de forma aislada, así que no hace falta la
+    // variante "dispara y olvida".
+    public boolean enviarReporteSemanalCasoSincrono(String nombreCliente, String correo, String radicadoId) {
+        if (radicadoId == null || radicadoId.isBlank()) {
+            log.warn("Se intentó enviar el reporte semanal de caso sin un radicado real -- se canceló el envío.");
+            return false;
+        }
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Seguimos trabajando activamente en tu caso en %s. Puede que esta
+                semana haya novedades en tu proceso -- te recomendamos consultar el estado actual con tu
+                número de radicado:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td align="center" style="background-color:#F7F4EC;border:1px dashed %s;padding:16px;">
+                <span style="font-size:24px;font-weight:bold;letter-spacing:3px;color:%s;font-family:Arial,Helvetica,sans-serif;">%s</span>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">Ingresa tu radicado en
+                <a href="%s/consulta-caso" style="color:%s;">%s/consulta-caso</a> para ver el estado
+                actual de tu proceso.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreCliente),
+                nombreFirma,
+                COLOR_DORADO, COLOR_TEXTO, escaparHtml(radicadoId),
+                sitioWeb, COLOR_DORADO, sitioWeb,
+                firmaCierre()
+        );
+        return enviarHtml(correo, "Reporte semanal de tu caso - " + nombreFirma, cuerpo, false);
     }
 
     // Recordatorio mensual de cobro (ver cobro.CobroService.enviarRecordatorios(), disparado
