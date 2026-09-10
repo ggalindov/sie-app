@@ -110,4 +110,15 @@ class CasoServiceConsultaTest {
         assertTrue(descripcion.getValue().length() < radicadoLargo.length(),
                 "El radicado en el registro debe quedar truncado, no completo.");
     }
+
+    @Test
+    void unaConsultaConRadicadoConGuionesOEspaciosEncuentraElCasoLimpio() {
+        Caso caso = casoManual("11001400302020250115600");
+        when(casoRepository.findByRadicadoId("11001-40-03-020-2025-01156-00")).thenReturn(Optional.empty());
+        when(casoRepository.findByRadicadoId("11001400302020250115600")).thenReturn(Optional.of(caso));
+
+        CasoConsultaResponse respuesta = crearServicio().consultar("11001-40-03-020-2025-01156-00");
+
+        assertEquals("11001400302020250115600", respuesta.radicadoId());
+    }
 }

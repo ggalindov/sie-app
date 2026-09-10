@@ -32,20 +32,22 @@ public class ReporteSemanalCasosScheduler {
     public void enviarReporteSemanal() {
         LocalDate hoy = LocalDate.now();
         boolean esLunes = hoy.getDayOfWeek() == DayOfWeek.MONDAY;
+        boolean esMartes = hoy.getDayOfWeek() == DayOfWeek.TUESDAY;
         int diaDelMes = hoy.getDayOfMonth();
-        boolean esDiaWhatsapp = (diaDelMes == 1 || diaDelMes == 15);
+        boolean esDiaWhatsapp = (diaDelMes == 1 || diaDelMes == 2 || diaDelMes == 15 || diaDelMes == 16);
+        boolean permitirCorreo = esLunes || esMartes;
 
-        if (!esLunes && !esDiaWhatsapp) {
-            log.info("Reporte periódico de casos: hoy {} (día {}) no es día programado de envío (Correo: lunes, WhatsApp: 1 y 15). Se omite.",
+        if (!permitirCorreo && !esDiaWhatsapp) {
+            log.info("Reporte periódico de casos: hoy {} (día {}) no es día programado de envío (Correo: lunes y martes de remanentes, WhatsApp: 1-2 y 15-16). Se omite.",
                     hoy.getDayOfWeek(), diaDelMes);
             return;
         }
 
-        ResumenReporteSemanal resumen = casoService.enviarReporteSemanalAutomatico(esLunes, esDiaWhatsapp);
-        log.info("Reporte periódico de casos (Correo lunes: {}, WhatsApp 1/15: {}): {} caso(s) cubiertos, {} correo(s) enviado(s), "
+        ResumenReporteSemanal resumen = casoService.enviarReporteSemanalAutomatico(permitirCorreo, esDiaWhatsapp);
+        log.info("Reporte periódico de casos (Correo: {}, WhatsApp: {}): {} caso(s) cubiertos, {} correo(s) enviado(s), "
                         + "{} fallido(s); {} WhatsApp enviado(s), {} fallido(s); {} pendiente(s) por el límite diario; "
                         + "{} omitido(s) por no tener un cliente real identificable",
-                esLunes, esDiaWhatsapp,
+                permitirCorreo, esDiaWhatsapp,
                 resumen.casosConReporte(), resumen.correosEnviados(), resumen.correosFallidos(),
                 resumen.whatsappEnviados(), resumen.whatsappFallidos(), resumen.pendientesPorLimiteDiario(),
                 resumen.omitidosSinClienteReal());

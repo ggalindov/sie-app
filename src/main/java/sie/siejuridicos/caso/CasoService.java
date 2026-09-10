@@ -856,6 +856,15 @@ public class CasoService {
 
         Optional<Caso> caso = casoRepository.findByRadicadoId(radicadoBuscado);
         if (caso.isEmpty()) {
+            String radicadoLimpio = radicadoBuscado.replaceAll("[\\s\\-\\.]+", "");
+            if (!radicadoLimpio.isBlank() && !radicadoLimpio.equals(radicadoBuscado)) {
+                caso = casoRepository.findByRadicadoId(radicadoLimpio);
+                if (caso.isPresent()) {
+                    radicadoBuscado = radicadoLimpio;
+                }
+            }
+        }
+        if (caso.isEmpty()) {
             registroSistemaService.registrar(
                     TipoRegistroSistema.CONSULTA_ESTADO_CASO,
                     "Radicado \"%s\" consultó su estado, pero no existe ningún caso registrado con ese radicado"

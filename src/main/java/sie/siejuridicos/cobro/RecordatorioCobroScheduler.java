@@ -29,9 +29,9 @@ public class RecordatorioCobroScheduler {
     @Scheduled(cron = "${app.cobros.recordatorio-cron}")
     public void enviarRecordatoriosDelMes() {
         int diaDelMes = LocalDate.now().getDayOfMonth();
-        if (diaDelMes < 3) {
-            log.info("Recordatorio automático de cobro: hoy es día {} del mes. Se pospone para el día 3 "
-                    + "para garantizar que no se cruce con el reporte periódico de casos.", diaDelMes);
+        if (diaDelMes < 3 || diaDelMes > 5) {
+            log.info("Recordatorio automático de cobro: hoy es día {} del mes. Se omite. "
+                    + "El recordatorio programado de cobro solo corre a partir del día 3 (y días 4-5 para despachar remanentes por límite diario).", diaDelMes);
             return;
         }
         ResumenEnvioRecordatoriosCobros resumen = cobroService.enviarRecordatorios();
