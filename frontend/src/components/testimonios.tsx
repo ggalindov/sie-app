@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { Quotes, Star } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { CaretLeft, CaretRight, Quotes, Star } from "@phosphor-icons/react";
 import { testimonios as testimoniosBase } from "@/lib/content";
 import { getTestimoniosAprobados, type TestimonioPublico } from "@/lib/api";
 import { TestimonioFormModal } from "@/components/testimonio-form-modal";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
-const INTERVALO_AUTOPLAY_MS = 7000;
+const INTERVALO_AUTOPLAY_MS = 6500;
 
 export function Testimonios({ media }: { media: ReactNode }) {
   const [aprobados, setAprobados] = useState<TestimonioPublico[]>([]);
@@ -22,14 +22,7 @@ export function Testimonios({ media }: { media: ReactNode }) {
       });
   }, []);
 
-  // Link directo "abre el popup de testimonio solo" (pedido explícito del usuario, para
-  // mandarle a un cliente un mensaje con un link que lo lleve directo a dejar su
-  // testimonio): ?abrir=testimonio en la URL del home. window.location.search en vez de
-  // useSearchParams() de Next a propósito -- ese hook exige envolver la página en un
-  // <Suspense>, y sacaría "/" de la generación estática (ver build); leerlo a mano en un
-  // efecto (que de por sí solo corre en el cliente) logra lo mismo sin ese costo. El modal
-  // ya es un Dialog con overlay fijo (ver TestimonioFormModal), así que aparece encima sin
-  // importar en qué parte de la página esté el visitante al cargar.
+  // Link directo "abre el popup de testimonio solo": ?abrir=testimonio en la URL del home
   useEffect(() => {
     try {
       const parametros = new URLSearchParams(window.location.search);
@@ -37,12 +30,11 @@ export function Testimonios({ media }: { media: ReactNode }) {
         setModalAbierto(true);
       }
     } catch {
-      // no crítico: en el peor caso el visitante solo tiene que hacer clic en "Deja tu
-      // testimonio" a mano.
+      // no crítico
     }
   }, []);
 
-  const todos = [
+  const todos: TestimonioItem[] = [
     ...testimoniosBase.map((t) => ({
       cita: t.cita,
       nombre: t.nombre,
@@ -62,40 +54,8 @@ export function Testimonios({ media }: { media: ReactNode }) {
       <div className="absolute inset-0">{media}</div>
       <div className="absolute inset-0 bg-gradient-to-b from-night/93 via-night/88 to-night/93" />
 
-      <div className="relative mx-auto max-w-4xl px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <motion.h2
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.4 }}
-            transition={{ duration: 0.7, ease: EASE }}
-            className="font-display text-4xl leading-tight tracking-tight text-night-ink md:text-5xl"
-          >
-            Lo que dicen nuestros clientes
-          </motion.h2>
-
-          <motion.button
-            type="button"
-            onClick={() => setModalAbierto(true)}
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.4 }}
-            transition={{ duration: 0.7, ease: EASE }}
-            className="cta-boton rounded-lg border border-night-ink/25 px-5 py-2.5 text-sm font-medium text-night-ink transition-colors duration-200 hover:border-gold-deep hover:text-ink-fixed active:scale-[0.97]"
-          >
-            Deja tu testimonio
-          </motion.button>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
-          className="mt-10"
-        >
-          <CarruselTestimonios testimonios={todos} />
-        </motion.div>
+      <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
+        <CarruselTestimonios testimonios={todos} onAbrirModal={() => setModalAbierto(true)} />
       </div>
 
       <TestimonioFormModal open={modalAbierto} onClose={() => setModalAbierto(false)} />
@@ -110,82 +70,236 @@ type TestimonioItem = {
   calificacion: number;
 };
 
-// Carrusel de una tarjeta a la vez, completamente automático: la sección de
-// testimonios no puede crecer verticalmente cada vez que se aprueba uno nuevo
-// desde el panel (antes era una grilla de 2 columnas que se alargaba sin
-// límite). Sin controles manuales a propósito (pedido explícito: "que no
-// sea con flechas") — el fundido entre testimonios es puro (solo opacidad,
-// sin desplazamiento horizontal) para que se sienta como una transición de
-// diapositivas, no como un carrusel deslizante.
-function CarruselTestimonios({ testimonios }: { testimonios: TestimonioItem[] }) {
+function obtenerIniciales(nombre: string) {
+  const palabras = nombre.trim().split(/\s+/).filter(Boolean);
+  if (palabras.length === 0) return "SJ";
+  if (palabras.length === 1) return palabras[0].slice(0, 2).toUpperCase();
+  return (palabras[0][0] + palabras[palabras.length - 1][0]).toUpperCase();
+}
+
+function CarruselTestimonios({
+  testimonios,
+  onAbrirModal,
+}: {
+  testimonios: TestimonioItem[];
+  onAbrirModal: () => void;
+}) {
   const [indice, setIndice] = useState(0);
   const [enPausa, setEnPausa] = useState(false);
-  const total = testimonios.length;
+  const [visibles, setVisibles] = useState(3);
+  const [stepWidth, setStepWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
   const reducirMovimiento = useRef(false);
+
+  const total = testimonios.length;
+  const maxIndice = Math.max(0, total - visibles);
 
   useEffect(() => {
     reducirMovimiento.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
+  const actualizarDimensiones = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const ancho = window.innerWidth;
+    const numVisibles = ancho < 640 ? 1 : ancho < 1024 ? 2 : 3;
+    setVisibles(numVisibles);
+
+    if (trackRef.current && trackRef.current.children.length > 1) {
+      const card0 = trackRef.current.children[0] as HTMLElement;
+      const card1 = trackRef.current.children[1] as HTMLElement;
+      setStepWidth(card1.offsetLeft - card0.offsetLeft);
+    } else if (trackRef.current && trackRef.current.children.length === 1) {
+      const card0 = trackRef.current.children[0] as HTMLElement;
+      setStepWidth(card0.offsetWidth + 24);
+    }
+  }, []);
+
   useEffect(() => {
-    if (total <= 1 || enPausa || reducirMovimiento.current) return;
-    const id = window.setInterval(() => setIndice((i) => (i + 1) % total), INTERVALO_AUTOPLAY_MS);
+    actualizarDimensiones();
+    window.addEventListener("resize", actualizarDimensiones);
+    return () => window.removeEventListener("resize", actualizarDimensiones);
+  }, [actualizarDimensiones, testimonios.length]);
+
+  useEffect(() => {
+    if (indice > maxIndice) {
+      setIndice(maxIndice);
+    }
+  }, [indice, maxIndice]);
+
+  const avanzar = useCallback(() => {
+    setIndice((i) => (i >= maxIndice ? 0 : i + 1));
+  }, [maxIndice]);
+
+  const retroceder = useCallback(() => {
+    setIndice((i) => (i <= 0 ? maxIndice : i - 1));
+  }, [maxIndice]);
+
+  // Autoplay continuo con pausa suave al interactuar
+  useEffect(() => {
+    if (total <= visibles || enPausa || reducirMovimiento.current) return;
+    const id = window.setInterval(avanzar, INTERVALO_AUTOPLAY_MS);
     return () => window.clearInterval(id);
-  }, [enPausa, total]);
+  }, [avanzar, enPausa, total, visibles]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    setEnPausa(true);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    if (deltaX < -45) {
+      avanzar();
+    } else if (deltaX > 45) {
+      retroceder();
+    }
+    touchStartX.current = null;
+    setEnPausa(false);
+  };
 
   if (total === 0) return null;
 
-  const actual = testimonios[indice];
+  const translateX = stepWidth > 0 ? indice * stepWidth : 0;
 
   return (
     <div
-      className="relative"
       onMouseEnter={() => setEnPausa(true)}
       onMouseLeave={() => setEnPausa(false)}
       onFocus={() => setEnPausa(true)}
       onBlur={() => setEnPausa(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="relative"
     >
-      <div className="relative min-h-[320px] overflow-hidden md:min-h-[280px]">
-        <AnimatePresence mode="wait">
-          <motion.blockquote
-            key={indice}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.9, ease: EASE }}
-            aria-live="polite"
-            className="card-edged flex min-h-[320px] flex-col bg-surface/97 p-8 md:min-h-[280px] md:p-10"
+      {/* Cabecera de la sección con título y controles de navegación */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="text-xs font-semibold uppercase tracking-widest text-gold-deep"
           >
-            <div className="flex items-center justify-between">
-              <Quotes weight="fill" className="h-8 w-8 text-gold" />
-              <div className="flex gap-0.5">
-                {[1, 2, 3, 4, 5].map((v) => (
-                  <Star
-                    key={v}
-                    weight={v <= actual.calificacion ? "fill" : "regular"}
-                    className={`h-3.5 w-3.5 ${v <= actual.calificacion ? "text-gold" : "text-ink-soft/30"}`}
-                  />
-                ))}
-              </div>
+            Testimonios reales
+          </motion.p>
+          <motion.h2
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="mt-1.5 font-display text-3xl leading-tight tracking-tight text-night-ink sm:text-4xl md:text-5xl"
+          >
+            Lo que dicen nuestros clientes
+          </motion.h2>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {total > visibles && (
+            <div className="flex items-center gap-1.5" aria-label="Navegación de testimonios">
+              <button
+                type="button"
+                onClick={retroceder}
+                aria-label="Testimonios anteriores"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-night-ink/20 text-night-ink transition-colors hover:border-gold hover:text-gold active:scale-95 sm:h-10 sm:w-10"
+              >
+                <CaretLeft weight="bold" className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={avanzar}
+                aria-label="Siguientes testimonios"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-night-ink/20 text-night-ink transition-colors hover:border-gold hover:text-gold active:scale-95 sm:h-10 sm:w-10"
+              >
+                <CaretRight weight="bold" className="h-4 w-4" />
+              </button>
             </div>
-            <p className="mt-5 flex-1 text-balance font-display text-xl leading-snug text-ink md:text-2xl">
-              {actual.cita}
-            </p>
-            <footer className="mt-6 text-sm">
-              <p className="font-medium text-ink">{actual.nombre}</p>
-              <p className="text-ink-soft">{actual.cargo}</p>
-            </footer>
-          </motion.blockquote>
-        </AnimatePresence>
+          )}
+
+          <motion.button
+            type="button"
+            onClick={onAbrirModal}
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.7, ease: EASE }}
+            className="cta-boton rounded-lg border border-night-ink/25 px-4 py-2 text-xs font-medium text-night-ink transition-colors duration-200 hover:border-gold-deep hover:text-ink-fixed active:scale-[0.97] sm:px-5 sm:py-2.5 sm:text-sm"
+          >
+            Deja tu testimonio
+          </motion.button>
+        </div>
       </div>
 
-      {total > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2" aria-hidden="true">
-          {testimonios.map((t, i) => (
-            <span
-              key={`${t.nombre}-${i}`}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === indice ? "w-6 bg-gold" : "w-1.5 bg-night-ink/20"
+      {/* Carrusel multitarjeta con desplazamiento suave */}
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
+        ref={containerRef}
+        className="mt-10 overflow-hidden"
+      >
+        <div
+          ref={trackRef}
+          className="flex items-stretch gap-6 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{
+            transform: `translate3d(-${translateX}px, 0, 0)`,
+          }}
+        >
+          {testimonios.map((t, idx) => (
+            <blockquote
+              key={`${t.nombre}-${idx}`}
+              className="card-edged flex h-full min-h-[300px] w-full flex-none flex-col justify-between bg-surface/97 p-6 sm:w-[calc(50%-0.75rem)] sm:p-7 lg:w-[calc(33.333%-1rem)] lg:p-8"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <Quotes weight="fill" className="h-7 w-7 text-gold" />
+                  <div className="flex gap-0.5" aria-label={`${t.calificacion} de 5 estrellas`}>
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <Star
+                        key={v}
+                        weight={v <= t.calificacion ? "fill" : "regular"}
+                        className={`h-3.5 w-3.5 ${v <= t.calificacion ? "text-gold" : "text-ink-soft/30"}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-4 font-display text-base leading-relaxed text-ink line-clamp-6 sm:text-lg">
+                  &ldquo;{t.cita}&rdquo;
+                </p>
+              </div>
+
+              <footer className="mt-6 flex items-center gap-3 border-t border-line/40 pt-4">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold/30 bg-gold/15 font-display text-sm font-semibold text-gold-deep"
+                  aria-hidden="true"
+                >
+                  {obtenerIniciales(t.nombre)}
+                </div>
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="truncate font-medium text-ink">{t.nombre}</p>
+                  <p className="truncate text-xs text-ink-soft sm:text-sm">{t.cargo || "Cliente verificado"}</p>
+                </div>
+              </footer>
+            </blockquote>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Indicadores de progreso / puntos de salto */}
+      {maxIndice > 0 && (
+        <div className="mt-8 flex items-center justify-center gap-2" aria-hidden="true">
+          {Array.from({ length: maxIndice + 1 }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setIndice(i)}
+              aria-label={`Ver testimonios grupo ${i + 1}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === indice ? "w-6 bg-gold" : "w-1.5 bg-night-ink/25 hover:bg-night-ink/50"
               }`}
             />
           ))}
@@ -194,3 +308,4 @@ function CarruselTestimonios({ testimonios }: { testimonios: TestimonioItem[] })
     </div>
   );
 }
+
