@@ -200,6 +200,9 @@ public class CobroService {
         int sinCosto = 0;
         int pendientesPorLimiteDiario = 0;
 
+        Set<String> correosEnviadosEnEstaCorrida = new HashSet<>();
+        Set<String> telefonosEnviadosEnEstaCorrida = new HashSet<>();
+
         for (ClienteCobro cliente : activos) {
             if (honorariosComoEntero(cliente.getHonorarios()) <= 0) {
                 sinCosto++;
@@ -212,11 +215,26 @@ public class CobroService {
             if (ultimoRecordatorio != null && YearMonth.from(ultimoRecordatorio).equals(mesActual)) {
                 continue;
             }
+
+            String correo = cliente.getCorreo() != null ? cliente.getCorreo().trim() : null;
+            String telefono = cliente.getTelefono() != null ? cliente.getTelefono().trim() : null;
+            String telefonoNormalizado = telefono != null ? WhatsAppService.normalizarCelular(telefono) : null;
+
+            boolean correoYaEnviado = correo != null && correosEnviadosEnEstaCorrida.contains(correo.toLowerCase());
+            boolean telefonoYaEnviado = telefonoNormalizado != null && telefonosEnviadosEnEstaCorrida.contains(telefonoNormalizado);
+
+            // Si ambos contactos ya recibieron el cobro en esta corrida (ej. filas duplicadas para la misma persona en la hoja),
+            // actualizamos la fecha sin repetir el mensaje para no spamear al cliente.
+            if ((correo == null || correoYaEnviado) && (telefonoNormalizado == null || telefonoYaEnviado || !whatsAppService.isConfigurado())) {
+                if (correoYaEnviado || telefonoYaEnviado) {
+                    cliente.setFechaUltimoRecordatorio(LocalDateTime.now());
+                    clienteCobroRepository.save(cliente);
+                }
+                continue;
+            }
+
             // Cupo diario compartido de envíos masivos (ver LimiteEnvioMasivoService y el
             // comentario en CasoService.enviarCorreosPendientes() para el detalle completo).
-            // A diferencia de esos dos métodos de Casos, aquí no hay una lista fija para medir
-            // "cuántos quedaron sin ni siquiera intentarse": se cuenta directamente cada vez
-            // que este `continue` por falta de cupo se dispara.
             if (!limiteEnvioMasivoService.intentarReservarCupo()) {
                 pendientesPorLimiteDiario++;
                 continue;
@@ -224,28 +242,28 @@ public class CobroService {
 
             try {
                 boolean seEnvioAlgo = false;
-                if (cliente.getCorreo() != null) {
+                if (correo != null && !correoYaEnviado) {
                     String nombre = cliente.getNombre();
-                    String correo = cliente.getCorreo();
                     String honorarios = cliente.getHonorarios();
                     boolean exito = enviarConReintento(
                             () -> emailService.enviarTirillaCobroSincrono(nombre, correo, honorarios));
                     if (exito) {
                         correosEnviados++;
+                        correosEnviadosEnEstaCorrida.add(correo.toLowerCase());
                         seEnvioAlgo = true;
                     } else {
                         correosFallidos++;
                     }
                     pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
-                if (cliente.getTelefono() != null && whatsAppService.isConfigurado()) {
+                if (telefonoNormalizado != null && whatsAppService.isConfigurado() && !telefonoYaEnviado) {
                     String nombre = cliente.getNombre();
-                    String telefono = cliente.getTelefono();
                     String honorarios = cliente.getHonorarios();
                     boolean exito = enviarConReintento(
                             () -> whatsAppService.enviarRecordatorioCobroSincrono(nombre, telefono, honorarios));
                     if (exito) {
                         whatsappEnviados++;
+                        telefonosEnviadosEnEstaCorrida.add(telefonoNormalizado);
                         seEnvioAlgo = true;
                     } else {
                         whatsappFallidos++;

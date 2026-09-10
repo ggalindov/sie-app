@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -441,14 +442,36 @@ public class CasoService {
     //
     // SIN @Transactional a propósito -- incidente real: un envío masivo de ~200 correos
     // disparados todos casi en simultáneo (la versión @Async anterior) hizo que Gmail
-    // bloqueara la cuenta a mitad del lote (89 de 208 fallaron esa vez), y encima cada uno se
+// bloqueara la cuenta a mitad del lote (89 de 208 fallaron esa vez), y encima cada uno se
     // marcaba "enviado" apenas se intentaba, sin saber si de verdad había llegado. Ahora el
     // envío es secuencial, con una pausa entre cada uno (ver PAUSA_ENTRE_ENVIOS_MS) y un
     // reintento corto ante un fallo transitorio, y "enviado" solo queda true cuando el envío
     // realmente tuvo éxito -- si falla, el caso sigue "pendiente" para el próximo intento.
+    private String obtenerClaveAgrupacionCliente(Caso caso) {
+        Cliente cliente = caso.getCliente();
+        if (cliente == null) {
+            return "caso-" + (caso.getId() != null ? caso.getId() : caso.getRadicadoId());
+        }
+        if (cliente.getId() != null) {
+            return "cliente-id-" + cliente.getId();
+        }
+        if (cliente.getTelefono() != null && !cliente.getTelefono().isBlank()) {
+            String normalizado = WhatsAppService.normalizarCelular(cliente.getTelefono());
+            if (normalizado != null) return "tel-" + normalizado;
+        }
+        if (cliente.getCorreo() != null && !cliente.getCorreo().isBlank()) {
+            return "correo-" + cliente.getCorreo().trim().toLowerCase();
+        }
+        return "nombre-" + (cliente.getNombre() != null ? cliente.getNombre().trim().toLowerCase() : caso.hashCode());
+    }
+
     // Cada caso se guarda apenas se conoce su resultado (transacción propia, implícita en
     // casoRepository.save()) en vez de una única transacción larga abierta los varios minutos
     // que puede tardar un lote grande con la pausa deliberada.
+    // REGLA ESTRICTA (pedido explícito del usuario):
+    // Jamás se puede enviar más de una notificación al cliente por el mismo radicado. Si en la
+    // hoja existen filas duplicadas con el mismo radicado, solo se envía una vez y las demás
+    // se marcan como enviadas sin generar spam.
     public ResumenEnvioCorreos enviarCorreosPendientes() {
         List<Caso> pendientes = casoRepository.listarPendientesDeNotificacion();
         int correosEnviados = 0;
@@ -458,86 +481,89 @@ public class CasoService {
         int pendientesPorLimiteDiario = 0;
         int omitidosSinClienteReal = 0;
 
+        Set<String> radicadosEnviadosCorreo = new HashSet<>();
+        Set<String> radicadosEnviadosWhatsapp = new HashSet<>();
+
         for (Caso caso : pendientes) {
-            // Cupo diario compartido de envíos masivos (ver LimiteEnvioMasivoService): WhatsApp
-            // Business tiene un límite real de mensajes salientes por día, compartido entre
-            // este envío, el reporte semanal y los recordatorios de cobro. Un caso se cuenta
-            // como "un destinatario" apenas se decide procesarlo, sin importar si al final le
-            // tocan uno o dos canales -- así nunca queda con el correo de hoy y el WhatsApp de
-            // dentro de tres días. En cuanto se agota el cupo, el resto sigue "pendiente" tal
-            // cual estaba (se sigue recorriendo la lista solo para contar cuántos quedaron,
-            // sin volver a intentar ningún envío real); la próxima corrida (automática al día
-            // siguiente, ver NotificacionesPendientesCasosScheduler, o un nuevo click manual)
-            // los recoge sin perder a nadie.
-            if (!limiteEnvioMasivoService.intentarReservarCupo()) {
-                pendientesPorLimiteDiario++;
-                continue;
-            }
-            // Segunda barrera, redundante a propósito: listarPendientesDeNotificacion() ya
-            // filtra por radicadoId IS NOT NULL en la consulta, pero jamás se le debe enviar a
-            // un cliente un correo/WhatsApp de "tu radicado es..." sin un radicado real que
-            // mandarle -- si por cualquier cambio futuro en la consulta esa garantía se
-            // rompiera, esta línea evita el envío en vez de mandar un mensaje sin sentido.
-            if (caso.getRadicadoId() == null) {
+            if (caso.getRadicadoId() == null || caso.getRadicadoId().isBlank()) {
                 log.warn("Caso {} sin radicado apareció en la lista de pendientes de notificación "
                         + "-- se omite, nunca se notifica un radicado que no existe.", caso.getId());
                 continue;
             }
-            Cliente cliente = caso.getCliente();
-            // Nombre real de ESTE caso puntual (columna de la hoja para esta fila), no el
-            // nombre compartido del Cliente -- bug real encontrado en auditoría: este método
-            // seguía usando cliente.getNombre() (el mismo que CasoAdminResponse ya había
-            // dejado de usar hace tiempo por quedar desactualizado/compartido entre casos del
-            // mismo cliente, ver Caso.nombreEnHoja), así que el correo real de notificación
-            // podía llevar un nombre distinto al que el admin ve en el panel para ese mismo
-            // caso.
-            String nombre = caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : cliente.getNombre();
 
-            // Incidente real: una fila de la hoja tenía en la columna de nombre una nota
-            // administrativa interna ("DDTE:TATIANA B. NO SOMOS PARTE") en vez de un nombre de
-            // cliente, con el correo de una integrante del despacho capturado como contacto de
-            // referencia -- el envío automático le mandó a ella un correo de "tu radicado es"
-            // como si fuera clienta. Estas notas indican que la firma NO representa a nadie en
-            // ese proceso (solo lo tiene en seguimiento interno), así que nunca se le debe
-            // notificar a nadie como si fuera su caso -- se omite por completo (ningún canal)
-            // y se dejan sus indicadores tal cual para que un admin lo revise a mano; no cuenta
-            // como fallido (no es un error de envío) ni como pendiente por cupo.
+            String radicado = caso.getRadicadoId().trim();
+            Cliente cliente = caso.getCliente();
+            String correo = (cliente != null && cliente.getCorreo() != null) ? cliente.getCorreo().trim() : null;
+            String telefono = (cliente != null && cliente.getTelefono() != null) ? cliente.getTelefono().trim() : null;
+            String telefonoNormalizado = telefono != null ? WhatsAppService.normalizarCelular(telefono) : null;
+
+            // Blindaje contra radicados duplicados en la misma corrida
+            boolean yaEnviadoCorreoEsteRadicado = radicadosEnviadosCorreo.contains(radicado);
+            boolean yaEnviadoWhatsappEsteRadicado = radicadosEnviadosWhatsapp.contains(radicado);
+
+            boolean huboActualizacionDuplicado = false;
+            if (yaEnviadoCorreoEsteRadicado && !caso.isCorreoEnviado()) {
+                caso.setCorreoEnviado(true);
+                huboActualizacionDuplicado = true;
+            }
+            if (yaEnviadoWhatsappEsteRadicado && !caso.isWhatsappEnviado()) {
+                caso.setWhatsappEnviado(true);
+                huboActualizacionDuplicado = true;
+            }
+            if (huboActualizacionDuplicado && (caso.isCorreoEnviado() || correo == null)
+                    && (caso.isWhatsappEnviado() || telefonoNormalizado == null || !whatsAppService.isConfigurado())) {
+                casoRepository.save(caso);
+                continue;
+            }
+
+            boolean debeEnviarCorreo = !caso.isCorreoEnviado() && correo != null && !correo.isBlank() && !yaEnviadoCorreoEsteRadicado;
+            boolean debeEnviarWhatsapp = !caso.isWhatsappEnviado() && whatsAppService.isConfigurado()
+                    && telefonoNormalizado != null && !yaEnviadoWhatsappEsteRadicado;
+
+            if (!debeEnviarCorreo && !debeEnviarWhatsapp) {
+                continue;
+            }
+
+            // Cupo diario compartido de envíos masivos (ver LimiteEnvioMasivoService)
+            if (!limiteEnvioMasivoService.intentarReservarCupo()) {
+                pendientesPorLimiteDiario++;
+                continue;
+            }
+
+            String nombre = caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : (cliente != null ? cliente.getNombre() : "Cliente");
+
             if (contieneNotaAdministrativaNoCliente(nombre)) {
                 log.warn("Caso {} (radicado {}) tiene una nota administrativa en el nombre en vez de un "
                                 + "cliente real ('{}') -- se omite la notificación automática, requiere revisión manual.",
-                        caso.getId(), caso.getRadicadoId(), nombre);
+                        caso.getId(), radicado, nombre);
                 omitidosSinClienteReal++;
                 continue;
             }
+
             try {
                 boolean cambio = false;
 
-                // cliente.getCorreo() puede ser null (sujeto procesal sin contacto capturado
-                // todavía en la hoja, ver sincronizarDesdeHoja()): se deja correoEnviado=false a
-                // propósito, para que en cuanto la hoja traiga un correo real este mismo botón lo
-                // recoja y notifique, en vez de darlo por "ya enviado" sin haberlo enviado nunca.
-                if (!caso.isCorreoEnviado() && cliente.getCorreo() != null) {
-                    String correo = cliente.getCorreo();
-                    String radicado = caso.getRadicadoId();
+                if (debeEnviarCorreo) {
                     boolean exito = enviarConReintento(
                             () -> emailService.enviarCodigoCasoSincrono(nombre, correo, radicado));
                     if (exito) {
                         caso.setCorreoEnviado(true);
                         correosEnviados++;
+                        radicadosEnviadosCorreo.add(radicado);
                     } else {
                         correosFallidos++;
                     }
                     cambio = true;
                     pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
-                if (!caso.isWhatsappEnviado() && whatsAppService.isConfigurado() && cliente.getTelefono() != null) {
-                    String telefono = cliente.getTelefono();
-                    String radicado = caso.getRadicadoId();
+
+                if (debeEnviarWhatsapp) {
                     boolean exito = enviarConReintento(
                             () -> whatsAppService.enviarCodigoCasoSincrono(nombre, telefono, radicado));
                     if (exito) {
                         caso.setWhatsappEnviado(true);
                         whatsappEnviados++;
+                        radicadosEnviadosWhatsapp.add(radicado);
                     } else {
                         whatsappFallidos++;
                     }
@@ -550,9 +576,9 @@ public class CasoService {
                 }
             } catch (Exception ex) {
                 log.error("Fallo inesperado al notificar caso {} (radicado {}): {}",
-                        caso.getId(), caso.getRadicadoId(), ex.getMessage(), ex);
-                if (!caso.isCorreoEnviado() && cliente.getCorreo() != null) correosFallidos++;
-                if (!caso.isWhatsappEnviado() && whatsAppService.isConfigurado() && cliente.getTelefono() != null) whatsappFallidos++;
+                        caso.getId(), radicado, ex.getMessage(), ex);
+                if (debeEnviarCorreo) correosFallidos++;
+                if (debeEnviarWhatsapp) whatsappFallidos++;
             }
         }
 
@@ -576,23 +602,27 @@ public class CasoService {
                 pendientesPorLimiteDiario, omitidosSinClienteReal);
     }
 
-    // Reporte semanal a todos los clientes con caso activo que TODAVÍA no lo recibieron esta
-    // semana (pedido explícito del usuario: "1 vez a la semana... un reporte de cómo va su
-    // caso, tanto por WhatsApp como por correo"). A diferencia de enviarCorreosPendientes()
-    // (que solo notifica una vez, al primer canal que le falte), este se repite cada semana --
-    // pero, a diferencia de la versión anterior, ya NO reenvía a todos incondicionalmente en
-    // cada corrida: con el cupo diario compartido de envíos masivos (ver
-    // LimiteEnvioMasivoService), un lote grande de clientes puede tardar más de un día en
-    // completarse, así que se necesita saber quién ya recibió el reporte de ESTA semana
-    // Envío del reporte periódico de estado de casos:
+    // Reporte periódico de estado de casos.
     // Desacoplado por canal a pedido explícito del usuario:
     // - Correo: semanal (una vez a la semana, cada lunes) a costo $0 por SMTP.
     // - WhatsApp: quincenal (dos veces al mes: días 1 y 15) para reducir costos de Meta Cloud API.
-    // Utiliza fechaUltimoReporteSemanal para el correo y fechaUltimoReporteWhatsapp para WhatsApp.
-    // El scheduler corre a diario a las 8:00 AM (ver ReporteSemanalCasosScheduler): la consulta
-    // (listarPendientesReporte) filtra a quién le falta el reporte según su periodicidad, absorbiendo
-    // los límites diarios si un lote grande toma más de un día.
+    // REGLA CRÍTICA DE NO SPAM:
+    // Se agrupa estrictamente por cliente. Si un cliente tiene 10 o 28 casos, recibe EXACTAMENTE UN
+    // reporte (con su proceso más reciente) y todos sus casos se marcan con la fecha de envío actualizada.
     public ResumenReporteSemanal enviarReporteSemanal() {
+        return enviarReporteSemanal(true, true);
+    }
+
+    public ResumenReporteSemanal enviarReporteSemanalAutomatico(boolean permitirCorreo, boolean permitirWhatsapp) {
+        return enviarReporteSemanal(permitirCorreo, permitirWhatsapp);
+    }
+
+    public ResumenReporteSemanal enviarReporteSemanal(boolean permitirCorreo, boolean permitirWhatsapp) {
+        if (!permitirCorreo && !permitirWhatsapp) {
+            log.info("Reporte periódico de casos: ambos canales desactivados para este ciclo. Se omite.");
+            return new ResumenReporteSemanal(0, 0, 0, 0, 0, 0, 0);
+        }
+
         LocalDate hoy = LocalDate.now();
         LocalDateTime inicioSemana = hoy.with(DayOfWeek.MONDAY).atStartOfDay();
         LocalDateTime inicioQuincena = hoy.getDayOfMonth() < 15
@@ -606,48 +636,86 @@ public class CasoService {
         int whatsappFallidos = 0;
         int pendientesPorLimiteDiario = 0;
         int omitidosSinClienteReal = 0;
+        int casosConReporte = 0;
 
+        Set<String> telefonosEnviadosEnEstaCorrida = new HashSet<>();
+        Set<String> correosEnviadosEnEstaCorrida = new HashSet<>();
+
+        // Agrupar los casos por cliente para garantizar que ningún cliente reciba múltiples mensajes
+        Map<String, List<Caso>> casosPorCliente = new LinkedHashMap<>();
         for (Caso caso : casos) {
-            Cliente cliente = caso.getCliente();
-            boolean debeEnviarCorreo = cliente.getCorreo() != null
-                    && (caso.getFechaUltimoReporteSemanal() == null || caso.getFechaUltimoReporteSemanal().isBefore(inicioSemana));
-            boolean debeEnviarWhatsapp = whatsAppService.isConfigurado()
-                    && cliente.getTelefono() != null
-                    && (caso.getFechaUltimoReporteWhatsapp() == null || caso.getFechaUltimoReporteWhatsapp().isBefore(inicioQuincena));
+            if (caso.getRadicadoId() == null || caso.getRadicadoId().isBlank()) {
+                continue;
+            }
+            casosPorCliente.computeIfAbsent(obtenerClaveAgrupacionCliente(caso), k -> new ArrayList<>()).add(caso);
+        }
+
+        for (List<Caso> casosDelCliente : casosPorCliente.values()) {
+            if (casosDelCliente.isEmpty()) continue;
+
+            Cliente cliente = casosDelCliente.get(0).getCliente();
+            String correo = (cliente != null && cliente.getCorreo() != null) ? cliente.getCorreo().trim() : null;
+            String telefono = (cliente != null && cliente.getTelefono() != null) ? cliente.getTelefono().trim() : null;
+            String telefonoNormalizado = telefono != null ? WhatsAppService.normalizarCelular(telefono) : null;
+
+            boolean tienePendienteCorreo = casosDelCliente.stream().anyMatch(c ->
+                    c.getFechaUltimoReporteSemanal() == null || c.getFechaUltimoReporteSemanal().isBefore(inicioSemana));
+            boolean tienePendienteWhatsapp = casosDelCliente.stream().anyMatch(c ->
+                    c.getFechaUltimoReporteWhatsapp() == null || c.getFechaUltimoReporteWhatsapp().isBefore(inicioQuincena));
+
+            boolean debeEnviarCorreo = permitirCorreo
+                    && correo != null && !correo.isBlank()
+                    && tienePendienteCorreo
+                    && !correosEnviadosEnEstaCorrida.contains(correo.toLowerCase());
+
+            boolean debeEnviarWhatsapp = permitirWhatsapp
+                    && whatsAppService.isConfigurado()
+                    && telefonoNormalizado != null
+                    && tienePendienteWhatsapp
+                    && !telefonosEnviadosEnEstaCorrida.contains(telefonoNormalizado);
 
             if (!debeEnviarCorreo && !debeEnviarWhatsapp) {
                 continue;
             }
 
-            // Mismo cupo diario compartido que enviarCorreosPendientes() -- ver el comentario
-            // de ese método para el detalle completo del porqué.
+            // Validar cupo diario
             if (!limiteEnvioMasivoService.intentarReservarCupo()) {
-                pendientesPorLimiteDiario++;
+                pendientesPorLimiteDiario += casosDelCliente.size();
                 continue;
             }
 
-            String nombre = caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : cliente.getNombre();
-            // Misma barrera de seguridad que enviarCorreosPendientes() -- ver el comentario de
-            // ese método para el incidente real que la motivó.
+            // Ordenar casos para tomar el más reciente
+            casosDelCliente.sort((c1, c2) -> {
+                if (c1.getId() != null && c2.getId() != null) {
+                    return Long.compare(c2.getId(), c1.getId());
+                }
+                return 0;
+            });
+            Caso casoPrincipal = casosDelCliente.get(0);
+            String nombre = casoPrincipal.getNombreEnHoja() != null
+                    ? casoPrincipal.getNombreEnHoja()
+                    : (cliente != null ? cliente.getNombre() : "Cliente");
+            String radicado = casoPrincipal.getRadicadoId();
+
             if (contieneNotaAdministrativaNoCliente(nombre)) {
-                log.warn("Caso {} (radicado {}) tiene una nota administrativa en el nombre en vez de un "
-                                + "cliente real ('{}') -- se omite del reporte periódico, requiere revisión manual.",
-                        caso.getId(), caso.getRadicadoId(), nombre);
-                omitidosSinClienteReal++;
+                log.warn("Cliente/Caso tiene una nota administrativa en el nombre ('{}') -- se omite del reporte periódico.", nombre);
+                omitidosSinClienteReal += casosDelCliente.size();
                 continue;
             }
-            String radicado = caso.getRadicadoId();
+
             try {
                 boolean cambio = false;
                 LocalDateTime ahora = LocalDateTime.now();
 
                 if (debeEnviarCorreo) {
-                    String correo = cliente.getCorreo();
                     boolean exito = enviarConReintento(
                             () -> emailService.enviarReporteSemanalCasoSincrono(nombre, correo, radicado));
                     if (exito) {
                         correosEnviados++;
-                        caso.setFechaUltimoReporteSemanal(ahora);
+                        correosEnviadosEnEstaCorrida.add(correo.toLowerCase());
+                        for (Caso c : casosDelCliente) {
+                            c.setFechaUltimoReporteSemanal(ahora);
+                        }
                         cambio = true;
                     } else {
                         correosFallidos++;
@@ -656,12 +724,14 @@ public class CasoService {
                 }
 
                 if (debeEnviarWhatsapp) {
-                    String telefono = cliente.getTelefono();
                     boolean exito = enviarConReintento(
                             () -> whatsAppService.enviarReporteSemanalCasoSincrono(nombre, telefono, radicado));
                     if (exito) {
                         whatsappEnviados++;
-                        caso.setFechaUltimoReporteWhatsapp(ahora);
+                        telefonosEnviadosEnEstaCorrida.add(telefonoNormalizado);
+                        for (Caso c : casosDelCliente) {
+                            c.setFechaUltimoReporteWhatsapp(ahora);
+                        }
                         cambio = true;
                     } else {
                         whatsappFallidos++;
@@ -670,11 +740,13 @@ public class CasoService {
                 }
 
                 if (cambio) {
-                    casoRepository.save(caso);
+                    for (Caso c : casosDelCliente) {
+                        casoRepository.save(c);
+                    }
+                    casosConReporte += casosDelCliente.size();
                 }
             } catch (Exception ex) {
-                log.error("Fallo inesperado al enviar reporte de caso {} (radicado {}): {}",
-                        caso.getId(), caso.getRadicadoId(), ex.getMessage(), ex);
+                log.error("Fallo inesperado al enviar reporte periódico para cliente '{}': {}", nombre, ex.getMessage(), ex);
                 if (debeEnviarCorreo) correosFallidos++;
                 if (debeEnviarWhatsapp) whatsappFallidos++;
             }
@@ -682,8 +754,8 @@ public class CasoService {
 
         registroSistemaService.registrar(
                 TipoRegistroSistema.REPORTE_SEMANAL_CASOS,
-                "%d caso(s) con reporte, %d correo(s) enviado(s), %d fallido(s); %d WhatsApp enviado(s), %d fallido(s)%s%s"
-                        .formatted(casos.size(), correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos,
+                "%d caso(s) cubierto(s), %d correo(s) enviado(s), %d fallido(s); %d WhatsApp enviado(s), %d fallido(s)%s%s"
+                        .formatted(casosConReporte, correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos,
                                 pendientesPorLimiteDiario > 0
                                         ? "; %d caso(s) pendiente(s) para mañana por el límite diario de envíos"
                                                 .formatted(pendientesPorLimiteDiario)
@@ -696,8 +768,8 @@ public class CasoService {
                 null,
                 correosFallidos == 0 && whatsappFallidos == 0);
 
-        return new ResumenReporteSemanal(casos.size(), correosEnviados, correosFallidos, whatsappEnviados,
-                whatsappFallidos, pendientesPorLimiteDiario, omitidosSinClienteReal);
+        return new ResumenReporteSemanal(casosConReporte, correosEnviados, correosFallidos,
+                whatsappEnviados, whatsappFallidos, pendientesPorLimiteDiario, omitidosSinClienteReal);
     }
 
     // Un reintento después de una pausa corta antes de darse por vencido: la mayoría de

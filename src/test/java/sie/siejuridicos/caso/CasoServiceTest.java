@@ -268,4 +268,86 @@ class CasoServiceTest {
         assertNotNull(caso.getFechaUltimoReporteWhatsapp());
         verify(casoRepository, times(1)).save(caso);
     }
+
+    @Test
+    void unClienteConMultiplesCasosRecibeSoloUnReporteSemanalYSeActualizanTodosSusCasos() {
+        Cliente cliente = new Cliente();
+        cliente.setId(99L);
+        cliente.setNombre("Carlos MultiCasos");
+        cliente.setCorreo("carlos@multicasos.com");
+        cliente.setTelefono("3001234567");
+
+        Caso c1 = new Caso();
+        c1.setId(101L);
+        c1.setCliente(cliente);
+        c1.setRadicadoId("RAD-001");
+
+        Caso c2 = new Caso();
+        c2.setId(102L);
+        c2.setCliente(cliente);
+        c2.setRadicadoId("RAD-002");
+
+        Caso c3 = new Caso();
+        c3.setId(103L);
+        c3.setCliente(cliente);
+        c3.setRadicadoId("RAD-003");
+
+        when(casoRepository.listarPendientesReporte(any(), any())).thenReturn(List.of(c1, c2, c3));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(emailService.enviarReporteSemanalCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+        when(whatsAppService.enviarReporteSemanalCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        CasoService servicio = crearServicio();
+        ResumenReporteSemanal resumen = servicio.enviarReporteSemanal();
+
+        // DEBE HABERSE ENVIADO EXACTAMENTE 1 CORREO Y 1 WHATSAPP AL CLIENTE (NO 3)
+        verify(emailService, times(1)).enviarReporteSemanalCasoSincrono(eq("Carlos MultiCasos"), eq("carlos@multicasos.com"), anyString());
+        verify(whatsAppService, times(1)).enviarReporteSemanalCasoSincrono(eq("Carlos MultiCasos"), eq("3001234567"), anyString());
+
+        assertEquals(1, resumen.correosEnviados());
+        assertEquals(1, resumen.whatsappEnviados());
+        assertEquals(3, resumen.casosConReporte());
+
+        // LOS 3 CASOS DEBEN QUEDAR ACTUALIZADOS CON LA FECHA DE REPORTE
+        assertNotNull(c1.getFechaUltimoReporteSemanal());
+        assertNotNull(c2.getFechaUltimoReporteSemanal());
+        assertNotNull(c3.getFechaUltimoReporteSemanal());
+        assertNotNull(c1.getFechaUltimoReporteWhatsapp());
+        assertNotNull(c2.getFechaUltimoReporteWhatsapp());
+        assertNotNull(c3.getFechaUltimoReporteWhatsapp());
+
+        verify(casoRepository, times(1)).save(c1);
+        verify(casoRepository, times(1)).save(c2);
+        verify(casoRepository, times(1)).save(c3);
+    }
+
+    @Test
+    void radicadosDuplicadosEnHojaSoloSeEnvianUnaVezYAmbosCasosQuedanMarcados() {
+        Caso c1 = casoDe("Juan Perez", "juan@correo.com", "3001112222", "RAD-DUP-001");
+        Caso c2 = casoDe("Juan Perez", "juan@correo.com", "3001112222", "RAD-DUP-001");
+
+        when(casoRepository.listarPendientesDeNotificacion()).thenReturn(List.of(c1, c2));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(emailService.enviarCodigoCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+        when(whatsAppService.enviarCodigoCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        CasoService servicio = crearServicio();
+        ResumenEnvioCorreos resumen = servicio.enviarCorreosPendientes();
+
+        // EXACTAMENTE 1 ENVÍO PARA EL RADICADO DUP
+        verify(emailService, times(1)).enviarCodigoCasoSincrono(eq("Juan Perez"), eq("juan@correo.com"), eq("RAD-DUP-001"));
+        verify(whatsAppService, times(1)).enviarCodigoCasoSincrono(eq("Juan Perez"), eq("3001112222"), eq("RAD-DUP-001"));
+
+        assertEquals(1, resumen.correosEnviados());
+        assertEquals(1, resumen.whatsappEnviados());
+
+        // Ambos casos quedan marcados como enviados para no quedarse en bucle
+        assertEquals(true, c1.isCorreoEnviado());
+        assertEquals(true, c1.isWhatsappEnviado());
+        assertEquals(true, c2.isCorreoEnviado());
+        assertEquals(true, c2.isWhatsappEnviado());
+
+        verify(casoRepository, times(1)).save(c1);
+        verify(casoRepository, times(1)).save(c2);
+    }
 }
