@@ -17,14 +17,17 @@ public record CasoAdminResponse(
         boolean correoEnviado,
         boolean whatsappEnviado,
         String notasInternas,
-        LocalDateTime fechaCreacion
+        LocalDateTime fechaCreacion,
+        LocalDateTime fechaUltimoReporteSemanal,
+        LocalDateTime fechaUltimoReporteWhatsapp
 ) {
     public static CasoAdminResponse desde(Caso caso) {
-        // nombreEnHoja (por caso) antes que cliente.getNombre() (compartido entre todos los
-        // casos del mismo cliente, ver Caso.nombreEnHoja): un caso sincronizado desde una
-        // hoja siempre trae el nombre real y actual de SU propia fila. Solo los casos MANUAL
-        // (nunca vienen de una hoja) caen de vuelta al nombre del Cliente.
         String nombreMostrado = caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : caso.getCliente().getNombre();
+        // Si el caso ya tiene confirmada la notificación de radicado o el reporte periódico por ese canal,
+        // se refleja fielmente como enviado en el panel administrativo.
+        boolean correoFueEnviado = caso.isCorreoEnviado() || caso.getFechaUltimoReporteSemanal() != null;
+        boolean whatsappFueEnviado = caso.isWhatsappEnviado() || caso.getFechaUltimoReporteWhatsapp() != null;
+
         return new CasoAdminResponse(
                 caso.getId(),
                 caso.getFuente(),
@@ -34,10 +37,12 @@ public record CasoAdminResponse(
                 caso.getCliente().getCorreo(),
                 caso.getCliente().getTelefono(),
                 caso.getRadicadoId(),
-                caso.isCorreoEnviado(),
-                caso.isWhatsappEnviado(),
+                correoFueEnviado,
+                whatsappFueEnviado,
                 caso.getNotasInternas(),
-                caso.getFechaCreacion()
+                caso.getFechaCreacion(),
+                caso.getFechaUltimoReporteSemanal(),
+                caso.getFechaUltimoReporteWhatsapp()
         );
     }
 }

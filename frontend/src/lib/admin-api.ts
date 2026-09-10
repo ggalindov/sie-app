@@ -486,6 +486,8 @@ export type CasoAdmin = {
   whatsappEnviado: boolean;
   notasInternas: string | null;
   fechaCreacion: string;
+  fechaUltimoReporteSemanal: string | null;
+  fechaUltimoReporteWhatsapp: string | null;
 };
 
 export type ResumenSincronizacionCasos = {

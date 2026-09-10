@@ -30,7 +30,10 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     // -- el botón "Enviar correos pendientes" del panel. JOIN FETCH por el mismo motivo que
     // listarTodosConDetalle: evita N+1 al leer cliente.getCorreo()/getTelefono() de cada uno.
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente "
-            + "WHERE c.radicadoId IS NOT NULL AND (c.correoEnviado = false OR c.whatsappEnviado = false)")
+            + "WHERE c.radicadoId IS NOT NULL AND ("
+            + "  (c.correoEnviado = false AND c.cliente.correo IS NOT NULL) "
+            + "  OR (c.whatsappEnviado = false AND c.cliente.telefono IS NOT NULL)"
+            + ")")
     List<Caso> listarPendientesDeNotificacion();
 
     // Reporte periódico de casos (ver CasoService.enviarReporteSemanal()): casos con radicado ya asignado

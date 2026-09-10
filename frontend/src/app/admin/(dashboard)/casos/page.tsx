@@ -138,6 +138,7 @@ export default function CasosAdminPage() {
           );
         }
       }
+      cargar();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "No se pudo enviar el reporte de casos.");
     } finally {
@@ -271,7 +272,11 @@ export default function CasosAdminPage() {
                         tone={c.correoEnviado ? "success" : "warning"}
                         icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
                       >
-                        {c.correoEnviado ? "Correo enviado" : "Correo pendiente"}
+                        {c.correoEnviado
+                          ? c.fechaUltimoReporteSemanal
+                            ? `Correo enviado (${formatearFecha(c.fechaUltimoReporteSemanal)})`
+                            : "Correo enviado"
+                          : "Correo pendiente"}
                       </NotificationBadge>
                     ) : (
                       <NotificationBadge tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
@@ -283,7 +288,11 @@ export default function CasosAdminPage() {
                         tone={c.whatsappEnviado ? "success" : "warning"}
                         icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
                       >
-                        {c.whatsappEnviado ? "WhatsApp enviado" : "WhatsApp pendiente"}
+                        {c.whatsappEnviado
+                          ? c.fechaUltimoReporteWhatsapp
+                            ? `WhatsApp enviado (${formatearFecha(c.fechaUltimoReporteWhatsapp)})`
+                            : "WhatsApp enviado"
+                          : "WhatsApp pendiente"}
                       </NotificationBadge>
                     ) : (
                       <NotificationBadge tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>

@@ -715,6 +715,7 @@ public class CasoService {
                         correosEnviadosEnEstaCorrida.add(correo.toLowerCase());
                         for (Caso c : casosDelCliente) {
                             c.setFechaUltimoReporteSemanal(ahora);
+                            c.setCorreoEnviado(true);
                         }
                         cambio = true;
                     } else {
@@ -731,6 +732,7 @@ public class CasoService {
                         telefonosEnviadosEnEstaCorrida.add(telefonoNormalizado);
                         for (Caso c : casosDelCliente) {
                             c.setFechaUltimoReporteWhatsapp(ahora);
+                            c.setWhatsappEnviado(true);
                         }
                         cambio = true;
                     } else {
