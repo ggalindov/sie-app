@@ -37,9 +37,11 @@ RUN addgroup -S sie && adduser -S sie -G sie
 # server.js standalone (ver next.config.ts) no copia public/ ni .next/static por defecto
 # (pensado para dejarlos en un CDN aparte): en este despliegue no hay CDN, así que se
 # copian a mano para que el propio servidor de Node los sirva.
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
+COPY --from=build --chown=sie:sie /app/.next/standalone ./
+COPY --from=build --chown=sie:sie /app/.next/static ./.next/static
+COPY --from=build --chown=sie:sie /app/public ./public
+
+RUN mkdir -p .next/cache && chown -R sie:sie .next
 
 USER sie
 EXPOSE 3000
