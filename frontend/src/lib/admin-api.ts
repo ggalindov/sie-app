@@ -503,6 +503,10 @@ export type ResumenEnvioCorreosCasos = {
   correosFallidos: number;
   whatsappEnviados: number;
   whatsappFallidos: number;
+  // Cuántos casos ni siquiera se intentaron porque ya se alcanzó el cupo diario compartido de
+  // envíos masivos de WhatsApp/correo (ver LimiteEnvioMasivoService en el backend) -- quedan
+  // pendientes para la corrida automática de mañana, no cuentan como fallidos.
+  pendientesPorLimiteDiario: number;
 };
 
 export function listarCasos(): Promise<CasoAdmin[]> {
@@ -536,6 +540,9 @@ export type ResumenReporteSemanalCasos = {
   correosFallidos: number;
   whatsappEnviados: number;
   whatsappFallidos: number;
+  // Igual que en ResumenEnvioCorreosCasos: cuántos casos quedaron sin ni siquiera intentarse
+  // por el cupo diario compartido de envíos masivos, pendientes para mañana.
+  pendientesPorLimiteDiario: number;
 };
 
 // Disparo manual del reporte semanal a todos los clientes con caso activo (además del
@@ -580,6 +587,9 @@ export type ResumenEnvioRecordatoriosCobros = {
   whatsappEnviados: number;
   whatsappFallidos: number;
   clientesSinCosto: number;
+  // Igual que en Casos: cuántos clientes quedaron sin ni siquiera intentarse por el cupo
+  // diario compartido de envíos masivos, pendientes para mañana.
+  pendientesPorLimiteDiario: number;
 };
 
 export function listarCobros(): Promise<ClienteCobro[]> {

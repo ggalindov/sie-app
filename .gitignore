@@ -6,6 +6,9 @@ target/
 .env
 .env.prod
 run.local.bat
+run.local.bat*
+scratch/
+capturas/
 backend-run.log
 backend_run.log
 

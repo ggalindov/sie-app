@@ -172,7 +172,10 @@ mes, el pago pendiente por correo y por WhatsApp — con dos botones de respuest
      ```
      Hola {{1}}, te recordamos el valor pendiente de tus honorarios con SIE Jurídicos este
      mes: {{2}}. Seguimos trabajando activamente en tu proceso. ¿Confirmas el pago?
+
+     Si ya realizaste el pago, por favor haz caso omiso a este mensaje.
      ```
+   - Pie de página (opcional en Meta): `Si ya realizaste el pago, haz caso omiso.`
    - **Botones**: agrega dos botones de tipo "Respuesta rápida" (Quick Reply): uno con texto
      `Sí` y otro con texto `No`. El sistema identifica la respuesta por el texto del botón
      que el cliente presiona, no hace falta configurar nada más de tu lado para eso.

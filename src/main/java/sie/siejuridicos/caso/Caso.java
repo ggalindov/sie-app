@@ -99,6 +99,21 @@ public class Caso {
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
 
+    // Última vez que este caso recibió el reporte semanal (ver CasoService.enviarReporteSemanal
+    // y la migración V37) -- a diferencia de correoEnviado/whatsappEnviado (el aviso ÚNICO de
+    // "aquí está tu código"), este reporte se repite cada semana, así que necesita su propia
+    // marca de tiempo en vez de un booleano: sirve tanto para no reenviarle el reporte de esta
+    // misma semana dos veces, como para saber quién quedó pendiente por el cupo diario
+    // compartido de envíos masivos y recogerlo automáticamente al día siguiente.
+    @Column(name = "fecha_ultimo_reporte_semanal")
+    private LocalDateTime fechaUltimoReporteSemanal;
+
+    // Última vez que este caso recibió el reporte por WhatsApp (ver CasoService.enviarReporteSemanal):
+    // mientras el correo se envía semanalmente a costo $0 por SMTP, WhatsApp se envía quincenalmente
+    // (dos veces al mes: días 1 y 15) para reducir costos de la API de Meta.
+    @Column(name = "fecha_ultimo_reporte_whatsapp")
+    private LocalDateTime fechaUltimoReporteWhatsapp;
+
     public Long getId() {
         return id;
     }
@@ -173,5 +188,21 @@ public class Caso {
 
     public LocalDateTime getFechaCreacion() {
         return fechaCreacion;
+    }
+
+    public LocalDateTime getFechaUltimoReporteSemanal() {
+        return fechaUltimoReporteSemanal;
+    }
+
+    public void setFechaUltimoReporteSemanal(LocalDateTime fechaUltimoReporteSemanal) {
+        this.fechaUltimoReporteSemanal = fechaUltimoReporteSemanal;
+    }
+
+    public LocalDateTime getFechaUltimoReporteWhatsapp() {
+        return fechaUltimoReporteWhatsapp;
+    }
+
+    public void setFechaUltimoReporteWhatsapp(LocalDateTime fechaUltimoReporteWhatsapp) {
+        this.fechaUltimoReporteWhatsapp = fechaUltimoReporteWhatsapp;
     }
 }

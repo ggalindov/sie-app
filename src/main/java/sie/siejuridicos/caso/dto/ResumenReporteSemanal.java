@@ -8,6 +8,14 @@ public record ResumenReporteSemanal(
         int correosEnviados,
         int correosFallidos,
         int whatsappEnviados,
-        int whatsappFallidos
+        int whatsappFallidos,
+        // Cuántos casos pendientes de esta semana NI SIQUIERA se intentaron porque ya se
+        // alcanzó el cupo diario compartido de envíos masivos (ver LimiteEnvioMasivoService).
+        // Quedan sin marcar (fechaUltimoReporteSemanal sin actualizar) para que la corrida
+        // automática del día siguiente los recoja.
+        int pendientesPorLimiteDiario,
+        // Igual que en ResumenEnvioCorreos: casos omitidos por tener una nota administrativa
+        // en vez de un cliente real en el nombre -- requieren revisión manual.
+        int omitidosSinClienteReal
 ) {
 }

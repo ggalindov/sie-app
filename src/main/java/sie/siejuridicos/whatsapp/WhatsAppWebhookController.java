@@ -128,19 +128,29 @@ public class WhatsAppWebhookController {
         for (JsonNode entrada : raiz.path("entry")) {
             for (JsonNode cambio : entrada.path("changes")) {
                 for (JsonNode mensaje : cambio.path("value").path("messages")) {
-                    if (!"button".equals(mensaje.path("type").asString(""))) {
+                    String tipo = mensaje.path("type").asText("");
+                    String textoRespuesta = null;
+                    if ("button".equals(tipo)) {
+                        textoRespuesta = mensaje.path("button").path("text").asText(null);
+                    } else if ("interactive".equals(tipo)) {
+                        textoRespuesta = mensaje.path("interactive").path("button_reply").path("title").asText(null);
+                    } else if ("text".equals(tipo)) {
+                        textoRespuesta = mensaje.path("text").path("body").asText(null);
+                    } else {
                         continue;
                     }
-                    String desde = mensaje.path("from").asString(null);
-                    String textoBoton = mensaje.path("button").path("text").asString(null);
-                    if (desde == null || textoBoton == null) {
+                    String desde = mensaje.path("from").asText(null);
+                    if (desde == null || textoRespuesta == null) {
                         continue;
                     }
                     String telefonoNormalizado = WhatsAppService.normalizarCelular(desde);
                     if (telefonoNormalizado == null) {
                         continue;
                     }
-                    cobroService.registrarRespuesta(telefonoNormalizado, interpretarRespuesta(textoBoton));
+                    String interpretado = interpretarRespuesta(textoRespuesta);
+                    log.info("Webhook WhatsApp: respuesta recibida de {}: '{}' -> interpretada como '{}'",
+                            telefonoNormalizado, textoRespuesta, interpretado);
+                    cobroService.registrarRespuesta(telefonoNormalizado, interpretado);
                 }
             }
         }
@@ -148,10 +158,10 @@ public class WhatsAppWebhookController {
 
     private static String interpretarRespuesta(String textoBoton) {
         String normalizado = textoBoton.strip().toLowerCase(Locale.ROOT);
-        if (normalizado.startsWith("s")) {
+        if (normalizado.startsWith("s") || normalizado.equals("si") || normalizado.equals("sí")) {
             return "Sí";
         }
-        if (normalizado.startsWith("n")) {
+        if (normalizado.startsWith("n") || normalizado.equals("no")) {
             return "No";
         }
         return textoBoton.strip();

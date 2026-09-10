@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import sie.siejuridicos.caso.dto.CasoConsultaResponse;
 import sie.siejuridicos.common.cifrado.CifradoService;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
+import sie.siejuridicos.common.limite.LimiteEnvioMasivoService;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.hojacalculo.HojaCalculoService;
 import sie.siejuridicos.registro.RegistroSistemaService;
@@ -45,10 +46,12 @@ class CasoServiceConsultaTest {
     private CifradoService cifradoService;
     @Mock
     private RegistroSistemaService registroSistemaService;
+    @Mock
+    private LimiteEnvioMasivoService limiteEnvioMasivoService;
 
     private CasoService crearServicio() {
         return new CasoService(casoRepository, clienteRepository, emailService, whatsAppService,
-                hojaCalculoService, cifradoService, registroSistemaService);
+                hojaCalculoService, cifradoService, registroSistemaService, limiteEnvioMasivoService);
     }
 
     private static Caso casoManual(String radicadoId) {

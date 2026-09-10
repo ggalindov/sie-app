@@ -1,5 +1,7 @@
 package sie.siejuridicos.cobro;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.cobro.dto.ClienteCobroResponse;
@@ -7,6 +9,7 @@ import sie.siejuridicos.cobro.dto.FilaCobroHoja;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
 import sie.siejuridicos.cobro.dto.ResumenSincronizacionCobros;
 import sie.siejuridicos.common.cifrado.CifradoService;
+import sie.siejuridicos.common.limite.LimiteEnvioMasivoService;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
@@ -41,6 +44,8 @@ import java.util.regex.Pattern;
 @Service
 public class CobroService {
 
+    private static final Logger log = LoggerFactory.getLogger(CobroService.class);
+
     // Mismo motivo y mismo valor que CasoService.PAUSA_ENTRE_ENVIOS_MS: un lote de recordatorios
     // sin pausa entre cada envío es justo lo que hizo que Gmail bloqueara la cuenta en el
     // incidente real del envío masivo de Casos.
@@ -53,19 +58,22 @@ public class CobroService {
     private final WhatsAppService whatsAppService;
     private final CifradoService cifradoService;
     private final RegistroSistemaService registroSistemaService;
+    private final LimiteEnvioMasivoService limiteEnvioMasivoService;
 
     public CobroService(ClienteCobroRepository clienteCobroRepository,
                          HojaCobrosService hojaCobrosService,
                          EmailService emailService,
                          WhatsAppService whatsAppService,
                          CifradoService cifradoService,
-                         RegistroSistemaService registroSistemaService) {
+                         RegistroSistemaService registroSistemaService,
+                         LimiteEnvioMasivoService limiteEnvioMasivoService) {
         this.clienteCobroRepository = clienteCobroRepository;
         this.hojaCobrosService = hojaCobrosService;
         this.emailService = emailService;
         this.whatsAppService = whatsAppService;
         this.cifradoService = cifradoService;
         this.registroSistemaService = registroSistemaService;
+        this.limiteEnvioMasivoService = limiteEnvioMasivoService;
     }
 
     // Ordenado por tipo y, dentro de cada tipo, por su número de fila (pedido explícito del
@@ -172,7 +180,7 @@ public class CobroService {
         return normalizado == null ? null : cifradoService.indiceCiego(normalizado);
     }
 
-    // Botón "Enviar recordatorios" del panel, y el mismo método que corre solo el día 1 (ver
+    // Botón "Enviar recordatorios" del panel, y el mismo método que corre a diario (ver
     // RecordatorioCobroScheduler). Se salta: clientes con honorarios en $0 (pedido explícito:
     // "todo cliente que tenga 0 en casilla de honorario saltarlo"), clientes con
     // pagoEsteMes=true (ya pagaron), y clientes que YA recibieron el recordatorio este mismo
@@ -190,6 +198,7 @@ public class CobroService {
         int whatsappEnviados = 0;
         int whatsappFallidos = 0;
         int sinCosto = 0;
+        int pendientesPorLimiteDiario = 0;
 
         for (ClienteCobro cliente : activos) {
             if (honorariosComoEntero(cliente.getHonorarios()) <= 0) {
@@ -203,50 +212,71 @@ public class CobroService {
             if (ultimoRecordatorio != null && YearMonth.from(ultimoRecordatorio).equals(mesActual)) {
                 continue;
             }
+            // Cupo diario compartido de envíos masivos (ver LimiteEnvioMasivoService y el
+            // comentario en CasoService.enviarCorreosPendientes() para el detalle completo).
+            // A diferencia de esos dos métodos de Casos, aquí no hay una lista fija para medir
+            // "cuántos quedaron sin ni siquiera intentarse": se cuenta directamente cada vez
+            // que este `continue` por falta de cupo se dispara.
+            if (!limiteEnvioMasivoService.intentarReservarCupo()) {
+                pendientesPorLimiteDiario++;
+                continue;
+            }
 
-            boolean seEnvioAlgo = false;
-            if (cliente.getCorreo() != null) {
-                String nombre = cliente.getNombre();
-                String correo = cliente.getCorreo();
-                String honorarios = cliente.getHonorarios();
-                boolean exito = enviarConReintento(
-                        () -> emailService.enviarTirillaCobroSincrono(nombre, correo, honorarios));
-                if (exito) {
-                    correosEnviados++;
-                    seEnvioAlgo = true;
-                } else {
-                    correosFallidos++;
+            try {
+                boolean seEnvioAlgo = false;
+                if (cliente.getCorreo() != null) {
+                    String nombre = cliente.getNombre();
+                    String correo = cliente.getCorreo();
+                    String honorarios = cliente.getHonorarios();
+                    boolean exito = enviarConReintento(
+                            () -> emailService.enviarTirillaCobroSincrono(nombre, correo, honorarios));
+                    if (exito) {
+                        correosEnviados++;
+                        seEnvioAlgo = true;
+                    } else {
+                        correosFallidos++;
+                    }
+                    pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
-                pausar(PAUSA_ENTRE_ENVIOS_MS);
-            }
-            if (cliente.getTelefono() != null && whatsAppService.isConfigurado()) {
-                String nombre = cliente.getNombre();
-                String telefono = cliente.getTelefono();
-                String honorarios = cliente.getHonorarios();
-                boolean exito = enviarConReintento(
-                        () -> whatsAppService.enviarRecordatorioCobroSincrono(nombre, telefono, honorarios));
-                if (exito) {
-                    whatsappEnviados++;
-                    seEnvioAlgo = true;
-                } else {
-                    whatsappFallidos++;
+                if (cliente.getTelefono() != null && whatsAppService.isConfigurado()) {
+                    String nombre = cliente.getNombre();
+                    String telefono = cliente.getTelefono();
+                    String honorarios = cliente.getHonorarios();
+                    boolean exito = enviarConReintento(
+                            () -> whatsAppService.enviarRecordatorioCobroSincrono(nombre, telefono, honorarios));
+                    if (exito) {
+                        whatsappEnviados++;
+                        seEnvioAlgo = true;
+                    } else {
+                        whatsappFallidos++;
+                    }
+                    pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
-                pausar(PAUSA_ENTRE_ENVIOS_MS);
-            }
-            if (seEnvioAlgo) {
-                cliente.setFechaUltimoRecordatorio(LocalDateTime.now());
-                clienteCobroRepository.save(cliente);
+                if (seEnvioAlgo) {
+                    cliente.setFechaUltimoRecordatorio(LocalDateTime.now());
+                    clienteCobroRepository.save(cliente);
+                }
+            } catch (Exception ex) {
+                log.error("Fallo inesperado al procesar recordatorio de cobro para cliente '{}' (id {}): {}",
+                        cliente.getNombre(), cliente.getId(), ex.getMessage(), ex);
+                if (cliente.getCorreo() != null) correosFallidos++;
+                if (cliente.getTelefono() != null) whatsappFallidos++;
             }
         }
 
         registroSistemaService.registrar(
                 TipoRegistroSistema.ENVIO_RECORDATORIOS_COBROS,
-                "%d correo(s) enviado(s), %d fallido(s); %d WhatsApp enviado(s), %d fallido(s); %d sin costo"
-                        .formatted(correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos, sinCosto),
+                "%d correo(s) enviado(s), %d fallido(s); %d WhatsApp enviado(s), %d fallido(s); %d sin costo%s"
+                        .formatted(correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos, sinCosto,
+                                pendientesPorLimiteDiario > 0
+                                        ? "; %d cliente(s) pendiente(s) para mañana por el límite diario de envíos"
+                                                .formatted(pendientesPorLimiteDiario)
+                                        : ""),
                 null,
                 correosFallidos == 0 && whatsappFallidos == 0);
 
-        return new ResumenEnvioRecordatoriosCobros(correosEnviados, correosFallidos, whatsappEnviados, whatsappFallidos, sinCosto);
+        return new ResumenEnvioRecordatoriosCobros(correosEnviados, correosFallidos, whatsappEnviados,
+                whatsappFallidos, sinCosto, pendientesPorLimiteDiario);
     }
 
     private boolean enviarConReintento(BooleanSupplier envio) {
@@ -309,8 +339,12 @@ public class CobroService {
     public void registrarRespuesta(String telefonoNormalizado, String respuesta) {
         String hash = cifradoService.indiceCiego(telefonoNormalizado);
         List<ClienteCobro> encontrados = clienteCobroRepository.findByTelefonoHashAndActivoTrue(hash);
+        boolean esSi = "Sí".equalsIgnoreCase(respuesta) || "Si".equalsIgnoreCase(respuesta);
         for (ClienteCobro cliente : encontrados) {
             cliente.setRespondioMensaje(respuesta);
+            if (esSi) {
+                cliente.setPagoEsteMes(true);
+            }
             hojaCobrosService.marcarRespuesta(cliente.getTipo(), cliente.getNumeroFila(), respuesta);
         }
     }

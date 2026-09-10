@@ -510,13 +510,17 @@ public class EmailService {
                 <p style="margin:0 0 16px;">Queremos que sepas que seguimos trabajando activamente en tu
                 proceso: nuestro equipo continúa haciéndole seguimiento con el mismo compromiso de
                 siempre.</p>
-                <p style="margin:0 0 20px;">Si ya realizaste este pago o tienes alguna duda al respecto,
+                <p style="margin:0 0 16px;font-size:13px;color:#736C5C;background-color:#F5F3ED;padding:10px 14px;border-radius:4px;border-left:3px solid %s;">
+                <em>Si ya realizaste el pago, por favor haz caso omiso a este mensaje.</em>
+                </p>
+                <p style="margin:0 0 20px;">Si tienes alguna duda al respecto,
                 por favor contáctanos respondiendo este correo%s.</p>
                 %s
                 """.formatted(
                 escaparHtml(nombreCliente),
                 nombreFirma,
                 COLOR_DORADO, COLOR_TEXTO, escaparHtml(honorariosTexto),
+                COLOR_DORADO,
                 whatsappUrl.isBlank() ? "" : " o escribiéndonos por WhatsApp",
                 firmaCierre()
         );

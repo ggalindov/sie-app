@@ -2,7 +2,9 @@ package sie.siejuridicos.caso;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,13 +33,26 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
             + "WHERE c.radicadoId IS NOT NULL AND (c.correoEnviado = false OR c.whatsappEnviado = false)")
     List<Caso> listarPendientesDeNotificacion();
 
-    // Reporte semanal (ver CasoService.enviarReporteSemanal()): TODOS los casos con radicado
-    // ya asignado, sin importar el estado de correoEnviado/whatsappEnviado -- esos dos
-    // indicadores son del aviso ÚNICO de "aquí está tu código", algo completamente aparte de
-    // este recordatorio recurrente semanal. JOIN FETCH por el mismo motivo de siempre: evita
-    // N+1 al leer cliente.getCorreo()/getTelefono() de cada uno.
-    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente WHERE c.radicadoId IS NOT NULL")
-    List<Caso> listarConRadicado();
+    // Reporte periódico de casos (ver CasoService.enviarReporteSemanal()): casos con radicado ya asignado
+    // que TODAVÍA no recibieron el reporte del periodo en curso según cada canal:
+    // - Correo: semanal (cada lunes, inicioSemana)
+    // - WhatsApp: quincenal (días 1 y 15 de cada mes, inicioQuincena)
+    // Con el cupo diario compartido de envíos masivos (ver LimiteEnvioMasivoService), un lote grande
+    // puede no alcanzar a procesarse en un solo día; esta consulta es lo que permite que el día siguiente
+    // recoja automáticamente solo a quienes quedaron pendientes, sin repetirle el reporte a quien ya lo recibió.
+    // JOIN FETCH por el mismo motivo de siempre: evita N+1 al leer cliente.getCorreo()/getTelefono() de cada uno.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente WHERE c.radicadoId IS NOT NULL "
+            + "AND ("
+            + "  (c.cliente.correo IS NOT NULL AND (c.fechaUltimoReporteSemanal IS NULL OR c.fechaUltimoReporteSemanal < :inicioSemana)) "
+            + "  OR (c.cliente.telefono IS NOT NULL AND (c.fechaUltimoReporteWhatsapp IS NULL OR c.fechaUltimoReporteWhatsapp < :inicioQuincena))"
+            + ")")
+    List<Caso> listarPendientesReporte(
+            @Param("inicioSemana") LocalDateTime inicioSemana,
+            @Param("inicioQuincena") LocalDateTime inicioQuincena);
+
+    default List<Caso> listarPendientesReporteSemanal(LocalDateTime inicioPeriodo) {
+        return listarPendientesReporte(inicioPeriodo, inicioPeriodo);
+    }
 
     // JOIN FETCH evita N+1 al listar (cliente es LAZY): una sola consulta en vez de una
     // extra por cada caso listado en /admin/casos.

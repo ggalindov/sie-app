@@ -6,17 +6,25 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import sie.siejuridicos.caso.dto.ResumenEnvioCorreos;
+import sie.siejuridicos.caso.dto.ResumenReporteSemanal;
 import sie.siejuridicos.common.cifrado.CifradoService;
+import sie.siejuridicos.common.limite.LimiteEnvioMasivoService;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.hojacalculo.HojaCalculoService;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -49,10 +57,17 @@ class CasoServiceTest {
     private CifradoService cifradoService;
     @Mock
     private RegistroSistemaService registroSistemaService;
+    @Mock
+    private LimiteEnvioMasivoService limiteEnvioMasivoService;
 
     private CasoService crearServicio() {
+        // lenient(): el cupo diario compartido (ver LimiteEnvioMasivoService) es una barrera
+        // nueva delante del envío real, ortogonal a lo que prueba esta clase (cruce de datos
+        // entre clientes) -- se deja siempre "hay cupo" aquí para que esas pruebas seudo no
+        // tengan que conocer ese detalle. El límite en sí se prueba aparte.
+        lenient().when(limiteEnvioMasivoService.intentarReservarCupo()).thenReturn(true);
         return new CasoService(casoRepository, clienteRepository, emailService, whatsAppService,
-                hojaCalculoService, cifradoService, registroSistemaService);
+                hojaCalculoService, cifradoService, registroSistemaService, limiteEnvioMasivoService);
     }
 
     private static Caso casoDe(String nombre, String correo, String telefono, String radicado) {
@@ -149,5 +164,108 @@ class CasoServiceTest {
 
         verify(emailService, never()).enviarCodigoCasoSincrono(anyString(), anyString(), anyString());
         verify(whatsAppService, never()).enviarCodigoCasoSincrono(anyString(), anyString(), anyString());
+    }
+
+    // Pedido explícito del usuario: WhatsApp Business tiene un límite real de mensajes
+    // salientes por día (250 en la cuenta actual), compartido entre casos, cobros y cualquier
+    // otro envío masivo (ver LimiteEnvioMasivoService). Esta prueba simula el cupo agotándose
+    // a mitad de un lote de 3 y confirma: (1) a quien ya alcanzó cupo se le envía con
+    // normalidad y queda marcado, (2) a quien no alcanzó cupo NO se le intenta ningún envío
+    // real (ni correo ni WhatsApp) y su caso queda intacto (sin marcar, para la próxima
+    // corrida), y (3) el resumen refleja cuántos quedaron pendientes por el límite, no como
+    // fallidos.
+    @Test
+    void alAgotarseElCupoDiarioLosRestantesQuedanPendientesSinIntentarNingunEnvio() {
+        Caso casoA = casoDe("Ana Torres", "ana@correo-cliente-a.com", "3001112222", "RAD-AAA-001");
+        Caso casoB = casoDe("Bruno Pérez", "bruno@correo-cliente-b.com", "3003334444", "RAD-BBB-002");
+        Caso casoC = casoDe("Carla Ruiz", "carla@correo-cliente-c.com", "3005556666", "RAD-CCC-003");
+        when(casoRepository.listarPendientesDeNotificacion()).thenReturn(List.of(casoA, casoB, casoC));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(emailService.enviarCodigoCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+        when(whatsAppService.enviarCodigoCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+        CasoService servicio = crearServicio();
+        // Cupo disponible solo para el primer destinatario del lote -- DESPUÉS de
+        // crearServicio(), que ya deja un stub por defecto ("siempre hay cupo") sobre el mismo
+        // mock: el último when() registrado es el que manda, así que este debe ir al final
+        // para que la secuencia true/false/false realmente aplique.
+        when(limiteEnvioMasivoService.intentarReservarCupo()).thenReturn(true, false, false);
+
+        ResumenEnvioCorreos resumen = servicio.enviarCorreosPendientes();
+
+        verify(emailService, times(1)).enviarCodigoCasoSincrono("Ana Torres", "ana@correo-cliente-a.com", "RAD-AAA-001");
+        verify(whatsAppService, times(1)).enviarCodigoCasoSincrono("Ana Torres", "3001112222", "RAD-AAA-001");
+        // Bruno y Carla ni siquiera se intentan: sin cupo, no hay envío real de ningún canal.
+        verify(emailService, never()).enviarCodigoCasoSincrono(eq("Bruno Pérez"), anyString(), anyString());
+        verify(emailService, never()).enviarCodigoCasoSincrono(eq("Carla Ruiz"), anyString(), anyString());
+        verify(whatsAppService, never()).enviarCodigoCasoSincrono(eq("Bruno Pérez"), anyString(), anyString());
+        verify(whatsAppService, never()).enviarCodigoCasoSincrono(eq("Carla Ruiz"), anyString(), anyString());
+
+        assertEquals(1, resumen.correosEnviados());
+        assertEquals(1, resumen.whatsappEnviados());
+        assertEquals(0, resumen.correosFallidos());
+        assertEquals(0, resumen.whatsappFallidos());
+        assertEquals(2, resumen.pendientesPorLimiteDiario());
+
+        // Solo el caso procesado (Ana) se guarda; Bruno y Carla quedan intactos para que la
+        // próxima corrida (mañana) los recoja como si nada hubiera pasado hoy.
+        verify(casoRepository, times(1)).save(casoA);
+        verify(casoRepository, never()).save(casoB);
+        verify(casoRepository, never()).save(casoC);
+    }
+
+    @Test
+    void reporteSemanalDesacoplado_enviaCorreoSiSemanaPendientePeroNoWhatsappSiQuincenaAlDia() {
+        Caso caso = casoDe("Carlos Gomez", "carlos@correo.com", "3001112233", "RAD-100");
+        // WhatsApp ya enviado en la quincena actual; correo pendiente desde la semana pasada
+        LocalDate hoy = LocalDate.now();
+        LocalDateTime inicioQuincena = hoy.getDayOfMonth() < 15
+                ? hoy.withDayOfMonth(1).atStartOfDay()
+                : hoy.withDayOfMonth(15).atStartOfDay();
+        caso.setFechaUltimoReporteWhatsapp(inicioQuincena.plusHours(2));
+        caso.setFechaUltimoReporteSemanal(hoy.minusWeeks(2).atStartOfDay());
+
+        when(casoRepository.listarPendientesReporte(any(), any())).thenReturn(List.of(caso));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(emailService.enviarReporteSemanalCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        CasoService servicio = crearServicio();
+        ResumenReporteSemanal resumen = servicio.enviarReporteSemanal();
+
+        // Correo debe haberse enviado
+        verify(emailService, times(1)).enviarReporteSemanalCasoSincrono("Carlos Gomez", "carlos@correo.com", "RAD-100");
+        // WhatsApp NO debe haberse enviado porque ya estaba al día en esta quincena
+        verify(whatsAppService, never()).enviarReporteSemanalCasoSincrono(anyString(), anyString(), anyString());
+
+        assertEquals(1, resumen.correosEnviados());
+        assertEquals(0, resumen.whatsappEnviados());
+        assertNotNull(caso.getFechaUltimoReporteSemanal());
+        verify(casoRepository, times(1)).save(caso);
+    }
+
+    @Test
+    void reporteSemanalDesacoplado_enviaWhatsappSiQuincenaPendientePeroNoCorreoSiSemanaAlDia() {
+        Caso caso = casoDe("Maria Lopez", "maria@correo.com", "3004445566", "RAD-200");
+        // Correo ya enviado esta semana (hoy); WhatsApp pendiente desde la quincena anterior
+        LocalDate hoy = LocalDate.now();
+        LocalDateTime inicioSemana = hoy.with(DayOfWeek.MONDAY).atStartOfDay();
+        caso.setFechaUltimoReporteSemanal(inicioSemana.plusHours(1));
+        caso.setFechaUltimoReporteWhatsapp(hoy.minusDays(20).atStartOfDay());
+
+        when(casoRepository.listarPendientesReporte(any(), any())).thenReturn(List.of(caso));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(whatsAppService.enviarReporteSemanalCasoSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        CasoService servicio = crearServicio();
+        ResumenReporteSemanal resumen = servicio.enviarReporteSemanal();
+
+        // WhatsApp debe haberse enviado
+        verify(whatsAppService, times(1)).enviarReporteSemanalCasoSincrono("Maria Lopez", "3004445566", "RAD-200");
+        // Correo NO debe haberse enviado porque ya estaba al día esta semana
+        verify(emailService, never()).enviarReporteSemanalCasoSincrono(anyString(), anyString(), anyString());
+
+        assertEquals(0, resumen.correosEnviados());
+        assertEquals(1, resumen.whatsappEnviados());
+        assertNotNull(caso.getFechaUltimoReporteWhatsapp());
+        verify(casoRepository, times(1)).save(caso);
     }
 }

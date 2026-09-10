@@ -67,7 +67,8 @@ rem por Meta -- no admite texto libre.
 set WHATSAPP_ACCESS_TOKEN=
 set WHATSAPP_PHONE_NUMBER_ID=
 set WHATSAPP_TEMPLATE_NAME=notificacion_radicado
-set WHATSAPP_TEMPLATE_LANG=es
+set WHATSAPP_TEMPLATE_LANG=es_CO
+set WHATSAPP_HEADER_IMAGE_URL=https://siejuridicos.com/marca/logo.png
 
 rem Cobros Pendientes: recordatorio mensual de pago (correo + WhatsApp), ver modulo cobro/.
 rem Hoja de Google DISTINTA a la de casos (GOOGLE_SHEETS_COBROS_ID), con permiso de EDITOR

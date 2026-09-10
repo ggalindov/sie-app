@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import sie.siejuridicos.caso.dto.ResumenSincronizacion;
 import sie.siejuridicos.common.cifrado.CifradoService;
+import sie.siejuridicos.common.limite.LimiteEnvioMasivoService;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.hojacalculo.HojaCalculoService;
 import sie.siejuridicos.hojacalculo.dto.FilaSincronizacionHoja;
@@ -51,10 +52,12 @@ class CasoServiceSincronizacionTest {
     private CifradoService cifradoService;
     @Mock
     private RegistroSistemaService registroSistemaService;
+    @Mock
+    private LimiteEnvioMasivoService limiteEnvioMasivoService;
 
     private CasoService crearServicio() {
         return new CasoService(casoRepository, clienteRepository, emailService, whatsAppService,
-                hojaCalculoService, cifradoService, registroSistemaService);
+                hojaCalculoService, cifradoService, registroSistemaService, limiteEnvioMasivoService);
     }
 
     private void mockearHashIdentidad() {

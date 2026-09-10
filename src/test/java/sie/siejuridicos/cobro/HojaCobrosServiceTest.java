@@ -44,14 +44,14 @@ class HojaCobrosServiceTest {
         HojaCobrosService servicio = new HojaCobrosService(SPREADSHEET_ID, sheets);
         servicio.marcarRespuesta(TipoClienteCobro.EMPRESA, "12", "Sí");
 
-        // "12" es la SEGUNDA fila de datos (índice 1) -> fila física 6+1 = 7. Debe escribirse
-        // ahí, en la columna I, y en ninguna otra fila de esa misma pestaña.
+        // "12" es la SEGUNDA fila de datos (índice 1) -> fila física 6+1 = 7. Al ser "Sí",
+        // activa el check en columna H (PAGO ESTE MES) y registra "Sí" en columna I (H7:I7).
         verify(sheets.spreadsheets().values())
-                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!I7"), any(ValueRange.class));
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H7:I7"), any(ValueRange.class));
         verify(sheets.spreadsheets().values(), never())
-                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!I6"), any(ValueRange.class));
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H6:I6"), any(ValueRange.class));
         verify(sheets.spreadsheets().values(), never())
-                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!I8"), any(ValueRange.class));
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H8:I8"), any(ValueRange.class));
     }
 
     // El escenario más peligroso de todos: dos clientes reales que comparten el MISMO número
@@ -79,9 +79,9 @@ class HojaCobrosServiceTest {
         servicio.marcarRespuesta(TipoClienteCobro.EMPRESA, "1", "Sí");
 
         verify(sheets.spreadsheets().values())
-                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!I6"), any(ValueRange.class));
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H6:I6"), any(ValueRange.class));
         verify(sheets.spreadsheets().values(), never())
-                .update(eq(SPREADSHEET_ID), eq("'PERSONAS NATURALES'!I3"), any(ValueRange.class));
+                .update(eq(SPREADSHEET_ID), eq("'PERSONAS NATURALES'!H3:I3"), any(ValueRange.class));
     }
 
     // Si la fila ya no existe en la hoja (se borró, o el número no coincide con nada), no debe

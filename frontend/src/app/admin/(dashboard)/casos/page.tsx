@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { ArrowsClockwise, Bell, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   listarCasos,
   crearCaso,
@@ -15,6 +15,7 @@ import {
   type FuenteCaso,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -96,6 +97,11 @@ export default function CasosAdminPage() {
             `${resumen.correosFallidos} correo(s) y ${resumen.whatsappFallidos} WhatsApp fallaron (incluso tras reintentar) -- quedaron pendientes para el próximo envío, revisa el Registro del sistema para el detalle.`,
           );
         }
+        if (resumen.pendientesPorLimiteDiario > 0) {
+          toast.info(
+            `${resumen.pendientesPorLimiteDiario} caso(s) más quedaron pendientes por el límite diario de envíos (250/día) -- se enviarán automáticamente mañana.`,
+          );
+        }
       }
       cargar();
     } catch (err) {
@@ -106,29 +112,34 @@ export default function CasosAdminPage() {
   }
 
   async function onEnviarReporteSemanal() {
-    if (!window.confirm("¿Enviar el reporte semanal a TODOS los clientes con caso activo ahora mismo? Esto normalmente se envía solo, automáticamente, cada lunes -- úsalo solo para adelantarlo o probarlo.")) {
+    if (!window.confirm("¿Enviar el reporte periódico a todos los clientes con caso activo que todavía no lo hayan recibido en este periodo (dos veces al mes: días 1 y 15)? Esto normalmente se envía solo, automáticamente -- úsalo solo para adelantarlo o probarlo.")) {
       return;
     }
     setEnviandoReporteSemanal(true);
     toast.info(
-      "Enviando el reporte semanal a todos los clientes con caso activo -- va uno por uno con una pausa entre cada uno. Puede tardar varios minutos con muchos casos.",
+      "Enviando el reporte a todos los clientes con caso activo -- va uno por uno con una pausa entre cada uno. Puede tardar varios minutos con muchos casos.",
     );
     try {
       const resumen = await enviarReporteSemanalCasos();
       if (resumen.casosConReporte === 0) {
-        toast.info("No hay casos con radicado asignado todavía.");
+        toast.info("No hay casos pendientes del reporte de este periodo -- ya se les envió a todos, o todavía no hay casos con radicado asignado.");
       } else {
         toast.success(
-          `${resumen.correosEnviados} correo(s) y ${resumen.whatsappEnviados} WhatsApp enviados de ${resumen.casosConReporte} caso(s) con radicado.`,
+          `${resumen.correosEnviados} correo(s) y ${resumen.whatsappEnviados} WhatsApp enviados de ${resumen.casosConReporte} caso(s) pendientes del reporte de este periodo.`,
         );
         if (resumen.correosFallidos > 0 || resumen.whatsappFallidos > 0) {
           toast.error(
             `${resumen.correosFallidos} correo(s) y ${resumen.whatsappFallidos} WhatsApp fallaron -- revisa el Registro del sistema para el detalle.`,
           );
         }
+        if (resumen.pendientesPorLimiteDiario > 0) {
+          toast.info(
+            `${resumen.pendientesPorLimiteDiario} caso(s) más quedaron pendientes por el límite diario de envíos (250/día) -- se enviarán automáticamente mañana.`,
+          );
+        }
       }
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "No se pudo enviar el reporte semanal.");
+      toast.error(err instanceof ApiError ? err.message : "No se pudo enviar el reporte de casos.");
     } finally {
       setEnviandoReporteSemanal(false);
     }
@@ -146,18 +157,46 @@ export default function CasosAdminPage() {
               Nuevo caso manual
             </AdminButton>
             <AdminButton variant="secondary" onClick={onEnviarPendientes} disabled={enviandoPendientes}>
-              <EnvelopeSimple className="h-4 w-4" weight="bold" />
-              {enviandoPendientes ? "Enviando..." : "Enviar notificaciones pendientes"}
+              {enviandoPendientes ? (
+                <>
+                  <Spinner className="h-4 w-4 animate-spin" weight="bold" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <EnvelopeSimple className="h-4 w-4" weight="bold" />
+                  Enviar notificaciones pendientes
+                </>
+              )}
             </AdminButton>
             <AdminButton variant="secondary" onClick={onEnviarReporteSemanal} disabled={enviandoReporteSemanal}>
-              <Bell className="h-4 w-4" weight="bold" />
-              {enviandoReporteSemanal ? "Enviando..." : "Enviar reporte semanal"}
+              {enviandoReporteSemanal ? (
+                <>
+                  <Spinner className="h-4 w-4 animate-spin" weight="bold" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Bell className="h-4 w-4" weight="bold" />
+                  Enviar reporte periódico
+                </>
+              )}
             </AdminButton>
             <AdminButton onClick={onSincronizar} disabled={sincronizando}>
               <ArrowsClockwise className={`h-4 w-4 ${sincronizando ? "admin-loader-anillo" : ""}`} weight="bold" />
               {sincronizando ? "Actualizando..." : "Actualizar desde la hoja"}
             </AdminButton>
           </div>
+        }
+      />
+
+      <EnvioLoteProgreso
+        activo={enviandoPendientes || enviandoReporteSemanal}
+        titulo={enviandoPendientes ? "Enviando notificaciones de radicado" : "Enviando reporte periódico de casos"}
+        descripcion={
+          enviandoPendientes
+            ? "Despachando notificaciones de código y radicado por WhatsApp Cloud API y Gmail SMTP con pausas de seguridad..."
+            : "Despachando reporte quincenal por WhatsApp y semanal por correo a casos activos..."
         }
       />
 

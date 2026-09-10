@@ -37,7 +37,7 @@ public class WhatsAppService {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppService.class);
 
-    private static final String VERSION_API = "v21.0";
+    private static final String VERSION_API = "v26.0";
     private static final DateTimeFormatter FORMATO_FECHA_CITA =
             DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'a las' h:mm a", Locale.of("es", "CO"));
     // Un número colombiano real: 10 dígitos empezando en 3 (celular), con o sin el
@@ -58,6 +58,7 @@ public class WhatsAppService {
     private final String nombrePlantillaCita;
     private final String nombrePlantillaReporteSemanal;
     private final String codigoIdiomaPlantilla;
+    private final String urlImagenCabecera;
     private final String sitioWeb;
     // A dónde llega el aviso de "nueva solicitud" (ver enviarNotificacionAdminNuevaSolicitud):
     // un número interno de la firma, no el del cliente que escribió -- pedido explícito del
@@ -81,7 +82,8 @@ public class WhatsAppService {
             @Value("${app.whatsapp.plantilla-solicitud-nombre:nueva_solicitud}") String nombrePlantillaSolicitud,
             @Value("${app.whatsapp.plantilla-cita-nombre:confirmacion_cita}") String nombrePlantillaCita,
             @Value("${app.whatsapp.plantilla-reporte-semanal-nombre:reporte_semanal_caso}") String nombrePlantillaReporteSemanal,
-            @Value("${app.whatsapp.plantilla-idioma:es}") String codigoIdiomaPlantilla,
+            @Value("${app.whatsapp.plantilla-idioma:es_CO}") String codigoIdiomaPlantilla,
+            @Value("${app.whatsapp.header-image-url:https://siejuridicos.com/marca/logo.png}") String urlImagenCabecera,
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
             @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
             @Value("${app.firma.sitio-web}") String sitioWeb) {
@@ -93,6 +95,7 @@ public class WhatsAppService {
         this.nombrePlantillaCita = nombrePlantillaCita;
         this.nombrePlantillaReporteSemanal = nombrePlantillaReporteSemanal;
         this.codigoIdiomaPlantilla = codigoIdiomaPlantilla;
+        this.urlImagenCabecera = urlImagenCabecera;
         this.sitioWeb = sitioWeb;
         this.numeroAdminNotificaciones = normalizarCelular(numeroAdminNotificaciones);
         this.numeroAvisoBlog = normalizarCelular(numeroAvisoBlog);
@@ -172,11 +175,8 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                // El cuerpo de la respuesta de error de Meta no se loguea completo (puede
-                // repetir el número de teléfono que se mandó): solo el código, suficiente
-                // para diagnosticar (plantilla no aprobada, token vencido, número inválido).
-                log.warn("Meta respondió {} al enviar la notificación de WhatsApp del radicado {}",
-                        respuesta.statusCode(), radicadoId);
+                log.warn("Meta respondió {} al enviar la notificación de WhatsApp del radicado {}: {}",
+                        respuesta.statusCode(), radicadoId, respuesta.body());
                 return false;
             }
             return true;
@@ -216,7 +216,8 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el reporte semanal de caso por WhatsApp", respuesta.statusCode());
+                log.warn("Meta respondió {} al enviar el reporte semanal de caso por WhatsApp: {}",
+                        respuesta.statusCode(), respuesta.body());
                 return false;
             }
             return true;
@@ -238,6 +239,15 @@ public class WhatsAppService {
                     "language": { "code": "%s" },
                     "components": [
                       {
+                        "type": "header",
+                        "parameters": [
+                          {
+                            "type": "image",
+                            "image": { "link": "%s" }
+                          }
+                        ]
+                      },
+                      {
                         "type": "body",
                         "parameters": [
                           { "type": "text", "text": "%s" },
@@ -252,6 +262,7 @@ public class WhatsAppService {
                 celular,
                 nombrePlantillaReporteSemanal,
                 codigoIdiomaPlantilla,
+                urlImagenCabecera,
                 escaparJson(nombreCliente),
                 escaparJson(radicadoId),
                 escaparJson(enlace)
@@ -292,7 +303,8 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el recordatorio de cobro por WhatsApp", respuesta.statusCode());
+                log.warn("Meta respondió {} al enviar el recordatorio de cobro por WhatsApp: {}",
+                        respuesta.statusCode(), respuesta.body());
                 return false;
             }
             return true;
@@ -324,7 +336,8 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el aviso de nueva solicitud por WhatsApp", respuesta.statusCode());
+                log.warn("Meta respondió {} al enviar el aviso de nueva solicitud por WhatsApp: {}",
+                        respuesta.statusCode(), respuesta.body());
             }
         } catch (Exception ex) {
             log.warn("No se pudo enviar el aviso de nueva solicitud por WhatsApp: {}", ex.getMessage());
@@ -363,7 +376,8 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el aviso de blog publicado por WhatsApp", respuesta.statusCode());
+                log.warn("Meta respondió {} al enviar el aviso de blog publicado por WhatsApp: {}",
+                        respuesta.statusCode(), respuesta.body());
             }
         } catch (Exception ex) {
             log.warn("No se pudo enviar el aviso de blog publicado por WhatsApp: {}", ex.getMessage());
@@ -396,6 +410,15 @@ public class WhatsAppService {
                     "language": { "code": "%s" },
                     "components": [
                       {
+                        "type": "header",
+                        "parameters": [
+                          {
+                            "type": "image",
+                            "image": { "link": "%s" }
+                          }
+                        ]
+                      },
+                      {
                         "type": "body",
                         "parameters": [
                           { "type": "text", "text": "%s" },
@@ -411,6 +434,7 @@ public class WhatsAppService {
                 numeroAdminNotificaciones,
                 nombrePlantillaSolicitud,
                 codigoIdiomaPlantilla,
+                urlImagenCabecera,
                 escaparJson(nombreCliente),
                 escaparJson(correoCliente),
                 escaparJson(telefonoTexto),
@@ -455,7 +479,8 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar la confirmación de reunión por WhatsApp", respuesta.statusCode());
+                log.warn("Meta respondió {} al enviar la confirmación de reunión por WhatsApp: {}",
+                        respuesta.statusCode(), respuesta.body());
             }
         } catch (Exception ex) {
             log.warn("No se pudo enviar la confirmación de reunión por WhatsApp: {}", ex.getMessage());
@@ -473,6 +498,15 @@ public class WhatsAppService {
                     "language": { "code": "%s" },
                     "components": [
                       {
+                        "type": "header",
+                        "parameters": [
+                          {
+                            "type": "image",
+                            "image": { "link": "%s" }
+                          }
+                        ]
+                      },
+                      {
                         "type": "body",
                         "parameters": [
                           { "type": "text", "text": "%s" },
@@ -487,6 +521,7 @@ public class WhatsAppService {
                 celular,
                 nombrePlantillaCita,
                 codigoIdiomaPlantilla,
+                urlImagenCabecera,
                 escaparJson(nombreCliente),
                 escaparJson(fechaTexto),
                 escaparJson(detalleAcceso)
@@ -504,6 +539,15 @@ public class WhatsAppService {
                     "language": { "code": "%s" },
                     "components": [
                       {
+                        "type": "header",
+                        "parameters": [
+                          {
+                            "type": "image",
+                            "image": { "link": "%s" }
+                          }
+                        ]
+                      },
+                      {
                         "type": "body",
                         "parameters": [
                           { "type": "text", "text": "%s" },
@@ -517,6 +561,7 @@ public class WhatsAppService {
                 celular,
                 nombrePlantillaCobro,
                 codigoIdiomaPlantilla,
+                urlImagenCabecera,
                 escaparJson(nombreCliente),
                 escaparJson(honorariosTexto)
         );
@@ -538,6 +583,15 @@ public class WhatsAppService {
                     "language": { "code": "%s" },
                     "components": [
                       {
+                        "type": "header",
+                        "parameters": [
+                          {
+                            "type": "image",
+                            "image": { "link": "%s" }
+                          }
+                        ]
+                      },
+                      {
                         "type": "body",
                         "parameters": [
                           { "type": "text", "text": "%s" },
@@ -552,6 +606,7 @@ public class WhatsAppService {
                 celular,
                 nombrePlantilla,
                 codigoIdiomaPlantilla,
+                urlImagenCabecera,
                 escaparJson(nombreCliente),
                 escaparJson(radicadoId),
                 escaparJson(enlace)

@@ -520,6 +520,22 @@ html[data-theme="light"] .site-theme .section-seam::after {
   animation: admin-loader-girar-inverso 1.65s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
+@keyframes progreso-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(40%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animacion-progreso-shimmer {
+  animation: progreso-shimmer 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 /* Tipografía del HTML de un artículo (Tiptap -> dangerouslySetInnerHTML en /blog/[slug],
    y el propio editor en el panel para que el admin vea un WYSIWYG real). No usamos el
    plugin @tailwindcss/typography (no está instalado, y las clases "prose" que quedaban en

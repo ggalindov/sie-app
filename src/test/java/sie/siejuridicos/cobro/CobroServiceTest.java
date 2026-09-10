@@ -6,6 +6,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
 import sie.siejuridicos.common.cifrado.CifradoService;
+import sie.siejuridicos.common.limite.LimiteEnvioMasivoService;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.whatsapp.WhatsAppService;
@@ -15,6 +16,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -41,10 +43,17 @@ class CobroServiceTest {
     private CifradoService cifradoService;
     @Mock
     private RegistroSistemaService registroSistemaService;
+    @Mock
+    private LimiteEnvioMasivoService limiteEnvioMasivoService;
 
     private CobroService crearServicio() {
+        // lenient(): el cupo diario compartido (ver LimiteEnvioMasivoService) es una barrera
+        // nueva delante del envío real, ortogonal a lo que prueba esta clase (cruce de datos
+        // entre clientes) -- se deja siempre "hay cupo" aquí para que esas pruebas no tengan
+        // que conocer ese detalle. El límite en sí se prueba aparte.
+        lenient().when(limiteEnvioMasivoService.intentarReservarCupo()).thenReturn(true);
         return new CobroService(clienteCobroRepository, hojaCobrosService, emailService, whatsAppService,
-                cifradoService, registroSistemaService);
+                cifradoService, registroSistemaService, limiteEnvioMasivoService);
     }
 
     private static ClienteCobro clienteDe(String numeroFila, String nombre, String correo, String telefono, String honorarios) {
@@ -129,5 +138,65 @@ class CobroServiceTest {
 
         verify(emailService, never()).enviarTirillaCobroSincrono(eq("Ya Pagó S.A.S."), anyString(), anyString());
         verify(emailService, times(1)).enviarTirillaCobroSincrono("Pendiente Ltda.", "correo@pendiente.com", "$ 500.000");
+    }
+
+    // Mismo mecanismo que CasoServiceTest.alAgotarseElCupoDiarioLosRestantesQuedanPendientesSinIntentarNingunEnvio
+    // -- el cupo diario de envíos masivos es COMPARTIDO entre casos y cobros (ver
+    // LimiteEnvioMasivoService), así que esta prueba confirma que también aquí, al agotarse,
+    // los clientes restantes no reciben ningún intento de envío y quedan sin marcar
+    // (fechaUltimoRecordatorio intacta) para que la corrida de mañana los recoja.
+    @Test
+    void alAgotarseElCupoDiarioLosClientesRestantesQuedanPendientesSinIntentarNingunEnvio() {
+        ClienteCobro a = clienteDe("1", "Empresa Alfa S.A.S.", "pagos@alfa.com", "3001112222", "$ 1.000.000");
+        ClienteCobro b = clienteDe("2", "Empresa Beta Ltda.", "pagos@beta.com", "3003334444", "$ 2.500.000");
+        ClienteCobro c = clienteDe("3", "Empresa Gamma S.A.", "pagos@gamma.com", "3005556666", "$ 750.000");
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(a, b, c));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(emailService.enviarTirillaCobroSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+        when(whatsAppService.enviarRecordatorioCobroSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+        CobroService servicio = crearServicio();
+        // Cupo disponible solo para el primer cliente del lote -- DESPUÉS de crearServicio(),
+        // que ya deja un stub por defecto ("siempre hay cupo") sobre el mismo mock: el último
+        // when() registrado es el que manda.
+        when(limiteEnvioMasivoService.intentarReservarCupo()).thenReturn(true, false, false);
+
+        ResumenEnvioRecordatoriosCobros resumen = servicio.enviarRecordatorios();
+
+        verify(emailService, times(1)).enviarTirillaCobroSincrono("Empresa Alfa S.A.S.", "pagos@alfa.com", "$ 1.000.000");
+        verify(whatsAppService, times(1)).enviarRecordatorioCobroSincrono("Empresa Alfa S.A.S.", "3001112222", "$ 1.000.000");
+        verify(emailService, never()).enviarTirillaCobroSincrono(eq("Empresa Beta Ltda."), anyString(), anyString());
+        verify(emailService, never()).enviarTirillaCobroSincrono(eq("Empresa Gamma S.A."), anyString(), anyString());
+        verify(whatsAppService, never()).enviarRecordatorioCobroSincrono(eq("Empresa Beta Ltda."), anyString(), anyString());
+        verify(whatsAppService, never()).enviarRecordatorioCobroSincrono(eq("Empresa Gamma S.A."), anyString(), anyString());
+
+        assertEquals(1, resumen.correosEnviados());
+        assertEquals(1, resumen.whatsappEnviados());
+        assertEquals(2, resumen.pendientesPorLimiteDiario());
+
+        verify(clienteCobroRepository, times(1)).save(a);
+        verify(clienteCobroRepository, never()).save(b);
+        verify(clienteCobroRepository, never()).save(c);
+    }
+
+    @Test
+    void unFalloInesperadoEnUnClienteNoInterrumpeElLoteDeLosDemas() {
+        ClienteCobro a = clienteDe("1", "Cliente Problemático", "problema@alfa.com", null, "$ 1.000.000");
+        ClienteCobro b = clienteDe("2", "Cliente Exitoso", "exito@beta.com", null, "$ 2.000.000");
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(a, b));
+        when(emailService.enviarTirillaCobroSincrono(eq("Cliente Problemático"), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Simulación de fallo inesperado de red"));
+        when(emailService.enviarTirillaCobroSincrono(eq("Cliente Exitoso"), anyString(), anyString())).thenReturn(true);
+
+        CobroService servicio = crearServicio();
+        ResumenEnvioRecordatoriosCobros resumen = servicio.enviarRecordatorios();
+
+        // Cliente Problemático falló pero no abortó el bucle
+        verify(emailService, times(1)).enviarTirillaCobroSincrono("Cliente Problemático", "problema@alfa.com", "$ 1.000.000");
+        // Cliente Exitoso sí se procesó y envió normalmente
+        verify(emailService, times(1)).enviarTirillaCobroSincrono("Cliente Exitoso", "exito@beta.com", "$ 2.000.000");
+
+        assertEquals(1, resumen.correosEnviados());
+        assertEquals(1, resumen.correosFallidos());
+        verify(clienteCobroRepository, times(1)).save(b);
     }
 }

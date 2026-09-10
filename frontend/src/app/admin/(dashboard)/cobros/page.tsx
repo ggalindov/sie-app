@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowsClockwise, ChatCircleText, CheckCircle, HourglassMedium, Prohibit } from "@phosphor-icons/react";
+import { ArrowsClockwise, ChatCircleText, CheckCircle, HourglassMedium, Prohibit, Spinner } from "@phosphor-icons/react";
 import {
   listarCobros,
   sincronizarCobros,
@@ -12,6 +12,7 @@ import {
   type TipoClienteCobro,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
 import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string) {
@@ -144,6 +145,11 @@ export default function CobrosAdminPage() {
             `${resumen.correosFallidos} correo(s) y ${resumen.whatsappFallidos} WhatsApp fallaron (incluso tras reintentar) -- se reintentan el próximo envío.`,
           );
         }
+        if (resumen.pendientesPorLimiteDiario > 0) {
+          toast.info(
+            `${resumen.pendientesPorLimiteDiario} cliente(s) más quedaron pendientes por el límite diario de envíos (250/día) -- se enviarán automáticamente mañana.`,
+          );
+        }
       }
       cargar();
     } catch (err) {
@@ -157,12 +163,21 @@ export default function CobrosAdminPage() {
     <div>
       <AdminPageHeader
         title="Cobros Pendientes"
-        description="Clientes activos sincronizados automáticamente desde el Google Sheets de cobros de la firma (Empresas y Personas Naturales). Cada día 1 del mes se les recuerda el pago pendiente por correo y WhatsApp, salvo quienes ya pagaron ese mes o tienen honorarios en $0."
+        description="Clientes activos sincronizados automáticamente desde el Google Sheets de cobros de la firma (Empresas y Personas Naturales). Cada día 3 del mes se les recuerda el pago pendiente por correo y WhatsApp, salvo quienes ya pagaron ese mes o tienen honorarios en $0. Si se alcanza el límite diario de 250 mensajes, los restantes se envían automáticamente al día siguiente."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <AdminButton variant="secondary" onClick={onEnviarRecordatorios} disabled={enviandoRecordatorios}>
-              <ChatCircleText className="h-4 w-4" weight="bold" />
-              {enviandoRecordatorios ? "Enviando..." : "Enviar recordatorios"}
+              {enviandoRecordatorios ? (
+                <>
+                  <Spinner className="h-4 w-4 animate-spin" weight="bold" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <ChatCircleText className="h-4 w-4" weight="bold" />
+                  Enviar recordatorios
+                </>
+              )}
             </AdminButton>
             <AdminButton onClick={onSincronizar} disabled={sincronizando}>
               <ArrowsClockwise className={`h-4 w-4 ${sincronizando ? "admin-loader-anillo" : ""}`} weight="bold" />
@@ -170,6 +185,12 @@ export default function CobrosAdminPage() {
             </AdminButton>
           </div>
         }
+      />
+
+      <EnvioLoteProgreso
+        activo={enviandoRecordatorios}
+        titulo="Enviando recordatorios de cobro"
+        descripcion="Notificando clientes activos pendientes de pago a través de WhatsApp Cloud API y Gmail SMTP con pausas de seguridad..."
       />
 
       {clientes !== null && clientes.length > 0 && (

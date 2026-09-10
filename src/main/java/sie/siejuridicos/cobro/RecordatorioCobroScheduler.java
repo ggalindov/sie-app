@@ -6,9 +6,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
 
-// Mismo patrón que solicitud.RecordatorioCitaScheduler: corre una vez (aquí, una vez al mes,
-// el día 1) y delega toda la lógica real en el servicio -- este componente solo decide
-// CUÁNDO, nunca CÓMO.
+import java.time.LocalDate;
+
+// Pedido explícito del usuario: los recordatorios de cobro corren a partir del día 3 de cada
+// mes (en vez del día 1), garantizando que de ninguna manera se crucen ni compitan por el cupo
+// diario de 250 mensajes con el reporte periódico de casos (que corre los días 1 y 15).
+// Corre a diario a las 8:40 AM (ver app.cobros.recordatorio-cron): el día 3 procesa hasta agotar
+// el cupo diario disponible (250). Si queda algún cliente pendiente por límite diario, la corrida
+// automática del día 4 a las 8:40 AM reanuda y despacha a los restantes. Una vez notificados todos
+// en el mes en curso, los días 5 en adelante simplemente omiten el envío sin generar llamadas innecesarias.
 @Component
 public class RecordatorioCobroScheduler {
 
@@ -22,8 +28,16 @@ public class RecordatorioCobroScheduler {
 
     @Scheduled(cron = "${app.cobros.recordatorio-cron}")
     public void enviarRecordatoriosDelMes() {
+        int diaDelMes = LocalDate.now().getDayOfMonth();
+        if (diaDelMes < 3) {
+            log.info("Recordatorio automático de cobro: hoy es día {} del mes. Se pospone para el día 3 "
+                    + "para garantizar que no se cruce con el reporte periódico de casos.", diaDelMes);
+            return;
+        }
         ResumenEnvioRecordatoriosCobros resumen = cobroService.enviarRecordatorios();
-        log.info("Recordatorio mensual de cobro: {} correo(s), {} WhatsApp, {} cliente(s) sin costo omitido(s)",
-                resumen.correosEnviados(), resumen.whatsappEnviados(), resumen.clientesSinCosto());
+        log.info("Recordatorio de cobro: {} correo(s), {} WhatsApp, {} cliente(s) sin costo omitido(s), "
+                        + "{} pendiente(s) por el límite diario",
+                resumen.correosEnviados(), resumen.whatsappEnviados(), resumen.clientesSinCosto(),
+                resumen.pendientesPorLimiteDiario());
     }
 }

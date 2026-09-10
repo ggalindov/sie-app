@@ -227,11 +227,21 @@ public class HojaCobrosService {
                         + "(puede haber sido eliminada).");
                 return;
             }
-            ValueRange cuerpo = new ValueRange().setValues(List.of(Collections.singletonList(respuesta)));
-            sheets.spreadsheets().values()
-                    .update(spreadsheetId, pestana.pestana() + "!I" + filaFisica, cuerpo)
-                    .setValueInputOption("RAW")
-                    .execute();
+            boolean esSi = "Sí".equalsIgnoreCase(respuesta) || "Si".equalsIgnoreCase(respuesta);
+            if (esSi) {
+                // Al confirmar Sí, activa el check en columna H (PAGO ESTE MES = TRUE) y registra "Sí" en columna I
+                ValueRange cuerpo = new ValueRange().setValues(List.of(List.of(true, "Sí")));
+                sheets.spreadsheets().values()
+                        .update(spreadsheetId, pestana.pestana() + "!H" + filaFisica + ":I" + filaFisica, cuerpo)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute();
+            } else {
+                ValueRange cuerpo = new ValueRange().setValues(List.of(Collections.singletonList(respuesta)));
+                sheets.spreadsheets().values()
+                        .update(spreadsheetId, pestana.pestana() + "!I" + filaFisica, cuerpo)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute();
+            }
         } catch (IOException | RuntimeException ex) {
             log.error("Falló al escribir la respuesta de cobro en la hoja: {}", ex.getMessage(), ex);
         }
