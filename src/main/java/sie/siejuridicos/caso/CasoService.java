@@ -873,18 +873,20 @@ public class CasoService {
             throw new RecursoNoEncontradoException("No encontramos ningún caso con ese radicado");
         }
 
+        Caso casoEncontrado = caso.get();
+
         registroSistemaService.registrar(
                 TipoRegistroSistema.CONSULTA_ESTADO_CASO,
                 "Radicado \"%s\" consultó su estado (%s)"
-                        .formatted(radicadoParaRegistro, caso.get().getFuente().getNombreVisible()),
+                        .formatted(radicadoParaRegistro, casoEncontrado.getFuente().getNombreVisible()),
                 true);
 
-        if (caso.get().getFuente() == FuenteCaso.MANUAL) {
-            return CasoConsultaResponse.sinEstadoDisponible(caso.get());
+        if (casoEncontrado.getFuente() == FuenteCaso.MANUAL) {
+            return CasoConsultaResponse.sinEstadoDisponible(casoEncontrado);
         }
 
-        Optional<FilaCasoHoja> fila = hojaCalculoService.buscarPorRadicado(caso.get().getFuente(), caso.get().getRadicadoId());
-        return fila.map(f -> CasoConsultaResponse.desde(caso.get(), f))
-                .orElseGet(() -> CasoConsultaResponse.sinEstadoDisponible(caso.get()));
+        Optional<FilaCasoHoja> fila = hojaCalculoService.buscarPorRadicado(casoEncontrado.getFuente(), casoEncontrado.getRadicadoId());
+        return fila.map(f -> CasoConsultaResponse.desde(casoEncontrado, f))
+                .orElseGet(() -> CasoConsultaResponse.sinEstadoDisponible(casoEncontrado));
     }
 }
