@@ -21,9 +21,16 @@ public record ClienteCobroResponse(
         Boolean pagoEsteMes,
         String respondioMensaje,
         LocalDateTime fechaUltimoRecordatorio,
+        LocalDateTime fechaUltimoRecordatorioCorreo,
+        LocalDateTime fechaUltimoRecordatorioWhatsapp,
+        boolean correoEnviado,
+        boolean whatsappEnviado,
         LocalDateTime fechaCreacion
 ) {
     public static ClienteCobroResponse desde(ClienteCobro cliente) {
+        boolean correoEnviado = cliente.getFechaUltimoRecordatorioCorreo() != null;
+        boolean whatsappEnviado = cliente.getFechaUltimoRecordatorioWhatsapp() != null;
+
         return new ClienteCobroResponse(
                 cliente.getId(),
                 cliente.getTipo(),
@@ -37,6 +44,10 @@ public record ClienteCobroResponse(
                 cliente.getPagoEsteMes(),
                 cliente.getRespondioMensaje(),
                 cliente.getFechaUltimoRecordatorio(),
+                cliente.getFechaUltimoRecordatorioCorreo(),
+                cliente.getFechaUltimoRecordatorioWhatsapp(),
+                correoEnviado,
+                whatsappEnviado,
                 cliente.getFechaCreacion()
         );
     }

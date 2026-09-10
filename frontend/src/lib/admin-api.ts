@@ -573,6 +573,10 @@ export type ClienteCobro = {
   pagoEsteMes: boolean | null;
   respondioMensaje: string | null;
   fechaUltimoRecordatorio: string | null;
+  fechaUltimoRecordatorioCorreo: string | null;
+  fechaUltimoRecordatorioWhatsapp: string | null;
+  correoEnviado: boolean;
+  whatsappEnviado: boolean;
   fechaCreacion: string;
 };
 

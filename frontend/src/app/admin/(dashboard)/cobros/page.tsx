@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowsClockwise, ChatCircleText, CheckCircle, HourglassMedium, Prohibit, Spinner } from "@phosphor-icons/react";
+import {
+  ArrowsClockwise,
+  ChatCircleText,
+  CheckCircle,
+  EnvelopeSimple,
+  HourglassMedium,
+  PhoneSlash,
+  Prohibit,
+  Spinner,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
 import {
   listarCobros,
   sincronizarCobros,
@@ -25,50 +35,28 @@ const TIPOS_FILTRO: { valor: TipoClienteCobro | "TODOS"; label: string }[] = [
   { valor: "PERSONA_NATURAL", label: "Personas naturales" },
 ];
 
-// Separador nuevo pedido explícitamente: agrupar por el mismo estado que ya muestra la
-// píldora de cada tarjeta ("Respuesta de pago pendiente" / "Respuesta de pago aprobada"),
-// no solo por tipo de cliente. "Sin costo" queda fuera de ambos grupos a propósito (no es un
-// estado de respuesta, es que ese cliente nunca genera cobro) -- solo aparece en "Todos".
-type EstadoRespuestaPago = "TODOS" | "PENDIENTE" | "APROBADO";
+type EstadoCobroFiltro = "TODOS" | "PENDIENTE" | "RESPONDIO" | "APROBADO" | "SIN_COSTO";
 
-const ESTADOS_FILTRO: { valor: EstadoRespuestaPago; label: string }[] = [
-  { valor: "TODOS", label: "Todos" },
-  { valor: "PENDIENTE", label: "Respuesta de pago pendiente" },
+const ESTADOS_FILTRO: { valor: EstadoCobroFiltro; label: string; siempreVisible?: boolean }[] = [
+  { valor: "TODOS", label: "Todos", siempreVisible: true },
+  { valor: "PENDIENTE", label: "Respuesta de pago pendiente", siempreVisible: true },
+  { valor: "RESPONDIO", label: "Respondieron notificación", siempreVisible: true },
   { valor: "APROBADO", label: "Respuesta de pago aprobada" },
+  { valor: "SIN_COSTO", label: "Sin costo" },
 ];
 
-// Apartado nuevo pedido explícitamente por el usuario: "saber quiénes dijeron que sí en
-// nuestro portal de WhatsApp". A propósito SEPARADO del filtro de arriba -- ese es sobre
-// pagoEsteMes (si de verdad pagó, columna "PAGO ESTE MES" de la hoja, la marca el admin a
-// mano); este es sobre respondioMensaje (si el cliente presionó Sí/No al botón de respuesta
-// rápida del recordatorio de WhatsApp, ver WhatsAppWebhookController/CobroService). Un
-// cliente puede haber dicho que sí por WhatsApp sin que el pago ya esté confirmado, o
-// viceversa -- son dos preguntas distintas.
-type RespuestaCobroWhatsapp = "TODOS" | "SI" | "NO" | "SIN_RESPONDER";
-
-const RESPUESTAS_WHATSAPP_FILTRO: { valor: RespuestaCobroWhatsapp; label: string }[] = [
-  { valor: "TODOS", label: "Todos" },
-  { valor: "SI", label: "Respuesta de cobro aceptada" },
-  { valor: "NO", label: "Respuesta de cobro rechazada" },
-  { valor: "SIN_RESPONDER", label: "Sin responder por WhatsApp" },
-];
-
-function respuestaCobroWhatsapp(c: ClienteCobro): Exclude<RespuestaCobroWhatsapp, "TODOS"> {
-  if (!c.respondioMensaje) return "SIN_RESPONDER";
-  return c.respondioMensaje.toLowerCase().startsWith("s") ? "SI" : "NO";
-}
-
-// Un cliente con honorarios en $0 nunca genera cobro (pedido explícito), pero igual se
-// muestra en el listado -- el admin sigue queriendo verlo como cliente activo, solo no le
-// llegan recordatorios.
 function tieneCosto(honorarios: string | null) {
   if (!honorarios) return false;
   return /[1-9]/.test(honorarios);
 }
 
-function estadoRespuestaPago(c: ClienteCobro): Exclude<EstadoRespuestaPago, "TODOS"> | "SIN_COSTO" {
-  if (!tieneCosto(c.honorarios)) return "SIN_COSTO";
-  return c.pagoEsteMes ? "APROBADO" : "PENDIENTE";
+function cumpleFiltroEstado(c: ClienteCobro, filtro: EstadoCobroFiltro): boolean {
+  if (filtro === "TODOS") return true;
+  if (filtro === "PENDIENTE") return tieneCosto(c.honorarios) && !c.pagoEsteMes;
+  if (filtro === "RESPONDIO") return Boolean(c.respondioMensaje && c.respondioMensaje.trim() !== "");
+  if (filtro === "APROBADO") return tieneCosto(c.honorarios) && Boolean(c.pagoEsteMes);
+  if (filtro === "SIN_COSTO") return !tieneCosto(c.honorarios);
+  return true;
 }
 
 export default function CobrosAdminPage() {
@@ -77,8 +65,7 @@ export default function CobrosAdminPage() {
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCobro | "TODOS">("TODOS");
-  const [filtroEstado, setFiltroEstado] = useState<EstadoRespuestaPago>("TODOS");
-  const [filtroRespuestaWhatsapp, setFiltroRespuestaWhatsapp] = useState<RespuestaCobroWhatsapp>("TODOS");
+  const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
 
   const cargar = useCallback(() => {
     listarCobros()
@@ -103,8 +90,7 @@ export default function CobrosAdminPage() {
     clientes?.filter(
       (c) =>
         (filtroTipo === "TODOS" || c.tipo === filtroTipo) &&
-        (filtroEstado === "TODOS" || estadoRespuestaPago(c) === filtroEstado) &&
-        (filtroRespuestaWhatsapp === "TODOS" || respuestaCobroWhatsapp(c) === filtroRespuestaWhatsapp),
+        cumpleFiltroEstado(c, filtroEstado),
     ) ?? null;
 
   async function onSincronizar() {
@@ -214,48 +200,26 @@ export default function CobrosAdminPage() {
             })}
           </div>
 
-          {/* Separador nuevo, pedido explícito: agrupar por estado de respuesta de pago,
-              independiente del filtro por tipo de arriba (se combinan). */}
+          {/* Filtro unificado por estado de cobro y respuesta a la notificación */}
           <div className="mt-2 flex flex-wrap gap-2">
             {ESTADOS_FILTRO.map((e) => {
               const cantidad =
-                e.valor === "TODOS" ? clientes.length : clientes.filter((c) => estadoRespuestaPago(c) === e.valor).length;
-              if (e.valor !== "TODOS" && cantidad === 0) return null;
+                e.valor === "TODOS"
+                  ? clientes.length
+                  : clientes.filter((c) => cumpleFiltroEstado(c, e.valor)).length;
+              if (!e.siempreVisible && cantidad === 0) return null;
               return (
                 <button
                   key={e.valor}
                   type="button"
                   onClick={() => setFiltroEstado(e.valor)}
                   className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                    filtroEstado === e.valor ? "bg-gold text-ink-fixed" : "bg-gold-pale/40 text-gold-deep hover:bg-gold-pale/60"
+                    filtroEstado === e.valor
+                      ? "bg-gold text-ink-fixed"
+                      : "bg-gold-pale/40 text-gold-deep hover:bg-gold-pale/60"
                   }`}
                 >
                   {e.label} <span className="opacity-70">({cantidad})</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Apartado nuevo pedido explícito: filtrar por si el cliente respondió Sí/No al
-              botón de WhatsApp del recordatorio -- independiente de si el pago ya está
-              marcado como aprobado o no (se combina con los dos filtros de arriba). */}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {RESPUESTAS_WHATSAPP_FILTRO.map((r) => {
-              const cantidad =
-                r.valor === "TODOS" ? clientes.length : clientes.filter((c) => respuestaCobroWhatsapp(c) === r.valor).length;
-              if (r.valor !== "TODOS" && cantidad === 0) return null;
-              return (
-                <button
-                  key={r.valor}
-                  type="button"
-                  onClick={() => setFiltroRespuestaWhatsapp(r.valor)}
-                  className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                    filtroRespuestaWhatsapp === r.valor
-                      ? "bg-emerald-700 text-white"
-                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  }`}
-                >
-                  {r.label} <span className="opacity-70">({cantidad})</span>
                 </button>
               );
             })}
@@ -296,30 +260,69 @@ export default function CobrosAdminPage() {
                   </p>
                 </div>
 
-                {/* Separador vertical + estado de pago/respuesta al costado derecho (mismo
-                    patrón que Casos): antes quedaba todo apilado a la izquierda. */}
+                {/* Separador vertical + estado de cobro y notificaciones al costado derecho (mismo
+                    patrón que Casos para ver si se le envió por WhatsApp y correo). */}
                 <div className="hidden self-stretch border-l border-line lg:block" aria-hidden="true" />
-                <div className="flex shrink-0 flex-col items-start gap-2.5 lg:w-56 lg:items-end">
+                <div className="flex shrink-0 flex-col items-start gap-2.5 lg:w-64 lg:items-end">
                   {!conCosto ? (
                     <NotificationBadge tone="neutral" icon={<Prohibit weight="bold" className="h-3.5 w-3.5" />}>
                       Sin costo
                     </NotificationBadge>
-                  ) : c.pagoEsteMes ? (
-                    <NotificationBadge tone="success" icon={<CheckCircle weight="bold" className="h-3.5 w-3.5" />}>
-                      Respuesta de pago aprobada
-                    </NotificationBadge>
                   ) : (
-                    <NotificationBadge tone="warning" icon={<HourglassMedium weight="bold" className="h-3.5 w-3.5" />}>
-                      Respuesta de pago pendiente
-                    </NotificationBadge>
-                  )}
-                  {c.respondioMensaje && (
-                    <NotificationBadge
-                      tone={c.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}
-                      icon={<ChatCircleText weight="bold" className="h-3.5 w-3.5" />}
-                    >
-                      Respondió: {c.respondioMensaje}
-                    </NotificationBadge>
+                    <>
+                      {c.pagoEsteMes ? (
+                        <NotificationBadge tone="success" icon={<CheckCircle weight="bold" className="h-3.5 w-3.5" />}>
+                          Respuesta de pago aprobada
+                        </NotificationBadge>
+                      ) : (
+                        <NotificationBadge tone="warning" icon={<HourglassMedium weight="bold" className="h-3.5 w-3.5" />}>
+                          Respuesta de pago pendiente
+                        </NotificationBadge>
+                      )}
+
+                      {c.correo ? (
+                        <NotificationBadge
+                          tone={c.correoEnviado ? "success" : "warning"}
+                          icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
+                        >
+                          {c.correoEnviado
+                            ? c.fechaUltimoRecordatorioCorreo
+                              ? `Correo enviado (${formatearFecha(c.fechaUltimoRecordatorioCorreo)})`
+                              : "Correo enviado"
+                            : "Correo pendiente"}
+                        </NotificationBadge>
+                      ) : (
+                        <NotificationBadge tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
+                          Sin correo capturado
+                        </NotificationBadge>
+                      )}
+
+                      {c.telefono ? (
+                        <NotificationBadge
+                          tone={c.whatsappEnviado ? "success" : "warning"}
+                          icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
+                        >
+                          {c.whatsappEnviado
+                            ? c.fechaUltimoRecordatorioWhatsapp
+                              ? `WhatsApp enviado (${formatearFecha(c.fechaUltimoRecordatorioWhatsapp)})`
+                              : "WhatsApp enviado"
+                            : "WhatsApp pendiente"}
+                        </NotificationBadge>
+                      ) : (
+                        <NotificationBadge tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>
+                          Sin teléfono
+                        </NotificationBadge>
+                      )}
+
+                      {c.respondioMensaje && (
+                        <NotificationBadge
+                          tone={c.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}
+                          icon={<ChatCircleText weight="bold" className="h-3.5 w-3.5" />}
+                        >
+                          Respondió: {c.respondioMensaje}
+                        </NotificationBadge>
+                      )}
+                    </>
                   )}
                 </div>
               </AdminCard>

@@ -242,6 +242,7 @@ public class CobroService {
 
             try {
                 boolean seEnvioAlgo = false;
+                LocalDateTime ahora = LocalDateTime.now();
                 if (correo != null && !correoYaEnviado) {
                     String nombre = cliente.getNombre();
                     String honorarios = cliente.getHonorarios();
@@ -250,6 +251,7 @@ public class CobroService {
                     if (exito) {
                         correosEnviados++;
                         correosEnviadosEnEstaCorrida.add(correo.toLowerCase());
+                        cliente.setFechaUltimoRecordatorioCorreo(ahora);
                         seEnvioAlgo = true;
                     } else {
                         correosFallidos++;
@@ -264,6 +266,7 @@ public class CobroService {
                     if (exito) {
                         whatsappEnviados++;
                         telefonosEnviadosEnEstaCorrida.add(telefonoNormalizado);
+                        cliente.setFechaUltimoRecordatorioWhatsapp(ahora);
                         seEnvioAlgo = true;
                     } else {
                         whatsappFallidos++;
@@ -271,7 +274,7 @@ public class CobroService {
                     pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
                 if (seEnvioAlgo) {
-                    cliente.setFechaUltimoRecordatorio(LocalDateTime.now());
+                    cliente.setFechaUltimoRecordatorio(ahora);
                     clienteCobroRepository.save(cliente);
                 }
             } catch (Exception ex) {

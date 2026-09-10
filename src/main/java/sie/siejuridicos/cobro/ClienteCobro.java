@@ -93,6 +93,12 @@ public class ClienteCobro {
     @Column(name = "fecha_ultimo_recordatorio")
     private LocalDateTime fechaUltimoRecordatorio;
 
+    @Column(name = "fecha_ultimo_recordatorio_correo")
+    private LocalDateTime fechaUltimoRecordatorioCorreo;
+
+    @Column(name = "fecha_ultimo_recordatorio_whatsapp")
+    private LocalDateTime fechaUltimoRecordatorioWhatsapp;
+
     @Column(name = "activo", nullable = false)
     private boolean activo = true;
 
@@ -194,6 +200,22 @@ public class ClienteCobro {
 
     public void setFechaUltimoRecordatorio(LocalDateTime fechaUltimoRecordatorio) {
         this.fechaUltimoRecordatorio = fechaUltimoRecordatorio;
+    }
+
+    public LocalDateTime getFechaUltimoRecordatorioCorreo() {
+        return fechaUltimoRecordatorioCorreo;
+    }
+
+    public void setFechaUltimoRecordatorioCorreo(LocalDateTime fechaUltimoRecordatorioCorreo) {
+        this.fechaUltimoRecordatorioCorreo = fechaUltimoRecordatorioCorreo;
+    }
+
+    public LocalDateTime getFechaUltimoRecordatorioWhatsapp() {
+        return fechaUltimoRecordatorioWhatsapp;
+    }
+
+    public void setFechaUltimoRecordatorioWhatsapp(LocalDateTime fechaUltimoRecordatorioWhatsapp) {
+        this.fechaUltimoRecordatorioWhatsapp = fechaUltimoRecordatorioWhatsapp;
     }
 
     public boolean isActivo() {
