@@ -66,7 +66,7 @@ rem WHATSAPP_TEMPLATE_NAME debe coincidir EXACTO con el nombre de una plantilla 
 rem por Meta -- no admite texto libre.
 set WHATSAPP_ACCESS_TOKEN=
 set WHATSAPP_PHONE_NUMBER_ID=
-set WHATSAPP_TEMPLATE_NAME=notificacion_radicado
+set WHATSAPP_TEMPLATE_NAME=notificacion_radicado_caso
 set WHATSAPP_TEMPLATE_LANG=es_CO
 set WHATSAPP_HEADER_IMAGE_URL=https://siejuridicos.com/marca/logo.png
 

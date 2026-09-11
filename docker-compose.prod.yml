@@ -77,7 +77,7 @@ services:
       - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
-      - WHATSAPP_TEMPLATE_NAME=${WHATSAPP_TEMPLATE_NAME:-notificacion_radicado}
+      - WHATSAPP_TEMPLATE_NAME=${WHATSAPP_TEMPLATE_NAME:-notificacion_radicado_caso}
       # Cobros Pendientes: hoja DISTINTA a la de casos, misma llave de cuenta de servicio
       # (GOOGLE_SHEETS_CREDENTIALS_PATH de arriba) pero con permiso de Editor otorgado sobre
       # esta hoja específica (ver DEPLOY.md).
