@@ -4,6 +4,7 @@ import sie.siejuridicos.cobro.ClienteCobro;
 import sie.siejuridicos.cobro.TipoClienteCobro;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 
 // Vista de un cliente con cobro pendiente para el panel administrativo. A diferencia de
 // CasoAdminResponse no hace falta ocultar el correo (aquí no hay una consulta pública
@@ -28,8 +29,11 @@ public record ClienteCobroResponse(
         LocalDateTime fechaCreacion
 ) {
     public static ClienteCobroResponse desde(ClienteCobro cliente) {
-        boolean correoEnviado = cliente.getFechaUltimoRecordatorioCorreo() != null;
-        boolean whatsappEnviado = cliente.getFechaUltimoRecordatorioWhatsapp() != null;
+        YearMonth mesActual = YearMonth.now();
+        boolean correoEnviado = cliente.getFechaUltimoRecordatorioCorreo() != null
+                && YearMonth.from(cliente.getFechaUltimoRecordatorioCorreo()).equals(mesActual);
+        boolean whatsappEnviado = cliente.getFechaUltimoRecordatorioWhatsapp() != null
+                && YearMonth.from(cliente.getFechaUltimoRecordatorioWhatsapp()).equals(mesActual);
 
         return new ClienteCobroResponse(
                 cliente.getId(),

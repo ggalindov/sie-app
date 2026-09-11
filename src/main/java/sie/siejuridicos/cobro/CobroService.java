@@ -200,8 +200,24 @@ public class CobroService {
         int sinCosto = 0;
         int pendientesPorLimiteDiario = 0;
 
-        Set<String> correosEnviadosEnEstaCorrida = new HashSet<>();
-        Set<String> telefonosEnviadosEnEstaCorrida = new HashSet<>();
+        Set<String> correosEnviadosEsteMes = new HashSet<>();
+        Set<String> telefonosEnviadosEsteMes = new HashSet<>();
+
+        for (ClienteCobro c : activos) {
+            if (c.getFechaUltimoRecordatorioCorreo() != null
+                    && YearMonth.from(c.getFechaUltimoRecordatorioCorreo()).equals(mesActual)
+                    && c.getCorreo() != null && !c.getCorreo().isBlank()) {
+                correosEnviadosEsteMes.add(c.getCorreo().trim().toLowerCase());
+            }
+            if (c.getFechaUltimoRecordatorioWhatsapp() != null
+                    && YearMonth.from(c.getFechaUltimoRecordatorioWhatsapp()).equals(mesActual)
+                    && c.getTelefono() != null && !c.getTelefono().isBlank()) {
+                String norm = WhatsAppService.normalizarCelular(c.getTelefono());
+                if (norm != null) {
+                    telefonosEnviadosEsteMes.add(norm);
+                }
+            }
+        }
 
         for (ClienteCobro cliente : activos) {
             if (honorariosComoEntero(cliente.getHonorarios()) <= 0) {
@@ -211,23 +227,41 @@ public class CobroService {
             if (Boolean.TRUE.equals(cliente.getPagoEsteMes())) {
                 continue;
             }
-            LocalDateTime ultimoRecordatorio = cliente.getFechaUltimoRecordatorio();
-            if (ultimoRecordatorio != null && YearMonth.from(ultimoRecordatorio).equals(mesActual)) {
-                continue;
-            }
 
-            String correo = cliente.getCorreo() != null ? cliente.getCorreo().trim() : null;
-            String telefono = cliente.getTelefono() != null ? cliente.getTelefono().trim() : null;
+            String correo = cliente.getCorreo() != null && !cliente.getCorreo().isBlank() ? cliente.getCorreo().trim() : null;
+            String correoKey = correo != null ? correo.toLowerCase() : null;
+
+            String telefono = cliente.getTelefono() != null && !cliente.getTelefono().isBlank() ? cliente.getTelefono().trim() : null;
             String telefonoNormalizado = telefono != null ? WhatsAppService.normalizarCelular(telefono) : null;
 
-            boolean correoYaEnviado = correo != null && correosEnviadosEnEstaCorrida.contains(correo.toLowerCase());
-            boolean telefonoYaEnviado = telefonoNormalizado != null && telefonosEnviadosEnEstaCorrida.contains(telefonoNormalizado);
+            boolean correoYaEnviado = (cliente.getFechaUltimoRecordatorioCorreo() != null
+                    && YearMonth.from(cliente.getFechaUltimoRecordatorioCorreo()).equals(mesActual))
+                    || (correoKey != null && correosEnviadosEsteMes.contains(correoKey));
 
-            // Si ambos contactos ya recibieron el cobro en esta corrida (ej. filas duplicadas para la misma persona en la hoja),
-            // actualizamos la fecha sin repetir el mensaje para no spamear al cliente.
-            if ((correo == null || correoYaEnviado) && (telefonoNormalizado == null || telefonoYaEnviado || !whatsAppService.isConfigurado())) {
-                if (correoYaEnviado || telefonoYaEnviado) {
-                    cliente.setFechaUltimoRecordatorio(LocalDateTime.now());
+            boolean telefonoYaEnviado = (cliente.getFechaUltimoRecordatorioWhatsapp() != null
+                    && YearMonth.from(cliente.getFechaUltimoRecordatorioWhatsapp()).equals(mesActual))
+                    || (telefonoNormalizado != null && telefonosEnviadosEsteMes.contains(telefonoNormalizado));
+
+            boolean correoPendiente = correoKey != null && !correoYaEnviado;
+            boolean whatsappPendiente = telefonoNormalizado != null && whatsAppService.isConfigurado() && !telefonoYaEnviado;
+
+            // Sincronización de marcas de fecha para filas duplicadas con el mismo contacto:
+            // si el correo o el teléfono ya recibieron recordatorio este mes en otra fila, se
+            // actualiza la marca en esta fila para que refleje el estado real sin volver a enviar.
+            boolean timestampSincronizado = false;
+            LocalDateTime ahora = LocalDateTime.now();
+            if (correoKey != null && correoYaEnviado && cliente.getFechaUltimoRecordatorioCorreo() == null) {
+                cliente.setFechaUltimoRecordatorioCorreo(ahora);
+                timestampSincronizado = true;
+            }
+            if (telefonoNormalizado != null && telefonoYaEnviado && cliente.getFechaUltimoRecordatorioWhatsapp() == null) {
+                cliente.setFechaUltimoRecordatorioWhatsapp(ahora);
+                timestampSincronizado = true;
+            }
+
+            if (!correoPendiente && !whatsappPendiente) {
+                if (timestampSincronizado) {
+                    cliente.setFechaUltimoRecordatorio(ahora);
                     clienteCobroRepository.save(cliente);
                 }
                 continue;
@@ -242,46 +276,46 @@ public class CobroService {
 
             try {
                 boolean seEnvioAlgo = false;
-                LocalDateTime ahora = LocalDateTime.now();
-                if (correo != null && !correoYaEnviado) {
+                LocalDateTime ahoraEnvio = LocalDateTime.now();
+                if (correoPendiente) {
                     String nombre = cliente.getNombre();
                     String honorarios = cliente.getHonorarios();
                     boolean exito = enviarConReintento(
                             () -> emailService.enviarTirillaCobroSincrono(nombre, correo, honorarios));
                     if (exito) {
                         correosEnviados++;
-                        correosEnviadosEnEstaCorrida.add(correo.toLowerCase());
-                        cliente.setFechaUltimoRecordatorioCorreo(ahora);
+                        correosEnviadosEsteMes.add(correoKey);
+                        cliente.setFechaUltimoRecordatorioCorreo(ahoraEnvio);
                         seEnvioAlgo = true;
                     } else {
                         correosFallidos++;
                     }
                     pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
-                if (telefonoNormalizado != null && whatsAppService.isConfigurado() && !telefonoYaEnviado) {
+                if (whatsappPendiente) {
                     String nombre = cliente.getNombre();
                     String honorarios = cliente.getHonorarios();
                     boolean exito = enviarConReintento(
                             () -> whatsAppService.enviarRecordatorioCobroSincrono(nombre, telefono, honorarios));
                     if (exito) {
                         whatsappEnviados++;
-                        telefonosEnviadosEnEstaCorrida.add(telefonoNormalizado);
-                        cliente.setFechaUltimoRecordatorioWhatsapp(ahora);
+                        telefonosEnviadosEsteMes.add(telefonoNormalizado);
+                        cliente.setFechaUltimoRecordatorioWhatsapp(ahoraEnvio);
                         seEnvioAlgo = true;
                     } else {
                         whatsappFallidos++;
                     }
                     pausar(PAUSA_ENTRE_ENVIOS_MS);
                 }
-                if (seEnvioAlgo) {
-                    cliente.setFechaUltimoRecordatorio(ahora);
+                if (seEnvioAlgo || timestampSincronizado) {
+                    cliente.setFechaUltimoRecordatorio(ahoraEnvio);
                     clienteCobroRepository.save(cliente);
                 }
             } catch (Exception ex) {
                 log.error("Fallo inesperado al procesar recordatorio de cobro para cliente '{}' (id {}): {}",
                         cliente.getNombre(), cliente.getId(), ex.getMessage(), ex);
-                if (cliente.getCorreo() != null) correosFallidos++;
-                if (cliente.getTelefono() != null) whatsappFallidos++;
+                if (correoPendiente) correosFallidos++;
+                if (whatsappPendiente) whatsappFallidos++;
             }
         }
 

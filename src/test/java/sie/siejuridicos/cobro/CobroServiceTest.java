@@ -11,9 +11,11 @@ import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -198,5 +200,78 @@ class CobroServiceTest {
         assertEquals(1, resumen.correosEnviados());
         assertEquals(1, resumen.correosFallidos());
         verify(clienteCobroRepository, times(1)).save(b);
+    }
+
+    @Test
+    void siCorreoYaFueEnviadoEsteMesSoloSeEnviaWhatsapp() {
+        ClienteCobro a = clienteDe("1", "Empresa Alfa S.A.S.", "pagos@alfa.com", "3001112222", "$ 1.000.000");
+        // Correo ya enviado previamente este mes, pero WhatsApp pendiente
+        LocalDateTime haceDosDias = LocalDateTime.now().minusDays(2);
+        a.setFechaUltimoRecordatorioCorreo(haceDosDias);
+        a.setFechaUltimoRecordatorio(haceDosDias);
+
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(a));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(whatsAppService.enviarRecordatorioCobroSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        CobroService servicio = crearServicio();
+        ResumenEnvioRecordatoriosCobros resumen = servicio.enviarRecordatorios();
+
+        // No debe reenviar el correo
+        verify(emailService, never()).enviarTirillaCobroSincrono(anyString(), anyString(), anyString());
+        // Sí debe enviar el WhatsApp pendiente
+        verify(whatsAppService, times(1)).enviarRecordatorioCobroSincrono("Empresa Alfa S.A.S.", "3001112222", "$ 1.000.000");
+
+        assertEquals(0, resumen.correosEnviados());
+        assertEquals(1, resumen.whatsappEnviados());
+        assertNotNull(a.getFechaUltimoRecordatorioWhatsapp());
+        assertEquals(haceDosDias, a.getFechaUltimoRecordatorioCorreo());
+        verify(clienteCobroRepository, times(1)).save(a);
+    }
+
+    @Test
+    void whatsappSeEnviaSoloUnaVezPorChatSiHayFilasConMismoTelefono() {
+        ClienteCobro a = clienteDe("1", "Empresa Alfa Fila 1", null, "3001112222", "$ 1.000.000");
+        ClienteCobro b = clienteDe("2", "Empresa Alfa Fila 2", null, "+57 300 111 2222", "$ 2.000.000");
+
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(a, b));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+        when(whatsAppService.enviarRecordatorioCobroSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        CobroService servicio = crearServicio();
+        ResumenEnvioRecordatoriosCobros resumen = servicio.enviarRecordatorios();
+
+        // Se envía EXACTAMENTE un WhatsApp a ese número
+        verify(whatsAppService, times(1)).enviarRecordatorioCobroSincrono(eq("Empresa Alfa Fila 1"), anyString(), eq("$ 1.000.000"));
+        verify(whatsAppService, never()).enviarRecordatorioCobroSincrono(eq("Empresa Alfa Fila 2"), anyString(), anyString());
+
+        assertEquals(1, resumen.whatsappEnviados());
+        assertNotNull(a.getFechaUltimoRecordatorioWhatsapp());
+        assertNotNull(b.getFechaUltimoRecordatorioWhatsapp());
+        verify(clienteCobroRepository, times(1)).save(a);
+        verify(clienteCobroRepository, times(1)).save(b);
+    }
+
+    @Test
+    void siAmbosCanalesYaFueronEnviadosEsteMesSeSaltaSinConsumirCupo() {
+        ClienteCobro a = clienteDe("1", "Empresa Alfa S.A.S.", "pagos@alfa.com", "3001112222", "$ 1.000.000");
+        LocalDateTime haceDosDias = LocalDateTime.now().minusDays(2);
+        a.setFechaUltimoRecordatorioCorreo(haceDosDias);
+        a.setFechaUltimoRecordatorioWhatsapp(haceDosDias);
+        a.setFechaUltimoRecordatorio(haceDosDias);
+
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(a));
+        when(whatsAppService.isConfigurado()).thenReturn(true);
+
+        CobroService servicio = crearServicio();
+        ResumenEnvioRecordatoriosCobros resumen = servicio.enviarRecordatorios();
+
+        verify(emailService, never()).enviarTirillaCobroSincrono(anyString(), anyString(), anyString());
+        verify(whatsAppService, never()).enviarRecordatorioCobroSincrono(anyString(), anyString(), anyString());
+        verify(limiteEnvioMasivoService, never()).intentarReservarCupo();
+        verify(clienteCobroRepository, never()).save(a);
+
+        assertEquals(0, resumen.correosEnviados());
+        assertEquals(0, resumen.whatsappEnviados());
     }
 }
