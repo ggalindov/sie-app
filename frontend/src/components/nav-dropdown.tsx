@@ -16,6 +16,7 @@ import {
   EnvelopeSimple,
   MapPin,
   WhatsappLogo,
+  Star,
 } from "@phosphor-icons/react";
 import { areasPractica, equipo } from "@/lib/content";
 import { siteConfig } from "@/lib/site-config";
@@ -77,7 +78,10 @@ function PanelAreas() {
         return (
           <motion.div key={area.slug} variants={staggerItem}>
             <Link
-              href={`/areas/${area.slug}`}
+              href={`/#areas?area=${area.slug}`}
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("abrir-area", { detail: area.slug }));
+              }}
               className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-gold/8"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-110">
@@ -229,14 +233,40 @@ function PanelContacto() {
   );
 }
 
+function PanelTestimonios() {
+  return (
+    <motion.div variants={staggerContenedor} initial="oculto" animate="visible" className="w-80 p-5">
+      <div className="flex items-center gap-1 text-gold">
+        {[...Array(5)].map((_, i) => (
+          <Star key={i} weight="fill" className="h-4 w-4" />
+        ))}
+      </div>
+      <p className="mt-2.5 text-sm italic leading-relaxed text-ink-soft">
+        "El acompañamiento fue impecable. Lograron resolver nuestro caso con total claridad y rigor."
+      </p>
+      <p className="mt-2 text-xs font-semibold text-ink">
+        Calificación 5/5 por clientes y empresas
+      </p>
+      <Link
+        href="/#testimonios"
+        className="mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-xs font-medium text-gold-deep hover:text-gold"
+      >
+        Ver testimonios de clientes
+        <ArrowRight weight="bold" className="h-3 w-3" />
+      </Link>
+    </motion.div>
+  );
+}
+
 // Cada enlace del nav que tiene contenido real detrás (áreas, equipo, artículos, canales)
 // gana un panel propio -- pedido explícito del usuario. "Contacto" no tiene un ancla propia
 // además del panel (el panel ES la acción, un clic directo a llamar/escribir), así que su
 // href sigue siendo /#contacto para quien navega por teclado o sin hover.
 const paneles: Record<string, () => ReactNode> = {
-  "/#quienes-somos": () => <PanelLaFirma />,
-  "/#areas": () => <PanelAreas />,
   "/#equipo": () => <PanelEquipo />,
+  "/#areas": () => <PanelAreas />,
+  "/#testimonios": () => <PanelTestimonios />,
+  "/#quienes-somos": () => <PanelLaFirma />,
   "/blog": () => <PanelBlog />,
   "/#contacto": () => <PanelContacto />,
 };

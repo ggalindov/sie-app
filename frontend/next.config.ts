@@ -64,6 +64,9 @@ const nextConfig: NextConfig = {
   // Quita la cabecera "X-Powered-By: Next.js": no aporta nada al visitante y
   // sí le regala al atacante una pista gratis de qué framework/versión atacar.
   poweredByHeader: false,
+  // Compresión gzip/brotli automática de payloads
+  compress: true,
+  reactStrictMode: true,
   // Para el Dockerfile de producción: en vez de copiar todo node_modules (cientos de MB,
   // incluidas devDependencies de build), Next.js traza automáticamente qué archivos usa
   // cada página y genera un .next/standalone con solo eso + un server.js mínimo propio
@@ -71,6 +74,17 @@ const nextConfig: NextConfig = {
   // que carga Node al arrancar, sin cambiar nada del comportamiento en desarrollo
   // ("next dev" ignora esta opción por completo).
   output: "standalone",
+  // Optimización de imágenes: formatos modernos (AVIF y WebP) para reducir hasta 50% de peso
+  images: {
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 2592000,
+  },
+  // Sacudida de árboles (treeshaking) de librerías de íconos y animaciones
+  experimental: {
+    optimizePackageImports: ["@phosphor-icons/react", "motion", "gsap", "sonner"],
+  },
   async headers() {
     return [
       {

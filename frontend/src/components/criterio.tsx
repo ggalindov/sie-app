@@ -34,31 +34,49 @@ export function Criterio({ media }: { media: ReactNode }) {
         }}
       />
 
-      <div className="relative mx-auto max-w-4xl px-6 text-center">
+      <div className="relative mx-auto max-w-5xl px-6 text-center">
         <motion.h2
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 28 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.8, ease: EASE }}
-          className="text-balance leading-[1.05] text-night-ink"
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.9, ease: EASE }}
+          className="text-balance leading-[1.04] text-night-ink"
         >
-          <span className="font-display text-2xl font-light italic text-night-ink/75 md:text-3xl">
+          <span className="font-display text-2xl font-light italic tracking-wide text-night-ink/80 sm:text-3xl md:text-4xl lg:text-5xl block">
             Cada caso se resuelve con el mismo criterio:
           </span>
-          <br />
-          <span className="font-display text-5xl font-medium tracking-tight text-gold md:text-7xl">
-            veinte años
-          </span>{" "}
-          <span className="font-display text-4xl font-normal text-night-ink md:text-6xl">
-            de experiencia.
+
+          <span className="mt-4 sm:mt-6 flex flex-wrap items-baseline justify-center gap-x-4 gap-y-2">
+            <span className="font-display text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-medium tracking-tight text-gold drop-shadow-[0_8px_36px_rgba(217,169,37,0.45)]">
+              veinte años
+            </span>
+            <span className="font-display text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal tracking-tight text-night-ink">
+              de experiencia.
+            </span>
           </span>
         </motion.h2>
+
+        {/* Detalle imperial clásico de rigor legal */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.8, delay: 0.12, ease: EASE }}
+          className="my-7 sm:my-10 flex max-w-full items-center justify-center gap-2 sm:gap-4 overflow-hidden"
+        >
+          <div className="h-px w-10 sm:w-28 md:w-32 shrink bg-gradient-to-r from-transparent via-gold/60 to-gold/20" />
+          <span className="shrink-0 text-[10px] sm:text-xs font-serif uppercase tracking-[0.16em] sm:tracking-[0.25em] text-gold/90 select-none">
+            Jurisprudencia · Precedentes · Rigor
+          </span>
+          <div className="h-px w-10 sm:w-28 md:w-32 shrink bg-gradient-to-l from-transparent via-gold/60 to-gold/20" />
+        </motion.div>
+
         <motion.p
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.8, delay: 0.12, ease: EASE }}
-          className="mx-auto mt-6 max-w-xl text-balance text-base leading-relaxed text-night-ink/70 md:text-lg"
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.8, delay: 0.2, ease: EASE }}
+          className="mx-auto max-w-2xl text-balance text-lg font-light leading-relaxed text-night-ink/85 sm:text-xl md:text-2xl"
         >
           No improvisamos. Cada estrategia se construye sobre precedentes
           reales y el seguimiento constante de un equipo que conoce el

@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "motion/react";
-import { X, PaperPlaneTilt } from "@phosphor-icons/react";
+import { X, PaperPlaneTilt, ArrowRight } from "@phosphor-icons/react";
 import { enviarMensajeChatbot, type TurnoChat } from "@/lib/api";
-import { SiebotMascot } from "@/components/siebot-mascot";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -15,22 +14,35 @@ const MENSAJE_BIENVENIDA: TurnoChat = {
     "Hola, soy Siebot, el asistente virtual de SIE Jurídicos. Puedo contarte sobre nuestros horarios, ubicación y áreas de práctica, o tomar tus datos para que un abogado te contacte. ¿En qué puedo ayudarte?",
 };
 
-// Mensajes de venta que Siebot va rotando solo mientras el chat está cerrado (ver el
-// efecto de ciclo más abajo). A propósito NO llaman al chatbot real (cero costo de
-// Anthropic): son frases fijas, siempre basadas en cifras y hechos ya publicados en el
-// sitio (ver trusted-by.tsx: 20+ años, 800+ casos, 6 áreas de práctica) en vez de
-// superlativos sin sustento ("somos los mejores") -- una firma de abogados tiene límites
-// éticos reales sobre publicidad comparativa y garantías de resultado (Ley 1123 de 2007),
-// así que la "mejor empresa" se transmite con hechos verificables, no con la frase literal.
-const MENSAJES_PROMOCIONALES: string[] = [
-  "¿Tienes una situación legal pendiente? Agenda tu asesoría con nosotros.",
-  "Más de 20 años acompañando a nuestros clientes en sus procesos legales.",
-  "Más de 800 casos atendidos, con el mismo compromiso desde el primero.",
-  "Laboral, familia, civil, mercantil, administrativo o constitucional: te asesoramos.",
-  "Cada caso es distinto. Cuéntame el tuyo y te digo cómo podemos ayudarte.",
-  "¿Prefieres WhatsApp? Con gusto te respondemos por ahí también.",
-  "Un abogado real revisa cada solicitud que llega, no solo un asistente virtual.",
-  "¿Tienes dudas sobre tu proceso? Empecemos por una conversación, sin compromiso.",
+// Mensajes institucionales y de captación que Siebot muestra de forma pausada y
+// respetuosa mientras el chat está cerrado.
+// Diseñados con tono cercano, profesional y ético (Ley 1123 de 2007),
+// basados en datos reales de la firma (20+ años, 800+ casos, 6 áreas).
+const MENSAJES_PROMOCIONALES: { tema: string; texto: string }[] = [
+  {
+    tema: "Orientación Inmediata",
+    texto: "¿Tienes dudas sobre un contrato, despido o liquidación? Puedo orientarte en segundos.",
+  },
+  {
+    tema: "Experiencia Comprobada",
+    texto: "Más de 20 años de trayectoria y 800 casos ganados respaldan cada consejo de nuestra firma.",
+  },
+  {
+    tema: "Especialidades Jurídicas",
+    texto: "Laboral, comercial, civil, familia o administrativo: te conecto con el especialista indicado.",
+  },
+  {
+    tema: "Atención Confidencial",
+    texto: "Cada consulta es confidencial. Cuéntame tu caso y revisamos el camino legal sin compromiso.",
+  },
+  {
+    tema: "Canal Directo",
+    texto: "¿Prefieres comunicarte por WhatsApp o agendar una llamada con un abogado? Te guío ahora.",
+  },
+  {
+    tema: "Respaldo Real",
+    texto: "Un abogado especialista revisa personalmente cada solicitud que recibimos en el despacho.",
+  },
 ];
 
 export function ChatbotWidget() {
@@ -40,66 +52,109 @@ export function ChatbotWidget() {
   const [texto, setTexto] = useState("");
   const [cargando, setCargando] = useState(false);
   const [indiceMensaje, setIndiceMensaje] = useState<number | null>(null);
-  const [descartado, setDescartado] = useState(false);
-  const [avatarRoto, setAvatarRoto] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Referencias para control de pausa seguro:
+  // pausadoRef guarda si el puntero está físicamente sobre el globo en escritorio
+  const pausadoRef = useRef(false);
+  const tiempoInicioRef = useRef(Date.now());
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [mensajes, cargando]);
 
-  // Si el visitante ya cerró la burbuja con la (X), no vuelve a insistir en esta misma
-  // pestaña -- sessionStorage (no localStorage): en una visita nueva, o en otra pestaña,
-  // Siebot vuelve a presentarse con normalidad.
+  // Limpiar cualquier residuo de sessionStorage de versiones anteriores
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("siebot-burbuja-descartada") === "1") setDescartado(true);
+      sessionStorage.removeItem("siebot-burbuja-descartada");
     } catch {
-      // Safari en modo privado, o storage bloqueado por el navegador: simplemente no
-      // recuerda el descarte entre recargas, no es un caso que valga la pena romper nada.
+      // Manejo seguro para navegadores con storage bloqueado
     }
   }, []);
 
-  // Siebot va rotando sola por la biblioteca de mensajes de venta (ver
-  // MENSAJES_PROMOCIONALES) mientras el chat está cerrado -- nunca llama al chatbot real,
-  // cero costo de Anthropic. Encadenamiento de setTimeout (no setInterval) a propósito:
-  // cada paso agenda el siguiente solo después de que el anterior termina, así que un
-  // cierre/reapertura rápida del chat nunca dispara dos ciclos superpuestos ni acumula
-  // temporizadores fantasma -- con setInterval eso hay que prevenirlo a mano.
   useEffect(() => {
-    if (open || descartado) return;
+    function abrir() {
+      setOpen(true);
+      setIndiceMensaje(null);
+      pausadoRef.current = false;
+    }
+    window.addEventListener("abrir-chatbot", abrir);
+    return () => window.removeEventListener("abrir-chatbot", abrir);
+  }, []);
+
+  // Rotación continua e ininterrumpida de comentarios legales:
+  // - Primera aparición a los 2.8s (justo al desvanecerse la pantalla de bienvenida inicial).
+  // - Cada consejo legal se expone durante 6.5s para lectura reposada.
+  // - Transición de salida y entrada suave de 600ms entre mensajes.
+  // - Hover seguro: solo se activa en dispositivos con mouse real (hover: hover).
+  // - Cuenta con límite de tiempo de seguridad de 14s para evitar congelamientos eternos.
+  // - Tocar o hacer clic en la burbuja abre el asistente virtual de inmediato.
+  useEffect(() => {
+    if (open) {
+      setIndiceMensaje(null);
+      pausadoRef.current = false;
+      return;
+    }
+
     let cancelado = false;
     let temporizador: ReturnType<typeof setTimeout>;
     let indice = 0;
 
-    function mostrarSiguiente() {
+    function rotar() {
       if (cancelado) return;
+
+      // Si el cursor está encima en escritorio y no ha superado el tope de seguridad
+      const tiempoHover = Date.now() - tiempoInicioRef.current;
+      if (pausadoRef.current && tiempoHover < 14000) {
+        temporizador = setTimeout(rotar, 800);
+        return;
+      }
+
+      pausadoRef.current = false;
       setIndiceMensaje(indice);
+      tiempoInicioRef.current = Date.now();
+
       temporizador = setTimeout(() => {
         if (cancelado) return;
-        setIndiceMensaje(null); // se retira un instante antes de traer el siguiente
-        temporizador = setTimeout(() => {
-          indice = (indice + 1) % MENSAJES_PROMOCIONALES.length;
-          mostrarSiguiente();
-        }, 500);
-      }, 6500);
+
+        function esperarYPasar() {
+          if (cancelado) return;
+          const tiempoTotal = Date.now() - tiempoInicioRef.current;
+          if (pausadoRef.current && tiempoTotal < 14000) {
+            temporizador = setTimeout(esperarYPasar, 800);
+          } else {
+            setIndiceMensaje(null);
+            pausadoRef.current = false;
+            temporizador = setTimeout(() => {
+              if (cancelado) return;
+              indice = (indice + 1) % MENSAJES_PROMOCIONALES.length;
+              rotar();
+            }, 600); // Transición suave entre mensajes
+          }
+        }
+
+        esperarYPasar();
+      }, 6500); // 6.5s visible para lectura cómoda
     }
 
-    temporizador = setTimeout(mostrarSiguiente, 3200); // primera aparición
+    // Comienza al concluir la animación de carga de inicio
+    temporizador = setTimeout(rotar, 2800);
+
     return () => {
       cancelado = true;
       clearTimeout(temporizador);
+      pausadoRef.current = false;
     };
-  }, [open, descartado]);
+  }, [open]);
 
   function descartarBurbuja() {
     setIndiceMensaje(null);
-    setDescartado(true);
-    try {
-      sessionStorage.setItem("siebot-burbuja-descartada", "1");
-    } catch {
-      // ver comentario del efecto de arriba
-    }
+    pausadoRef.current = false;
+    // Si el visitante cierra voluntariamente con (X), pausar 15s y retomar
+    setTimeout(() => {
+      setIndiceMensaje(0);
+      tiempoInicioRef.current = Date.now();
+    }, 15000);
   }
 
   async function enviar(e: FormEvent) {
@@ -141,51 +196,107 @@ export function ChatbotWidget() {
     <>
       <AnimatePresence>
         {indiceMensaje !== null && !open && (
-          <motion.button
-            type="button"
-            onClick={() => {
-              setOpen(true);
-              setIndiceMensaje(null);
-            }}
+          <motion.div
             key={indiceMensaje}
-            initial={{ opacity: 0, y: 14, scale: 0.85, rotate: -2 }}
-            animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
-            exit={{ opacity: 0, y: 8, scale: 0.9, rotate: 1 }}
-            transition={{ type: "spring", stiffness: 340, damping: 22 }}
-            className="fixed bottom-24 left-6 z-40 flex w-64 items-start gap-2.5 rounded-2xl rounded-bl-sm bg-surface p-3 text-left shadow-[0_20px_45px_-15px_rgba(28,26,22,0.4)] ring-1 ring-line"
+            initial={{ opacity: 0, scale: 0.65, y: 14 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              y: [0, -3, 0],
+              transition: {
+                y: { duration: 3.4, repeat: Infinity, ease: "easeInOut" },
+                opacity: { duration: 0.35, ease: EASE },
+                scale: { duration: 0.35, ease: EASE },
+              },
+            }}
+            exit={{ opacity: 0, scale: 0.7, y: 10, transition: { duration: 0.22 } }}
+            style={{ transformOrigin: "bottom left" }}
+            onMouseEnter={() => {
+              if (typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches) {
+                pausadoRef.current = true;
+              }
+            }}
+            onMouseLeave={() => {
+              pausadoRef.current = false;
+            }}
+            className="fixed bottom-[4.75rem] sm:bottom-[5.5rem] left-3 sm:left-6 z-40 flex flex-col items-start select-none filter drop-shadow-[0_14px_28px_rgba(15,14,10,0.45)]"
           >
-            {!avatarRoto && (
-              <Image
-                src="/chatbot/siebot-vendedor.png"
-                alt=""
-                width={40}
-                height={40}
-                onError={() => setAvatarRoto(true)}
-                className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-gold-pale"
-              />
-            )}
-            <p className="flex-1 pt-1 text-sm leading-snug text-ink">
-              {MENSAJES_PROMOCIONALES[indiceMensaje]}
-            </p>
-            <span
+            {/* Cuerpo principal de la nube de pensamiento */}
+            <div
               role="button"
               tabIndex={0}
-              aria-label="Cerrar mensaje"
-              onClick={(e) => {
-                e.stopPropagation();
-                descartarBurbuja();
+              onClick={() => {
+                setOpen(true);
+                setIndiceMensaje(null);
+                pausadoRef.current = false;
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
-                  e.stopPropagation();
-                  descartarBurbuja();
+                  setOpen(true);
+                  setIndiceMensaje(null);
+                  pausadoRef.current = false;
                 }
               }}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-soft/60 hover:bg-ink/5 hover:text-ink-soft"
+              className="group relative w-[235px] sm:w-[265px] cursor-pointer overflow-hidden rounded-2xl rounded-bl-xs border border-gold/45 bg-surface/95 p-2.5 sm:p-3 text-left shadow-lg backdrop-blur-xl ring-1 ring-gold/20 transition-all duration-300 hover:border-gold hover:shadow-[0_16px_36px_-8px_rgba(217,169,37,0.35)]"
             >
-              <X className="h-3 w-3" weight="bold" />
-            </span>
-          </motion.button>
+              {/* Micro resplandor aureo interior */}
+              <div className="pointer-events-none absolute -right-4 -top-4 h-16 w-16 rounded-full bg-gold/10 blur-lg" />
+
+              {/* Cabecera compacta con tema y botón cerrar */}
+              <div className="flex items-center justify-between border-b border-line/50 pb-1 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-gold" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gold-deep">
+                    {MENSAJES_PROMOCIONALES[indiceMensaje].tema}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-medium text-ink-soft/60">
+                    {`${indiceMensaje + 1}/${MENSAJES_PROMOCIONALES.length}`}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Cerrar sugerencia"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      descartarBurbuja();
+                    }}
+                    className="flex h-4 w-4 items-center justify-center rounded-full text-ink-soft/60 transition-colors hover:bg-ink/10 hover:text-ink"
+                  >
+                    <X className="h-2.5 w-2.5" weight="bold" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Texto de la nube en formato más pequeño */}
+              <p className="text-[11px] sm:text-xs leading-snug text-ink transition-colors group-hover:text-gold-deep font-sans">
+                {MENSAJES_PROMOCIONALES[indiceMensaje].texto}
+              </p>
+
+              {/* Micro CTA inferior */}
+              <div className="mt-1.5 flex items-center justify-between pt-0.5 text-[10px] font-semibold text-gold-deep">
+                <span className="inline-flex items-center gap-1 group-hover:underline">
+                  Preguntar a Siebot
+                  <ArrowRight className="h-2.5 w-2.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </span>
+                <span className="text-[9px] font-normal text-ink-soft/50">
+                  Asistente
+                </span>
+              </div>
+            </div>
+
+            {/* Colita de burbujas tipo nube saliendo del botón */}
+            <div className="relative -mt-0.5 flex flex-col items-start pl-3 pointer-events-none" aria-hidden="true">
+              {/* Burbujita intermedia */}
+              <span className="h-2.5 w-2.5 rounded-full border border-gold/45 bg-surface/95 shadow-xs -translate-x-0.5" />
+              {/* Burbujita pequeña que roza el botón */}
+              <span className="h-1.5 w-1.5 rounded-full border border-gold/40 bg-surface/95 shadow-xs translate-x-0.5 mt-0.5" />
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -194,6 +305,7 @@ export function ChatbotWidget() {
         onClick={() => {
           setOpen((v) => !v);
           setIndiceMensaje(null);
+          pausadoRef.current = false;
         }}
         aria-label={open ? "Cerrar chat" : "Abrir chat"}
         initial={{ opacity: 0, scale: 0.8 }}
@@ -201,11 +313,9 @@ export function ChatbotWidget() {
         transition={{ duration: 0.5, delay: 0.9, ease: EASE }}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.96 }}
-        className="fixed bottom-6 left-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-ink text-paper shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)]"
+        className="fixed bottom-6 left-3 sm:left-6 z-40 flex h-13 w-13 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ink text-paper shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)] ring-2 ring-gold/40"
       >
-        {/* anillo de atención: solo pulsa mientras hay un mensaje de venta activo, para que
-            el botón mismo (no solo la burbuja) llame la atención de reojo -- el visitante
-            puede tener la burbuja fuera de su campo de visión inmediato. */}
+        {/* anillo de atención: solo pulsa mientras hay un mensaje activo */}
         {indiceMensaje !== null && !open && (
           <motion.span
             aria-hidden="true"
@@ -222,7 +332,15 @@ export function ChatbotWidget() {
             </motion.span>
           ) : (
             <motion.span key="chat" initial={{ rotate: 90, opacity: 0, scale: 0.6 }} animate={{ rotate: 0, opacity: 1, scale: 1 }} exit={{ rotate: -90, opacity: 0, scale: 0.6 }} transition={{ duration: 0.25 }}>
-              <SiebotMascot size={42} />
+              <div className="relative h-10 w-10 sm:h-13 sm:w-13 rounded-full overflow-hidden ring-1.5 ring-gold/40">
+                <Image
+                  src="/chatbot/siebot-vendedor.png"
+                  alt="Siebot"
+                  fill
+                  sizes="52px"
+                  className="object-cover object-top scale-110"
+                />
+              </div>
             </motion.span>
           )}
         </AnimatePresence>
@@ -235,14 +353,31 @@ export function ChatbotWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.35, ease: EASE }}
-            className="fixed inset-x-4 bottom-24 z-40 flex max-h-[70vh] flex-col overflow-hidden rounded-3xl bg-surface shadow-[0_30px_60px_-15px_rgba(28,26,22,0.4)] ring-1 ring-line sm:inset-x-auto sm:bottom-24 sm:left-6 sm:w-96"
+            className="fixed inset-x-2 bottom-20 sm:bottom-24 sm:inset-x-auto sm:left-6 z-50 flex max-h-[82vh] sm:max-h-[75vh] flex-col overflow-hidden rounded-2xl sm:rounded-3xl bg-surface shadow-[0_30px_60px_-15px_rgba(28,26,22,0.4)] ring-1 ring-line sm:w-96"
           >
             <div className="flex items-center gap-3 border-b border-line bg-ink px-5 py-4 text-paper">
-              <SiebotMascot size={36} pensando={cargando} />
-              <div>
-                <p className="text-sm font-medium">Siebot</p>
-                <p className="text-xs text-paper/60">Asistente virtual de SIE Jurídicos</p>
+              <div className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden ring-2 ring-gold/40">
+                <Image
+                  src="/chatbot/siebot-vendedor.png"
+                  alt="Siebot"
+                  fill
+                  sizes="40px"
+                  className="object-cover object-top scale-110"
+                />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-1 ring-ink" />
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Siebot</p>
+                <p className="text-xs text-paper/60 truncate">Asistente virtual de SIE Jurídicos</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Cerrar chat"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-paper/70 hover:bg-paper/10 hover:text-paper"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">

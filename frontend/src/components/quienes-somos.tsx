@@ -17,29 +17,26 @@ export function QuienesSomos({ media }: { media: ReactNode }) {
   return (
     <section
       id="quienes-somos"
-      className="snap-slide section-seam frame-fixed py-20"
+      className="snap-slide section-seam py-16 md:py-24 flex flex-col justify-center"
     >
-      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-16">
+      <div className="mx-auto flex w-full max-w-7xl flex-col px-6 md:justify-center">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="max-w-3xl shrink-0 text-balance font-display text-4xl leading-[1.05] tracking-tight md:text-6xl"
+          className="max-w-3xl shrink-0 text-balance font-display text-3xl sm:text-4xl leading-[1.08] tracking-tight md:text-5xl lg:text-6xl"
         >
           Más que abogados: aliados en cada decisión importante.
         </motion.h2>
 
-        {/* en desktop la sección tiene una altura fija (100dvh) para que el
-            encaje del scroll-snap sea siempre exacto: el texto largo, en vez
-            de estirar la sección, se desplaza con su propio scroll interno */}
-        <div className="mt-10 flex flex-col gap-12 md:mt-10 md:min-h-0 md:flex-1 md:flex-row md:gap-16">
+        <div className="mt-8 flex flex-col gap-10 md:mt-10 md:flex-row md:items-center md:gap-16">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="space-y-6 text-base leading-relaxed text-ink-soft md:h-full md:w-[58%] md:overflow-y-auto md:pr-6 md:text-lg"
+            className="space-y-6 text-base leading-relaxed text-ink-soft md:w-[58%] md:pr-6 md:text-lg"
           >
             <div>
               <p className="font-display text-xl text-ink md:text-2xl">
@@ -80,7 +77,7 @@ export function QuienesSomos({ media }: { media: ReactNode }) {
             </p>
           </motion.div>
 
-          <div className="flex flex-col gap-4 md:h-full md:w-[42%] md:justify-center">
+          <div className="flex flex-col gap-4 md:w-[42%] md:justify-center">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}

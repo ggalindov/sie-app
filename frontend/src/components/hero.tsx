@@ -58,36 +58,36 @@ export function Hero({ media }: { media: ReactNode }) {
 
         <motion.h1
           {...entry(0.12)}
-          className="mt-9 text-balance font-display text-5xl leading-[1.04] tracking-tight text-night-ink md:text-7xl lg:text-8xl"
+          className="mt-8 sm:mt-9 text-balance font-display text-4xl sm:text-6xl md:text-7xl lg:text-8xl leading-[1.06] sm:leading-[1.04] tracking-tight text-night-ink"
         >
           Veinte años de experiencia legal, a tu lado.
         </motion.h1>
 
         <motion.p
           {...entry(0.24)}
-          className="mt-6 max-w-xl text-balance text-lg leading-relaxed text-night-ink/75 md:text-xl"
+          className="mt-5 sm:mt-6 max-w-xl text-balance text-base sm:text-lg leading-relaxed text-night-ink/75 md:text-xl"
         >
           Asesoría jurídica clara y cercana para personas y empresas, con
           más de 800 casos ganados.
         </motion.p>
 
-        <motion.div {...entry(0.34)} className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+        <motion.div {...entry(0.34)} className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3.5 sm:gap-x-8 sm:gap-y-4">
           <MagneticButton strength={0.4}>
             <Link
               href="#agendar"
-              className="cta-boton group inline-flex items-center gap-3 rounded-lg bg-gold px-7 py-4 text-base font-medium text-ink-fixed active:scale-[0.98]"
+              className="cta-boton group inline-flex items-center justify-center gap-2.5 sm:gap-3 rounded-xl bg-gold px-5 py-3 sm:px-7 sm:py-4 text-sm sm:text-base font-medium text-ink-fixed active:scale-[0.98]"
             >
-              {siteConfig.ctaPrincipal}
+              <span className="relative z-10">{siteConfig.ctaPrincipal}</span>
               <ArrowRight
                 weight="bold"
-                className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+                className="relative z-10 h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
               />
             </Link>
           </MagneticButton>
 
           <Link
             href="#areas"
-            className="text-base font-medium text-night-ink underline decoration-night-ink/30 decoration-2 underline-offset-4 transition-colors duration-300 hover:decoration-gold"
+            className="text-sm sm:text-base font-medium text-night-ink underline decoration-night-ink/35 decoration-1 underline-offset-4 transition-colors duration-300 hover:decoration-gold hover:text-gold"
           >
             Ver áreas de práctica
           </Link>

@@ -14,11 +14,13 @@ export function SectionVideo({
   poster,
   posterAlt,
   className = "",
+  priority = false,
 }: {
   src: string;
   poster: string;
   posterAlt: string;
   className?: string;
+  priority?: boolean;
 }) {
   const existeVideo = fs.existsSync(path.join(process.cwd(), "public", src));
 
@@ -30,7 +32,7 @@ export function SectionVideo({
         fill
         sizes="100vw"
         className={className}
-        priority
+        priority={priority}
       />
     );
   }

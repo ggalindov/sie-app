@@ -6,6 +6,7 @@ import { CaretLeft, CaretRight, Quotes, Star } from "@phosphor-icons/react";
 import { testimonios as testimoniosBase } from "@/lib/content";
 import { getTestimoniosAprobados, type TestimonioPublico } from "@/lib/api";
 import { TestimonioFormModal } from "@/components/testimonio-form-modal";
+import { MagneticButton } from "@/components/magnetic-button";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const INTERVALO_AUTOPLAY_MS = 6500;
@@ -50,7 +51,7 @@ export function Testimonios({ media }: { media: ReactNode }) {
   ];
 
   return (
-    <section className="snap-slide section-seam relative overflow-hidden py-20 md:py-28">
+    <section id="testimonios" className="snap-slide section-seam relative overflow-hidden py-20 md:py-28">
       <div className="absolute inset-0">{media}</div>
       <div className="absolute inset-0 bg-gradient-to-b from-night/93 via-night/88 to-night/93" />
 
@@ -219,17 +220,22 @@ function CarruselTestimonios({
             </div>
           )}
 
-          <motion.button
-            type="button"
-            onClick={onAbrirModal}
+          <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.4 }}
             transition={{ duration: 0.7, ease: EASE }}
-            className="cta-boton rounded-lg border border-night-ink/25 px-4 py-2 text-xs font-medium text-night-ink transition-colors duration-200 hover:border-gold-deep hover:text-ink-fixed active:scale-[0.97] sm:px-5 sm:py-2.5 sm:text-sm"
           >
-            Deja tu testimonio
-          </motion.button>
+            <MagneticButton strength={0.3}>
+              <button
+                type="button"
+                onClick={onAbrirModal}
+                className="cta-boton-glass rounded-xl border border-night-ink/25 bg-night-ink/10 px-4 py-2 text-xs font-semibold text-night-ink transition-all duration-200 hover:border-gold hover:text-gold active:scale-[0.97] sm:px-5 sm:py-2.5 sm:text-sm"
+              >
+                <span className="relative z-10">Deja tu testimonio</span>
+              </button>
+            </MagneticButton>
+          </motion.div>
         </div>
       </div>
 

@@ -22,8 +22,8 @@ export function Equipo() {
   const [seleccionado, setSeleccionado] = useState<MiembroEquipo | null>(null);
 
   return (
-    <section id="equipo" className="snap-slide section-seam frame-fixed py-20">
-      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-6">
+    <section id="equipo" className="snap-slide section-seam py-14 md:py-20 lg:py-24 flex flex-col justify-center">
+      <div className="mx-auto flex w-full max-w-7xl flex-col px-6 md:justify-center">
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <motion.h2
             initial={{ opacity: 0, y: 24 }}

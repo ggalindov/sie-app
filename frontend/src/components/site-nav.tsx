@@ -133,16 +133,22 @@ export function SiteNav() {
             <HelpMenu className="nav-text-crossfade hidden hover:bg-ink/5 sm:flex" />
 
             <MagneticButton strength={0.35} className="hidden sm:inline-block">
-              <Link
-                href="/#agendar"
-                className="cta-boton group flex items-center gap-2 rounded-lg bg-gold py-2.5 pl-5 pr-4 text-sm font-medium text-ink-fixed active:scale-[0.98]"
-              >
-                {siteConfig.ctaPrincipal}
-                <WhatsappLogo
-                  weight="fill"
-                  className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5"
-                />
-              </Link>
+              <div className="nav-cta-wrap rounded-lg">
+                <span className="nav-cta-aura" aria-hidden="true" />
+                <span className="nav-cta-onda" aria-hidden="true" />
+                <span className="nav-cta-onda-2" aria-hidden="true" />
+                <span className="nav-cta-onda-3" aria-hidden="true" />
+                <Link
+                  href="/#agendar"
+                  className="cta-boton group relative z-10 flex items-center gap-2 rounded-lg bg-gold py-2.5 pl-5 pr-4 text-sm font-medium text-ink-fixed active:scale-[0.98]"
+                >
+                  {siteConfig.ctaPrincipal}
+                  <WhatsappLogo
+                    weight="fill"
+                    className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5"
+                  />
+                </Link>
+              </div>
             </MagneticButton>
 
             {/* Deliberadamente pequeño y casi invisible en reposo (opacity-20): es la
@@ -200,7 +206,7 @@ export function SiteNav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="fixed inset-0 z-30 flex flex-col justify-center bg-night/95 px-8 backdrop-blur-2xl md:hidden"
+            className="fixed inset-0 z-30 flex flex-col justify-center overflow-y-auto bg-night/95 px-8 py-20 backdrop-blur-2xl md:hidden"
           >
             <nav className="flex flex-col gap-2">
               {navLinks.map((link, i) => (
@@ -226,13 +232,19 @@ export function SiteNav() {
               transition={{ duration: 0.5, delay: 0.08 * navLinks.length, ease: EASE }}
               className="mt-10"
             >
-              <Link
-                href="/#agendar"
-                onClick={() => setOpen(false)}
-                className="cta-boton inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 text-sm font-medium text-ink-fixed"
-              >
-                {siteConfig.ctaPrincipal}
-              </Link>
+              <div className="nav-cta-wrap rounded-xl">
+                <span className="nav-cta-aura" aria-hidden="true" />
+                <span className="nav-cta-onda" aria-hidden="true" />
+                <span className="nav-cta-onda-2" aria-hidden="true" />
+                <span className="nav-cta-onda-3" aria-hidden="true" />
+                <Link
+                  href="/#agendar"
+                  onClick={() => setOpen(false)}
+                  className="cta-boton relative z-10 inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-xs sm:text-sm font-semibold text-ink-fixed shadow-sm active:scale-[0.98]"
+                >
+                  <span className="relative z-10">{siteConfig.ctaPrincipal}</span>
+                </Link>
+              </div>
               <div className="mt-8 flex items-center gap-4">
                 <HelpMenu
                   align="left"

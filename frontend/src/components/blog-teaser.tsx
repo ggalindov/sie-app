@@ -1,12 +1,8 @@
 import Link from "next/link";
+import { ArrowRight, NewspaperClipping, BookOpenText } from "@phosphor-icons/react/dist/ssr";
 import { getArticulos, type ArticuloResumen } from "@/lib/api";
-import { BlogTeaserLista, BlogTeaserVacio } from "@/components/blog-teaser-contenido";
+import { BlogTeaserContenido } from "@/components/blog-teaser-contenido";
 
-// La suscripción al boletín ya no vive aquí: solo se ofrece desde el popup
-// (NewsletterPopup, montado en SiteChrome). En desktop la sección tiene
-// altura fija (100dvh, igual que Quienes Somos) para que el encaje del
-// scroll-snap sea siempre exacto: si los artículos no caben enteros, se
-// desplazan con su propio scroll interno en vez de estirar la sección.
 export async function BlogTeaser() {
   let articulos: ArticuloResumen[];
   try {
@@ -15,47 +11,44 @@ export async function BlogTeaser() {
     articulos = [];
   }
 
-  if (articulos.length === 0) {
-    return (
-      <section id="blog" className="snap-slide section-seam frame-fixed py-20">
-        <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-16">
-          <h2 className="shrink-0 font-display text-4xl leading-tight tracking-tight md:text-5xl">
-            Blog y Noticias
-          </h2>
-
-          <div className="md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-2">
-            <BlogTeaserVacio />
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const [destacado, ...resto] = articulos;
-
   return (
-    <section id="blog" className="snap-slide section-seam frame-fixed py-20">
-      <div className="mx-auto flex max-w-7xl flex-col px-6 md:h-full md:justify-center md:py-16">
-        <div className="flex shrink-0 items-end justify-between gap-4">
-          <h2 className="font-display text-4xl leading-tight tracking-tight md:text-5xl">
-            Blog y Noticias
-          </h2>
+    <section id="blog" className="snap-slide section-seam relative py-12 md:py-16 lg:py-20 xl:py-24 flex flex-col justify-center">
+      <div className="mx-auto flex w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1580px] flex-col justify-center px-6 lg:px-10 xl:px-12">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl leading-tight tracking-tight">
+              Blog & Noticias: <span className="font-light italic text-ink/80">Criterio legal</span>
+            </h2>
+            <p className="mt-2 max-w-2xl text-xs sm:text-sm md:text-base xl:text-lg leading-relaxed text-ink-soft">
+              Análisis claro de la ley colombiana, sentencias relevantes, precedentes y noticias jurídicas de impacto para personas y empresas.
+            </p>
+          </div>
+
           <Link
             href="/blog"
-            className="hidden shrink-0 items-center gap-1 text-sm font-medium text-ink underline decoration-line decoration-2 underline-offset-4 hover:decoration-gold sm:flex"
+            className="group hidden shrink-0 items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 sm:px-5 sm:py-2.5 xl:px-6 xl:py-3 text-xs sm:text-sm xl:text-base font-medium text-ink shadow-xs transition-all duration-300 hover:border-gold-deep/50 hover:bg-gold/5 hover:text-gold-deep hover:shadow-sm sm:inline-flex"
           >
-            Ver todos los artículos
+            <BookOpenText weight="duotone" className="h-4 w-4 xl:h-5 xl:w-5 text-gold-deep" />
+            Ver todos los artículos y noticias
+            <ArrowRight
+              weight="bold"
+              className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-gold-deep transition-transform duration-300 group-hover:translate-x-1"
+            />
           </Link>
         </div>
 
-        <div className="md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-2">
-          <BlogTeaserLista destacado={destacado} resto={resto} />
+        <div className="mt-6 md:mt-8 xl:mt-10">
+          <BlogTeaserContenido articulos={articulos} />
+        </div>
 
+        <div className="mt-6 text-center sm:hidden">
           <Link
             href="/blog"
-            className="mt-6 flex items-center gap-1 text-sm font-medium text-ink underline decoration-line decoration-2 underline-offset-4 hover:decoration-gold sm:hidden"
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-gold-deep underline decoration-gold/40 underline-offset-4"
           >
-            Ver todos los artículos
+            <NewspaperClipping weight="duotone" className="h-4 w-4" />
+            Ver todos los artículos y noticias
+            <ArrowRight weight="bold" className="h-3.5 w-3.5" />
           </Link>
         </div>
       </div>

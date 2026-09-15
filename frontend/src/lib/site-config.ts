@@ -21,9 +21,10 @@ export const siteConfig = {
 // secciones) el clic no hacía nada, porque no había ningún id que buscar ahí. Con
 // "/#ancla" siempre navega primero a la home y ya ahí hace scroll al id.
 export const navLinks = [
-  { href: "/#quienes-somos", label: "La firma" },
-  { href: "/#areas", label: "Áreas de práctica" },
   { href: "/#equipo", label: "Equipo" },
+  { href: "/#areas", label: "Áreas de práctica" },
+  { href: "/#testimonios", label: "Testimonios" },
+  { href: "/#quienes-somos", label: "La firma" },
   { href: "/blog", label: "Blog y Noticias" },
   { href: "/#contacto", label: "Contacto" },
 ] as const;

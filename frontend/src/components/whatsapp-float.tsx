@@ -18,7 +18,7 @@ export function WhatsappFloat() {
       whileTap={{ scale: 0.96 }}
       // texto/ícono en tinta oscura, no blanco: blanco sobre este verde da ~2:1 de
       // contraste (falla WCAG AA); con tinta oscura sube a ~8:1.
-      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-ink-fixed shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)]"
+      className="fixed bottom-6 right-4 sm:right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-ink-fixed shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)]"
     >
       <motion.span
         aria-hidden="true"

@@ -29,7 +29,7 @@ export function ConsultaCasoFloat() {
       // aunque el borde derecho coincida) -- el corrimiento que se veía en la captura. 4px
       // extra de margen compensa exactamente esa diferencia de radio para que los tres
       // círculos queden perfectamente centrados en el mismo eje vertical.
-      className="fixed bottom-44 right-7 z-40"
+      className="fixed bottom-38 right-5 sm:bottom-44 sm:right-7 z-40"
     >
       {/* onHoverStart/onHoverEnd viven en un div normal aparte, nunca en el mismo
           motion.div que anima la entrada con delay -- bug real encontrado en vivo: con

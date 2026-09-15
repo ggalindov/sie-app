@@ -15,6 +15,7 @@ import { VisitorTracker } from "@/components/visitor-tracker";
 import { CuidaMarcaFloat } from "@/components/cuida-marca-float";
 import { ConsultaCasoFloat } from "@/components/consulta-caso-float";
 import { LoadingScreen } from "@/components/loading-screen";
+import { PointerBlur } from "@/components/pointer-blur";
 
 // El panel administrativo (/admin/**) tiene su propio shell (sidebar/topbar) y no debe
 // mostrar el nav, footer, WhatsApp flotante ni chatbot del sitio público.
@@ -78,6 +79,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         <WhatsappFloat />
         <ChatbotWidget />
         <NewsletterPopup />
+        <PointerBlur />
       </div>
     </>
   );

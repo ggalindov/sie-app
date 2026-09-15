@@ -96,15 +96,15 @@ function Eyebrow({ children, tone = "gold" }: { children: ReactNode; tone?: "gol
 
 function CtaButton({ children, href = CTA_HREF }: { children: ReactNode; href?: string }) {
   return (
-    <MagneticButton strength={0.4}>
+    <MagneticButton strength={0.35}>
       <Link
         href={href}
-        className="cta-boton group inline-flex items-center gap-3 rounded-lg bg-gold px-7 py-4 text-base font-medium text-ink-fixed active:scale-[0.98]"
+        className="cta-boton group inline-flex items-center gap-2 sm:gap-3 rounded-xl bg-gold px-5 py-2.5 sm:px-7 sm:py-3.5 text-xs sm:text-sm md:text-base font-semibold text-ink-fixed shadow-sm active:scale-[0.98]"
       >
-        {children}
+        <span className="relative z-10">{children}</span>
         <ArrowRight
           weight="bold"
-          className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+          className="relative z-10 h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
         />
       </Link>
     </MagneticButton>

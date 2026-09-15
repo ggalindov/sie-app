@@ -130,9 +130,9 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
-            className="rounded-[2rem] bg-ink/5 p-2 ring-1 ring-ink/5 md:col-span-8"
+            className="rounded-[1.75rem] sm:rounded-[2rem] bg-ink/5 p-1.5 sm:p-2 ring-1 ring-ink/5 md:col-span-8"
           >
-            <div className="rounded-[1.6rem] bg-paper p-7 ring-1 ring-line md:p-10">
+            <div className="rounded-[1.4rem] sm:rounded-[1.6rem] bg-paper p-5 sm:p-7 ring-1 ring-line md:p-10">
               <AnimatePresence mode="wait">
                 {estado === "enviado" ? (
                   <motion.div
@@ -287,21 +287,21 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
                         <button
                           type="submit"
                           disabled={estado === "enviando"}
-                          className="cta-boton flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-4 text-sm font-medium text-ink-fixed disabled:opacity-60 sm:w-auto sm:px-10"
+                          className="cta-boton flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3.5 px-8 text-sm font-medium text-ink-fixed disabled:opacity-60 active:scale-[0.98] sm:w-auto sm:px-10"
                         >
                           {estado === "enviando" ? (
                             <>
                               <motion.span
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 0.85, repeat: Infinity, ease: [0.65, 0, 0.35, 1] }}
-                                className="h-4 w-4 rounded-full border-2 border-ink-fixed/25 border-t-ink-fixed"
+                                className="relative z-10 h-4 w-4 rounded-full border-2 border-ink-fixed/25 border-t-ink-fixed"
                               />
-                              Enviando
+                              <span className="relative z-10">Enviando</span>
                             </>
                           ) : (
                             <>
-                              {siteConfig.ctaPrincipal}
-                              <ArrowRight weight="bold" className="h-4 w-4" />
+                              <span className="relative z-10">{siteConfig.ctaPrincipal}</span>
+                              <ArrowRight weight="bold" className="relative z-10 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </>
                           )}
                         </button>

@@ -127,15 +127,15 @@ export function Contacto() {
                     rel={canal.label === "Ubicación" ? "noopener noreferrer" : undefined}
                     className="group block"
                   >
-                    <div className="card-edged flex w-full items-center gap-5 px-7 py-6 transition-transform duration-300 group-hover:-translate-x-1">
-                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
-                        <Icono weight="light" className="h-6 w-6" />
+                    <div className="card-edged flex w-full items-center gap-4 sm:gap-5 px-5 py-5 sm:px-7 sm:py-6 transition-transform duration-300 group-hover:-translate-x-1">
+                      <span className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
+                        <Icono weight="light" className="h-5 w-5 sm:h-6 sm:w-6" />
                       </span>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
                           {canal.label}
                         </p>
-                        <p className="mt-1 text-lg font-medium text-ink">{canal.valor}</p>
+                        <p className="mt-1 text-base sm:text-lg font-medium text-ink break-all sm:break-normal">{canal.valor}</p>
                       </div>
                     </div>
                   </a>
