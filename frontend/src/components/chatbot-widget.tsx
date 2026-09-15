@@ -82,13 +82,13 @@ export function ChatbotWidget() {
     return () => window.removeEventListener("abrir-chatbot", abrir);
   }, []);
 
-  // Rotación continua e ininterrumpida de comentarios legales:
-  // - Primera aparición a los 2.8s (justo al desvanecerse la pantalla de bienvenida inicial).
-  // - Cada consejo legal se expone durante 6.5s para lectura reposada.
-  // - Transición de salida y entrada suave de 600ms entre mensajes.
+  // Rotación pausada y elegante de sugerencias legales:
+  // - Primera aparición a los 8.5s (permite al usuario asentarse y leer el Hero con calma).
+  // - Cada consejo legal se expone durante 9s para lectura totalmente descansada.
+  // - Pausa amplia de 7.5s entre un comentario y el siguiente (no satura la pantalla).
   // - Hover seguro: solo se activa en dispositivos con mouse real (hover: hover).
-  // - Cuenta con límite de tiempo de seguridad de 14s para evitar congelamientos eternos.
-  // - Tocar o hacer clic en la burbuja abre el asistente virtual de inmediato.
+  // - Límite de seguridad de 16s para evitar congelamientos accidentales.
+  // - Tocar o hacer clic en la nube abre el asistente virtual de inmediato.
   useEffect(() => {
     if (open) {
       setIndiceMensaje(null);
@@ -105,8 +105,8 @@ export function ChatbotWidget() {
 
       // Si el cursor está encima en escritorio y no ha superado el tope de seguridad
       const tiempoHover = Date.now() - tiempoInicioRef.current;
-      if (pausadoRef.current && tiempoHover < 14000) {
-        temporizador = setTimeout(rotar, 800);
+      if (pausadoRef.current && tiempoHover < 16000) {
+        temporizador = setTimeout(rotar, 1000);
         return;
       }
 
@@ -120,25 +120,26 @@ export function ChatbotWidget() {
         function esperarYPasar() {
           if (cancelado) return;
           const tiempoTotal = Date.now() - tiempoInicioRef.current;
-          if (pausadoRef.current && tiempoTotal < 14000) {
-            temporizador = setTimeout(esperarYPasar, 800);
+          if (pausadoRef.current && tiempoTotal < 16000) {
+            temporizador = setTimeout(esperarYPasar, 1000);
           } else {
             setIndiceMensaje(null);
             pausadoRef.current = false;
+            // Pausa generosa de 7.5s antes de mostrar el siguiente comentario
             temporizador = setTimeout(() => {
               if (cancelado) return;
               indice = (indice + 1) % MENSAJES_PROMOCIONALES.length;
               rotar();
-            }, 600); // Transición suave entre mensajes
+            }, 7500);
           }
         }
 
         esperarYPasar();
-      }, 6500); // 6.5s visible para lectura cómoda
+      }, 9000); // 9s visible para lectura cómoda
     }
 
-    // Comienza al concluir la animación de carga de inicio
-    temporizador = setTimeout(rotar, 2800);
+    // Primera aparición a los 8.5s tras abrir la web (no invasiva)
+    temporizador = setTimeout(rotar, 8500);
 
     return () => {
       cancelado = true;
@@ -150,11 +151,11 @@ export function ChatbotWidget() {
   function descartarBurbuja() {
     setIndiceMensaje(null);
     pausadoRef.current = false;
-    // Si el visitante cierra voluntariamente con (X), pausar 15s y retomar
+    // Si el visitante cierra voluntariamente con (X), pausar 30s
     setTimeout(() => {
       setIndiceMensaje(0);
       tiempoInicioRef.current = Date.now();
-    }, 15000);
+    }, 30000);
   }
 
   async function enviar(e: FormEvent) {

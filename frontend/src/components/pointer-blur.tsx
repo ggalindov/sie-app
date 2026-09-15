@@ -64,7 +64,7 @@ export function PointerBlur() {
       const target = e.target as HTMLElement | null;
       const esInteractivo = Boolean(
         target?.closest(
-          "a, button, input, textarea, select, [role='button'], .cta-boton, .area-row, [tabindex='0']"
+          "a, button, input, textarea, select, [role='button'], [role='tab'], .cta-boton, .area-row, [tabindex='0'], .cursor-pointer, label[for], [data-state], tr[onClick]"
         )
       );
 
@@ -155,7 +155,7 @@ export function PointerBlur() {
       ref={containerRef}
       aria-hidden="true"
       style={{ opacity: 0 }}
-      className="pointer-events-none fixed inset-0 z-50 overflow-hidden select-none"
+      className="pointer-events-none fixed inset-0 z-[99999] overflow-hidden select-none"
     >
       {/* Halo ambiental dorado cálido de fondo */}
       <div
@@ -172,16 +172,16 @@ export function PointerBlur() {
       {/* Anillo magnético exterior que reacciona a los elementos interactivos */}
       <div
         ref={ringRef}
-        className="pointer-events-none absolute left-0 top-0 h-[34px] w-[34px] rounded-full border border-gold/65 bg-gold/[0.04] shadow-[0_0_18px_rgba(217,169,37,0.35)] backdrop-blur-[1px] will-change-transform transition-[border-color,background-color] duration-200"
+        className="pointer-events-none absolute left-0 top-0 h-[34px] w-[34px] rounded-full border border-gold/75 bg-gold/[0.04] shadow-[0_0_16px_rgba(217,169,37,0.35)] backdrop-blur-[1px] will-change-transform transition-[border-color,background-color] duration-200"
         style={{
           transform: "translate3d(-400px, -400px, 0)",
         }}
       />
 
-      {/* Micro-punto áureo de alta precisión */}
+      {/* Micro-punto áureo de alta precisión con contorno de contraste para fondos claros y oscuros */}
       <div
         ref={dotRef}
-        className="pointer-events-none absolute left-0 top-0 h-[6px] w-[6px] rounded-full bg-[#f6d77c] shadow-[0_0_8px_rgba(217,169,37,0.95),0_0_2px_#ffffff] will-change-transform"
+        className="pointer-events-none absolute left-0 top-0 h-[6px] w-[6px] rounded-full bg-[#f6d77c] shadow-[0_0_8px_rgba(217,169,37,0.95),0_0_2px_#ffffff,0_0_0_1px_rgba(20,19,15,0.35)] will-change-transform"
         style={{
           transform: "translate3d(-400px, -400px, 0)",
         }}

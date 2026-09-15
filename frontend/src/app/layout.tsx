@@ -3,6 +3,7 @@ import { Playfair_Display, Manrope } from "next/font/google";
 import { MotionConfig } from "motion/react";
 import { Toaster } from "sonner";
 import { SiteChrome } from "@/components/site-chrome";
+import { PointerBlur } from "@/components/pointer-blur";
 import { siteConfig } from "@/lib/site-config";
 import "./globals.css";
 
@@ -110,6 +111,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
         <MotionConfig reducedMotion="user">
           <SiteChrome>{children}</SiteChrome>
+          <PointerBlur />
           <Toaster position="bottom-right" richColors />
         </MotionConfig>
       </body>
