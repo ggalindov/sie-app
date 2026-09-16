@@ -26,7 +26,10 @@ export default function Home() {
         }
       />
 
-      {/* 2. Cada caso se resuelve con el mismo criterio: veinte años de experiencia */}
+      {/* 2. Áreas de práctica (de segundas en la landing) */}
+      <AreasPractica />
+
+      {/* 3. Cada caso se resuelve con el mismo criterio: veinte años de experiencia */}
       <Criterio
         media={
           <SectionVideo
@@ -38,11 +41,8 @@ export default function Home() {
         }
       />
 
-      {/* 3. Nuestro equipo */}
+      {/* 4. Nuestro equipo */}
       <Equipo />
-
-      {/* 4. Áreas de práctica */}
-      <AreasPractica />
 
       {/* 5. Lo que dicen nuestros clientes */}
       <Testimonios
@@ -74,10 +74,7 @@ export default function Home() {
       {/* 8. Blog y análisis legal con nuevo layout editorial */}
       <BlogTeaser />
 
-      {/* 9. Contacto */}
-      <Contacto />
-
-      {/* 10. Agendar asesoría */}
+      {/* 9. Agendar asesoría (formulario de contáctanos) */}
       <AgendarAsesoria
         media={
           <SectionVideo
@@ -88,6 +85,9 @@ export default function Home() {
           />
         }
       />
+
+      {/* 10. Directorio de Contacto oficial */}
+      <Contacto />
     </main>
   );
 }

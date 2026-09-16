@@ -82,17 +82,23 @@ export function ChatbotWidget() {
     return () => window.removeEventListener("abrir-chatbot", abrir);
   }, []);
 
-  // Rotación pausada y elegante de sugerencias legales:
-  // - Primera aparición a los 8.5s (permite al usuario asentarse y leer el Hero con calma).
-  // - Cada consejo legal se expone durante 9s para lectura totalmente descansada.
-  // - Pausa amplia de 7.5s entre un comentario y el siguiente (no satura la pantalla).
-  // - Hover seguro: solo se activa en dispositivos con mouse real (hover: hover).
-  // - Límite de seguridad de 16s para evitar congelamientos accidentales.
-  // - Tocar o hacer clic en la nube abre el asistente virtual de inmediato.
+  // Rotación pausada y elegante de sugerencias legales (exclusiva para escritorio):
+  // - En móvil (< 768px): totalmente apagada, no lanza comentarios ni satura la pantalla.
+  // - En escritorio:
+  //   * Primera aparición a los 8.5s tras abrir la web (no invasiva).
+  //   * Cada consejo legal se expone durante 9s para lectura totalmente descansada.
+  //   * Pausa amplia de 7.5s entre un comentario y el siguiente.
+  //   * Hover seguro: solo se activa en dispositivos con mouse real (hover: hover).
   useEffect(() => {
     if (open) {
       setIndiceMensaje(null);
       pausadoRef.current = false;
+      return;
+    }
+
+    // Si es móvil (< 768px / breakpoint md), apagar por completo los comentarios al aire
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIndiceMensaje(null);
       return;
     }
 
@@ -102,6 +108,12 @@ export function ChatbotWidget() {
 
     function rotar() {
       if (cancelado) return;
+
+      // Apagado si el ancho de pantalla corresponde a móvil
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setIndiceMensaje(null);
+        return;
+      }
 
       // Si el cursor está encima en escritorio y no ha superado el tope de seguridad
       const tiempoHover = Date.now() - tiempoInicioRef.current;
@@ -128,6 +140,7 @@ export function ChatbotWidget() {
             // Pausa generosa de 7.5s antes de mostrar el siguiente comentario
             temporizador = setTimeout(() => {
               if (cancelado) return;
+              if (typeof window !== "undefined" && window.innerWidth < 768) return;
               indice = (indice + 1) % MENSAJES_PROMOCIONALES.length;
               rotar();
             }, 7500);
@@ -141,9 +154,18 @@ export function ChatbotWidget() {
     // Primera aparición a los 8.5s tras abrir la web (no invasiva)
     temporizador = setTimeout(rotar, 8500);
 
+    const onResize = () => {
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setIndiceMensaje(null);
+        clearTimeout(temporizador);
+      }
+    };
+    window.addEventListener("resize", onResize);
+
     return () => {
       cancelado = true;
       clearTimeout(temporizador);
+      window.removeEventListener("resize", onResize);
       pausadoRef.current = false;
     };
   }, [open]);
@@ -151,8 +173,9 @@ export function ChatbotWidget() {
   function descartarBurbuja() {
     setIndiceMensaje(null);
     pausadoRef.current = false;
-    // Si el visitante cierra voluntariamente con (X), pausar 30s
+    // Si el visitante cierra voluntariamente con (X), pausar 30s (solo si no es móvil)
     setTimeout(() => {
+      if (typeof window !== "undefined" && window.innerWidth < 768) return;
       setIndiceMensaje(0);
       tiempoInicioRef.current = Date.now();
     }, 30000);
@@ -220,7 +243,7 @@ export function ChatbotWidget() {
             onMouseLeave={() => {
               pausadoRef.current = false;
             }}
-            className="fixed bottom-[4.75rem] sm:bottom-[5.5rem] left-3 sm:left-6 z-40 flex flex-col items-start select-none filter drop-shadow-[0_14px_28px_rgba(15,14,10,0.45)]"
+            className="hidden md:flex fixed bottom-[5.5rem] left-6 z-40 flex-col items-start select-none filter drop-shadow-[0_14px_28px_rgba(15,14,10,0.45)]"
           >
             {/* Cuerpo principal de la nube de pensamiento */}
             <div
@@ -316,14 +339,14 @@ export function ChatbotWidget() {
         whileTap={{ scale: 0.96 }}
         className="fixed bottom-6 left-3 sm:left-6 z-40 flex h-13 w-13 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-ink text-paper shadow-[0_10px_30px_-8px_rgba(0,0,0,0.4)] ring-2 ring-gold/40"
       >
-        {/* anillo de atención: solo pulsa mientras hay un mensaje activo */}
+        {/* anillo de atención: solo pulsa en escritorio mientras hay un mensaje activo */}
         {indiceMensaje !== null && !open && (
           <motion.span
             aria-hidden="true"
             initial={{ opacity: 0.5, scale: 1 }}
             animate={{ opacity: 0, scale: 1.5 }}
             transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
-            className="absolute inset-0 rounded-full bg-gold"
+            className="hidden md:block absolute inset-0 rounded-full bg-gold"
           />
         )}
         <AnimatePresence initial={false} mode="wait">

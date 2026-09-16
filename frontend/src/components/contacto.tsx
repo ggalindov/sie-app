@@ -1,9 +1,11 @@
 "use client";
 
 import { motion } from "motion/react";
+import Link from "next/link";
 import {
   EnvelopeSimple,
   FacebookLogo,
+  FileMagnifyingGlass,
   InstagramLogo,
   LinkedinLogo,
   MapPin,
@@ -23,6 +25,12 @@ const canales = [
     label: "Ubicación",
     valor: siteConfig.ciudad,
     href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(siteConfig.ciudad)}`,
+  },
+  {
+    icono: FileMagnifyingGlass,
+    label: "Seguimiento Procesal",
+    valor: "Consulta el estado de tu caso",
+    href: "/consulta-caso",
   },
 ];
 
@@ -113,32 +121,43 @@ export function Contacto() {
           <div className="flex flex-col gap-4 md:col-span-7 md:self-center">
             {canales.map((canal, i) => {
               const Icono = canal.icono;
+              const esInterno = canal.href.startsWith("/");
+              const contenido = (
+                <div className="card-edged flex w-full items-center gap-4 sm:gap-5 px-5 py-5 sm:px-7 sm:py-6 transition-transform duration-300 group-hover:-translate-x-1">
+                  <span className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
+                    <Icono weight="light" className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
+                      {canal.label}
+                    </p>
+                    <p className="mt-1 text-base sm:text-lg font-medium text-ink break-all sm:break-normal">{canal.valor}</p>
+                  </div>
+                </div>
+              );
+
               return (
                 <motion.div
                   key={canal.label}
                   initial={{ opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
-                  transition={{ duration: 0.6, delay: 0.1 * i, ease: EASE }}
+                  transition={{ duration: 0.6, delay: 0.08 * i, ease: EASE }}
                 >
-                  <a
-                    href={canal.href}
-                    target={canal.label === "Ubicación" ? "_blank" : undefined}
-                    rel={canal.label === "Ubicación" ? "noopener noreferrer" : undefined}
-                    className="group block"
-                  >
-                    <div className="card-edged flex w-full items-center gap-4 sm:gap-5 px-5 py-5 sm:px-7 sm:py-6 transition-transform duration-300 group-hover:-translate-x-1">
-                      <span className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
-                        <Icono weight="light" className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium uppercase tracking-[0.1em] text-ink-soft">
-                          {canal.label}
-                        </p>
-                        <p className="mt-1 text-base sm:text-lg font-medium text-ink break-all sm:break-normal">{canal.valor}</p>
-                      </div>
-                    </div>
-                  </a>
+                  {esInterno ? (
+                    <Link href={canal.href} className="group block">
+                      {contenido}
+                    </Link>
+                  ) : (
+                    <a
+                      href={canal.href}
+                      target={canal.label === "Ubicación" ? "_blank" : undefined}
+                      rel={canal.label === "Ubicación" ? "noopener noreferrer" : undefined}
+                      className="group block"
+                    >
+                      {contenido}
+                    </a>
+                  )}
                 </motion.div>
               );
             })}

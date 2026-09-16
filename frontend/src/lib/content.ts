@@ -3,6 +3,9 @@ export type AreaPractica = {
   nombre: string;
   resumen: string;
   descripcion: string[];
+  foto: string;
+  destacado: string;
+  casosReferencia: string[];
   whatsappMensaje: string;
 };
 
@@ -10,11 +13,19 @@ export const areasPractica: AreaPractica[] = [
   {
     slug: "laboral",
     nombre: "Derecho Laboral",
+    destacado: "Defensa estratégica y gestión laboral",
+    foto: "/areas/area-laboral-trabajadores.jpg",
+    casosReferencia: [
+      "Despidos sin justa causa e indemnizaciones",
+      "Fueros de estabilidad laboral reforzada",
+      "Auditorías de nómina y contratación ejecutiva",
+      "Conciliaciones y querellas ante MinTrabajo",
+    ],
     resumen:
-      "Defendemos los derechos de trabajadores y empleadores en cada etapa de la relación laboral.",
+      "Defendemos los derechos de trabajadores y empleadores en cada etapa de la relación laboral y corporativa.",
     descripcion: [
-      "Acompañamos a trabajadores y empleadores en contratación, liquidaciones, despidos y procesos ante el Ministerio del Trabajo.",
-      "Revisamos contratos, reglamentos internos y políticas de la empresa para prevenir contingencias antes de que ocurran.",
+      "Acompañamos a trabajadores y empresas en contratación, liquidaciones indemnizatorias, fueros de salud, maternidad y procesos ante el Ministerio del Trabajo.",
+      "Revisamos contratos, reglamentos internos y políticas corporativas para prevenir contingencias y litigios de alto costo.",
     ],
     whatsappMensaje:
       "Hola, tengo una consulta sobre Derecho Laboral y quisiera hablar con un abogado.",
@@ -22,11 +33,19 @@ export const areasPractica: AreaPractica[] = [
   {
     slug: "familia",
     nombre: "Derecho de Familia",
+    destacado: "Resolución humana y protección patrimonial",
+    foto: "/areas/area-familia-hogar.jpg",
+    casosReferencia: [
+      "Divorcios contenciosos y de mutuo acuerdo",
+      "Sucesiones y liquidación de herencias complejas",
+      "Custodia, visitas y fijación de cuota de alimentos",
+      "Capitulaciones y liquidación de sociedad conyugal",
+    ],
     resumen:
-      "Acompañamiento legal integral con sensibilidad, confidencialidad y compromiso.",
+      "Acompañamiento legal integral con máxima sensibilidad, confidencialidad y rigor patrimonial.",
     descripcion: [
-      "Divorcios, custodia, alimentos, sucesiones y liquidación de sociedad conyugal, siempre con un enfoque humano.",
-      "Sabemos que estos procesos involucran emociones, por eso combinamos el conocimiento jurídico con acompañamiento cercano.",
+      "Divorcios, custodia, alimentos, sucesiones y liquidación de sociedad conyugal, siempre con un enfoque humano y constructivo.",
+      "Entendemos que estos procesos involucran personas y emociones familiares; combinamos el más estricto rigor jurídico con una atención cercana y discreta.",
     ],
     whatsappMensaje:
       "Hola, necesito asesoría en un tema de Derecho de Familia.",
@@ -34,22 +53,38 @@ export const areasPractica: AreaPractica[] = [
   {
     slug: "civil",
     nombre: "Derecho Civil",
+    destacado: "Seguridad patrimonial, bienes y contratos",
+    foto: "/areas/area-civil-inmuebles.jpg",
+    casosReferencia: [
+      "Responsabilidad civil contractual y médica",
+      "Estudio de títulos y litigios inmobiliarios",
+      "Procesos ejecutivos y recuperación de cartera",
+      "Incumplimiento de contratos y restitución",
+    ],
     resumen:
-      "Una de las ramas más amplias del derecho: relaciones entre personas, bienes y obligaciones.",
+      "Una de las ramas más amplias del derecho: blindaje de relaciones patrimoniales, bienes y obligaciones.",
     descripcion: [
-      "Contratos civiles, responsabilidad civil, propiedad, arrendamientos y procesos declarativos.",
-      "Representamos tus intereses tanto en la negociación como en litigio, buscando siempre la solución más eficiente.",
+      "Contratos civiles, compraventas, responsabilidad civil extracontractual, propiedad, arrendamientos y procesos declarativos.",
+      "Representamos tus intereses tanto en la mesa de negociación como en litigio ante juzgados, buscando siempre la máxima eficiencia y protección de tu patrimonio.",
     ],
     whatsappMensaje: "Hola, tengo una consulta de Derecho Civil.",
   },
   {
     slug: "mercantil",
     nombre: "Derecho Mercantil y Propiedad Intelectual",
+    destacado: "Estructuración corporativa y marcas",
+    foto: "/areas/area-mercantil-acuerdos.jpg",
+    casosReferencia: [
+      "Registro y defensa de marcas y patentes ante la SIC",
+      "Constitución de sociedades y acuerdos de socios",
+      "Fusiones, adquisiciones (M&A) y reestructuración",
+      "Contratos comerciales, franquicias y compliance",
+    ],
     resumen:
-      "Regulamos las relaciones comerciales y protegemos las creaciones intelectuales de tu empresa.",
+      "Regulamos las relaciones comerciales y protegemos las creaciones e intangibles estratégicos de tu empresa.",
     descripcion: [
-      "Constitución de sociedades, contratos comerciales, fusiones y adquisiciones, y gobierno corporativo.",
-      "En Propiedad Intelectual protegemos marcas, patentes, derechos de autor y diseños industriales.",
+      "Constitución de sociedades comerciales, acuerdos de socios, gobierno corporativo, fusiones y adquisiciones.",
+      "En Propiedad Intelectual protegemos marcas, patentes, derechos de autor, secretos empresariales y diseños industriales ante la SIC y tribunales.",
     ],
     whatsappMensaje:
       "Hola, quiero información sobre Derecho Mercantil o registro de marca.",
@@ -57,11 +92,19 @@ export const areasPractica: AreaPractica[] = [
   {
     slug: "administrativo",
     nombre: "Derecho Administrativo y Contratación Estatal",
+    destacado: "Litigio contencioso y licitaciones públicas",
+    foto: "/areas/administrativo-palacio-justicia.jpg",
+    casosReferencia: [
+      "Acompañamiento en licitaciones y pliegos públicos",
+      "Demandas de nulidad y restablecimiento del derecho",
+      "Reparación directa por daño antijurídico del Estado",
+      "Procesos disciplinarios y sancionatorios estatales",
+    ],
     resumen:
-      "Asesoría en la relación entre el Estado y los ciudadanos, y en procesos de contratación pública.",
+      "Asesoría especializada en la relación público-privada, licitaciones estatales y defensa contenciosa.",
     descripcion: [
-      "Representamos a nuestros clientes ante entidades públicas y en procesos de contratación estatal.",
-      "Litigios administrativos, nulidad de actos, y acompañamiento en licitaciones y convenios con el Estado.",
+      "Representamos a empresas y ciudadanos ante entidades del orden nacional y territorial, y en procesos de contratación pública bajo Ley 80 y SECOP.",
+      "Litigios contencioso-administrativos, controversias contractuales, nulidad de actos y acompañamiento técnico en licitaciones y convenios.",
     ],
     whatsappMensaje:
       "Hola, tengo una consulta sobre Derecho Administrativo o Contratación Estatal.",
@@ -69,11 +112,19 @@ export const areasPractica: AreaPractica[] = [
   {
     slug: "constitucional",
     nombre: "Derecho Constitucional y Derecho Internacional",
+    destacado: "Protección de libertades y litigio de alto impacto",
+    foto: "/areas/constitucional-balanza-justicia.jpg",
+    casosReferencia: [
+      "Acciones de tutela en salud, debido proceso y pensión",
+      "Acciones populares y de cumplimiento",
+      "Derechos de petición complejos e incidentes de desacato",
+      "Asesoría transfronteriza y litigio internacional",
+    ],
     resumen:
-      "Protegemos los derechos fundamentales y representamos a nuestros clientes en contextos internacionales.",
+      "Protegemos los derechos fundamentales y representamos a nuestros clientes en instancias constitucionales e internacionales.",
     descripcion: [
-      "Acciones de tutela, derechos de petición y defensa frente a vulneraciones por parte del Estado o particulares.",
-      "Acompañamos personas y empresas en trámites y litigios que trascienden fronteras.",
+      "Acciones de tutela de alta complejidad, derechos de petición estratégicos y defensa frente a vulneraciones arbitrarias de entidades públicas o privadas.",
+      "Acompañamos a personas y organizaciones en trámites y litigios de alto impacto que trascienden fronteras y requieren jurisprudencia constitucional especializada.",
     ],
     whatsappMensaje:
       "Hola, necesito orientación en un tema de Derecho Constitucional o Internacional.",

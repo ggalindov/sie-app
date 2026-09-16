@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, WhatsappLogo } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowRight, WhatsappLogo, CheckCircle, Scales } from "@phosphor-icons/react/dist/ssr";
 import { areasPractica } from "@/lib/content";
 import { siteConfig } from "@/lib/site-config";
 
@@ -28,7 +29,7 @@ export default async function AreaPage({ params }: PageProps<"/areas/[slug]">) {
 
   return (
     <main className="flex-1 pt-32 pb-24 md:pt-36">
-      <div className="mx-auto max-w-3xl px-6">
+      <div className="mx-auto max-w-4xl px-6">
         <Link
           href="/#areas"
           className="inline-flex items-center gap-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink"
@@ -37,14 +38,55 @@ export default async function AreaPage({ params }: PageProps<"/areas/[slug]">) {
           Áreas de práctica
         </Link>
 
-        <h1 className="mt-8 text-balance font-display text-4xl leading-tight tracking-tight md:text-5xl">
-          {area.nombre}
-        </h1>
-        <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-soft">
+        {/* Portada Fotográfica */}
+        <div className="relative mt-8 h-64 sm:h-80 md:h-96 w-full overflow-hidden rounded-3xl bg-night shadow-lg">
+          <Image
+            src={area.foto}
+            alt={area.nombre}
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 900px"
+            className="object-cover filter brightness-[0.88]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/40 to-transparent" />
+          <div className="absolute bottom-6 inset-x-6 sm:inset-x-8">
+            <span className="inline-block rounded-full bg-gold/20 backdrop-blur-md border border-gold/40 px-3 py-1 text-xs font-mono font-semibold text-gold tracking-wider">
+              Especialidad Jurídica
+            </span>
+            <h1 className="mt-2 text-balance font-display text-3xl sm:text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
+              {area.nombre}
+            </h1>
+          </div>
+        </div>
+
+        <p className="mt-8 text-xl leading-relaxed text-ink/90 border-l-3 border-gold pl-4 font-medium">
           {area.resumen}
         </p>
 
-        <div className="mt-10 space-y-4 text-base leading-relaxed text-ink-soft">
+        {/* Casos de Referencia */}
+        <div className="mt-8 rounded-2xl bg-surface p-6 border border-line shadow-xs">
+          <div className="flex items-center gap-2 mb-4">
+            <Scales weight="bold" className="h-5 w-5 text-gold" />
+            <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-gold-deep">
+              Casos de referencia y situaciones que atendemos
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {area.casosReferencia.map((caso, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2.5 rounded-xl bg-paper/70 p-3 border border-line/60"
+              >
+                <CheckCircle weight="fill" className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+                <span className="text-sm font-medium text-ink leading-snug">
+                  {caso}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 space-y-4 text-base leading-relaxed text-ink-soft">
           {area.descripcion.map((parrafo, i) => (
             <p key={i}>{parrafo}</p>
           ))}
