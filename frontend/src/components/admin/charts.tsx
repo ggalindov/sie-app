@@ -219,21 +219,12 @@ export function GraficaExponencialXY({
   const listo = useEntrada();
   const [activo, setActivo] = useState<number | null>(null);
 
-  // Procesar y ordenar los puntos cronológicamente
+  // Procesar y ordenar los puntos cronológicamente con datos 100% reales
   const ahoraAnioMes = new Date().toISOString().slice(0, 7);
   let entradas = Object.entries(historico ?? {}).sort((a, b) => a[0].localeCompare(b[0]));
 
-  if (entradas.length === 0) {
-    // Fallback elegante con la progresión exponencial hacia el mes actual
-    const baseActual = visitantesMesActual ?? 3528;
-    entradas = [
-      ["2026-04", Math.round(baseActual * 0.052)],
-      ["2026-05", Math.round(baseActual * 0.097)],
-      ["2026-06", Math.round(baseActual * 0.181)],
-      ["2026-07", Math.round(baseActual * 0.337)],
-      ["2026-08", Math.round(baseActual * 0.607)],
-      [ahoraAnioMes, baseActual],
-    ];
+  if (entradas.length === 0 && visitantesMesActual !== undefined) {
+    entradas = [[ahoraAnioMes, visitantesMesActual]];
   }
 
   const puntos: PuntoHistoricoVisitante[] = entradas.map(([clave, valor], idx) => {
@@ -256,7 +247,7 @@ export function GraficaExponencialXY({
     };
   });
 
-  // Geometría y escala SVG balanceada (ni gigante ni reducida)
+  // Geometría y escala SVG balanceada
   const PADDING_LEFT = 52;
   const PADDING_RIGHT = 28;
   const PADDING_TOP = 20;
@@ -266,8 +257,8 @@ export function GraficaExponencialXY({
   const GRAPH_WIDTH = TOTAL_WIDTH - PADDING_LEFT - PADDING_RIGHT;
   const GRAPH_HEIGHT = TOTAL_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
-  const maxVal = Math.max(...puntos.map((p) => p.conteo), 100);
-  const niceMax = Math.ceil(maxVal / 500) * 500;
+  const maxVal = Math.max(...puntos.map((p) => p.conteo), 10);
+  const niceMax = maxVal <= 50 ? 50 : maxVal <= 100 ? 100 : Math.ceil(maxVal / 100) * 100;
   const yTicks = [
     0,
     Math.round(niceMax * 0.5),
@@ -283,9 +274,12 @@ export function GraficaExponencialXY({
     return { x, y, p };
   });
 
-  // Construcción de la curva cúbica de Bézier para emular la suavidad exponencial
+  // Construcción de la curva para emular la suavidad del crecimiento real
   let pathD = "";
-  if (coords.length > 0) {
+  if (coords.length === 1) {
+    const c = coords[0];
+    pathD = `M ${PADDING_LEFT} ${c.y.toFixed(1)} L ${TOTAL_WIDTH - PADDING_RIGHT} ${c.y.toFixed(1)}`;
+  } else if (coords.length > 1) {
     pathD = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
     for (let i = 0; i < coords.length - 1; i++) {
       const c = coords[i];
@@ -300,9 +294,11 @@ export function GraficaExponencialXY({
   }
 
   const areaD =
-    coords.length > 0
+    coords.length > 1
       ? `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${(PADDING_TOP + GRAPH_HEIGHT).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(PADDING_TOP + GRAPH_HEIGHT).toFixed(1)} Z`
-      : "";
+      : coords.length === 1
+        ? `${pathD} L ${TOTAL_WIDTH - PADDING_RIGHT} ${(PADDING_TOP + GRAPH_HEIGHT).toFixed(1)} L ${PADDING_LEFT} ${(PADDING_TOP + GRAPH_HEIGHT).toFixed(1)} Z`
+        : "";
 
   const puntoActivo = activo !== null ? coords[activo] : null;
 
@@ -519,7 +515,7 @@ export function GraficaExponencialXY({
             Histórico Mensual Guardado
           </p>
           <span className="text-xs font-mono text-ink-soft">
-            {puntos.length} meses registrados
+            {puntos.length} {puntos.length === 1 ? "mes registrado" : "meses registrados"}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">

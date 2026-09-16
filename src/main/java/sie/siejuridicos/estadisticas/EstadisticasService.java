@@ -86,9 +86,9 @@ public class EstadisticasService {
             historicoVisitantes.put(java.time.YearMonth.now().toString(), visitaUnicaRepository.contarVisitantesMesActual());
         }
 
-        long visitantesMes = historicoVisitantes.getOrDefault(
-                java.time.YearMonth.now().toString(),
-                visitaUnicaRepository.contarVisitantesMesActual());
+        long visitantesMes = visitaUnicaRepository.contarVisitantesMesActual();
+        // Asegurar que el mes actual en el mapa refleje exactamente el valor real
+        historicoVisitantes.put(java.time.YearMonth.now().toString(), visitantesMes);
 
         LocalDateTime ahora = LocalDateTime.now();
 
