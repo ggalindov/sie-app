@@ -8,6 +8,7 @@ import sie.siejuridicos.caso.Caso;
 import sie.siejuridicos.caso.CasoRepository;
 import sie.siejuridicos.cobro.ClienteCobro;
 import sie.siejuridicos.cobro.ClienteCobroRepository;
+import sie.siejuridicos.cobro.CobroService;
 import sie.siejuridicos.common.cifrado.CifradoService;
 import sie.siejuridicos.crm.dto.ActividadCrmResponse;
 import sie.siejuridicos.crm.dto.ActualizarClienteCrmRequest;
@@ -428,8 +429,19 @@ public class CrmService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<ClienteCobro> cobrosActivos = clienteCobroRepository.findByActivoTrueOrderByNombreAsc();
-        long cobrosAlDia = cobrosActivos.stream().filter(c -> Boolean.TRUE.equals(c.getPagoEsteMes())).count();
-        long cobrosPendientes = cobrosActivos.size() - cobrosAlDia;
+        // Solo considerar a los clientes que realmente tienen un valor asignado (> 0).
+        // Los casos sin costo ($0 o vacío) se omiten, contando únicamente aquellos con respuesta de pago pendiente.
+        List<ClienteCobro> cobrosConCosto = cobrosActivos.stream()
+                .filter(c -> CobroService.tieneCosto(c.getHonorarios()))
+                .toList();
+
+        long cobrosAlDia = cobrosConCosto.stream()
+                .filter(c -> Boolean.TRUE.equals(c.getPagoEsteMes()))
+                .count();
+
+        long cobrosPendientes = cobrosConCosto.stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getPagoEsteMes()))
+                .count();
 
         Map<String, Long> leadsPorEtapa = solicitudes.stream()
                 .collect(Collectors.groupingBy(

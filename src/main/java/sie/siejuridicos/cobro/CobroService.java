@@ -371,7 +371,11 @@ public class CobroService {
     // ("$ 1.750.905") se limpia a solo dígitos y se interpreta como pesos enteros -- nunca se
     // hacen operaciones aritméticas con esto más allá de decidir cero vs no-cero (ver
     // ClienteCobro.honorarios).
-    static long honorariosComoEntero(String honorariosTexto) {
+    public static boolean tieneCosto(String honorariosTexto) {
+        return honorariosComoEntero(honorariosTexto) > 0;
+    }
+
+    public static long honorariosComoEntero(String honorariosTexto) {
         if (honorariosTexto == null) {
             return 0L;
         }

@@ -87,6 +87,11 @@ function formatearFecha(iso: string | null) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function tieneCosto(honorarios: string | null | undefined): boolean {
+  if (!honorarios) return false;
+  return /[1-9]/.test(honorarios);
+}
+
 export default function CrmAdminPage() {
   const { sesion } = useAuth();
 
@@ -690,7 +695,10 @@ export default function CrmAdminPage() {
               {/* Estado de Cobros y Embudo */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <AdminCard className="p-5">
-                  <h3 className="text-sm font-semibold text-ink">Estado Mensual de Cobros</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-ink">Estado Mensual de Cobros</h3>
+                    <span className="text-[11px] text-ink-soft">Solo honorarios asignados (excluye sin costo)</span>
+                  </div>
                   <div className="mt-4 flex items-center gap-6">
                     <div className="flex-1 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
                       <p className="text-xs font-medium text-emerald-800">Cobros al Día (Aprobados)</p>
@@ -844,13 +852,21 @@ export default function CrmAdminPage() {
                       {clienteDetalle.cobros.map((cobro) => (
                         <div key={cobro.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
                           <div>
-                            <p className="font-semibold text-ink font-mono text-gold-deep">{cobro.honorarios ?? "Sin costo"}</p>
+                            <p className="font-semibold text-ink font-mono text-gold-deep">
+                              {tieneCosto(cobro.honorarios) ? cobro.honorarios : "Caso sin costo"}
+                            </p>
                             <p className="text-ink-soft">Fila {cobro.numeroFila} · {cobro.tipo}</p>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Badge tone={cobro.pagoEsteMes ? "success" : "warning"}>
-                              {cobro.pagoEsteMes ? "Pago Aprobado" : "Pago Pendiente"}
-                            </Badge>
+                            {tieneCosto(cobro.honorarios) ? (
+                              <Badge tone={cobro.pagoEsteMes ? "success" : "warning"}>
+                                {cobro.pagoEsteMes ? "Pago Aprobado" : "Respuesta de pago pendiente"}
+                              </Badge>
+                            ) : (
+                              <Badge tone="neutral">
+                                Sin cobro asignado
+                              </Badge>
+                            )}
                             {cobro.respondioMensaje && (
                               <Badge tone={cobro.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}>
                                 Resp: {cobro.respondioMensaje}
