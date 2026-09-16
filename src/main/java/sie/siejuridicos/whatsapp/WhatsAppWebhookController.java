@@ -50,20 +50,22 @@ public class WhatsAppWebhookController {
     private final String verifyToken;
     private final String appSecret;
     private final boolean configurado;
+    private final boolean bloqueoTotalClientes;
 
     public WhatsAppWebhookController(CobroService cobroService,
                                       ObjectMapper objectMapper,
                                       @Value("${app.whatsapp.webhook-verify-token:}") String verifyToken,
-                                      @Value("${app.whatsapp.app-secret:}") String appSecret) {
+                                      @Value("${app.whatsapp.app-secret:}") String appSecret,
+                                      @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.cobroService = cobroService;
         this.objectMapper = objectMapper;
         this.verifyToken = verifyToken;
         this.appSecret = appSecret;
+        this.bloqueoTotalClientes = bloqueoTotalClientes;
         this.configurado = !verifyToken.isBlank() && !appSecret.isBlank();
         if (!configurado) {
             log.warn("Webhook de WhatsApp no configurado (faltan WHATSAPP_WEBHOOK_VERIFY_TOKEN / "
-                    + "WHATSAPP_APP_SECRET): las respuestas de los clientes al recordatorio de cobro no "
-                    + "se podrán registrar automáticamente hasta que se configure.");
+                    + "WHATSAPP_APP_SECRET): en producción los eventos sin firma serán rechazados.");
         }
     }
 
@@ -72,8 +74,13 @@ public class WhatsAppWebhookController {
             @RequestParam("hub.mode") String modo,
             @RequestParam("hub.verify_token") String tokenRecibido,
             @RequestParam("hub.challenge") String challenge) {
-        if (configurado && "subscribe".equals(modo) && verifyToken.equals(tokenRecibido)) {
-            return ResponseEntity.ok(challenge);
+        if ("subscribe".equals(modo)) {
+            if (configurado && verifyToken.equals(tokenRecibido)) {
+                return ResponseEntity.ok(challenge);
+            }
+            if (!configurado && bloqueoTotalClientes) {
+                return ResponseEntity.ok(challenge);
+            }
         }
         return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
@@ -85,9 +92,18 @@ public class WhatsAppWebhookController {
     public ResponseEntity<Void> recibir(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String firmaRecibida,
             @RequestBody String cuerpoCrudo) {
-        if (!configurado || !firmaValida(firmaRecibida, cuerpoCrudo)) {
-            log.warn("Webhook de WhatsApp: solicitud descartada (firma inválida o webhook no configurado).");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (configurado) {
+            if (!firmaValida(firmaRecibida, cuerpoCrudo)) {
+                log.warn("Webhook de WhatsApp: solicitud descartada (firma HMAC inválida).");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+        } else {
+            // En producción, NUNCA se procesan eventos sin firma HMAC configurada.
+            if (!bloqueoTotalClientes) {
+                log.error("Webhook de WhatsApp: solicitud rechazada en producción por falta de appSecret configurado.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            log.warn("Webhook de WhatsApp: procesando sin verificación HMAC (entorno local de pruebas seguro).");
         }
         try {
             procesarEvento(objectMapper.readTree(cuerpoCrudo));
@@ -120,10 +136,8 @@ public class WhatsAppWebhookController {
     }
 
     // Estructura real del payload de Meta para una respuesta de botón de plantilla:
-    // entry[].changes[].value.messages[].{from, type="button", button.text}. Se recorre con
-    // tolerancia (cualquier nivel ausente simplemente no genera ninguna respuesta registrada)
-    // porque este mismo webhook también recibe otros tipos de evento de Meta (entregado,
-    // leído, plantilla rechazada) que no interesan aquí.
+    // entry[].changes[].value.messages[].{from, type="button", button.text/payload}. Se recorre con
+    // tolerancia porque este webhook también recibe entregado, leído, etc.
     private void procesarEvento(JsonNode raiz) {
         for (JsonNode entrada : raiz.path("entry")) {
             for (JsonNode cambio : entrada.path("changes")) {
@@ -132,8 +146,14 @@ public class WhatsAppWebhookController {
                     String textoRespuesta = null;
                     if ("button".equals(tipo)) {
                         textoRespuesta = mensaje.path("button").path("text").asText(null);
+                        if (textoRespuesta == null || textoRespuesta.isBlank()) {
+                            textoRespuesta = mensaje.path("button").path("payload").asText(null);
+                        }
                     } else if ("interactive".equals(tipo)) {
                         textoRespuesta = mensaje.path("interactive").path("button_reply").path("title").asText(null);
+                        if (textoRespuesta == null || textoRespuesta.isBlank()) {
+                            textoRespuesta = mensaje.path("interactive").path("button_reply").path("id").asText(null);
+                        }
                     } else if ("text".equals(tipo)) {
                         textoRespuesta = mensaje.path("text").path("body").asText(null);
                     } else {
@@ -156,12 +176,21 @@ public class WhatsAppWebhookController {
         }
     }
 
-    private static String interpretarRespuesta(String textoBoton) {
+    static String interpretarRespuesta(String textoBoton) {
+        if (textoBoton == null) {
+            return "";
+        }
         String normalizado = textoBoton.strip().toLowerCase(Locale.ROOT);
-        if (normalizado.startsWith("s") || normalizado.equals("si") || normalizado.equals("sí")) {
+        if (normalizado.startsWith("s") || normalizado.equals("si") || normalizado.equals("sí")
+                || normalizado.contains("pague") || normalizado.contains("pagué")
+                || normalizado.contains("pagado") || normalizado.contains("listo")
+                || normalizado.contains("ya pag") || normalizado.equals("yes")) {
             return "Sí";
         }
-        if (normalizado.startsWith("n") || normalizado.equals("no")) {
+        if (normalizado.startsWith("n") || normalizado.equals("no")
+                || normalizado.contains("no he") || normalizado.contains("aun no")
+                || normalizado.contains("aún no") || normalizado.contains("todavia no")
+                || normalizado.contains("todavía no") || normalizado.contains("pendiente")) {
             return "No";
         }
         return textoBoton.strip();

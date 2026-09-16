@@ -66,6 +66,7 @@ public class EmailService {
     private final String ciudad;
     private final Resource logoResource;
     private final Resource selloResource;
+    private final boolean bloqueoTotalClientes;
 
     public EmailService(JavaMailSender mailSender,
                          @Value("${app.correo.remitente}") String remitente,
@@ -75,7 +76,8 @@ public class EmailService {
                          @Value("${app.firma.sitio-web}") String sitioWeb,
                          @Value("${app.firma.whatsapp:}") String whatsappUrl,
                          @Value("${app.firma.telefono:}") String telefono,
-                         @Value("${app.firma.ciudad:}") String ciudad) {
+                         @Value("${app.firma.ciudad:}") String ciudad,
+                         @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.mailSender = mailSender;
         this.remitente = remitente;
         this.correoAdmin = correoAdmin;
@@ -87,6 +89,13 @@ public class EmailService {
         this.ciudad = ciudad;
         this.logoResource = new ClassPathResource("correo/logo.png");
         this.selloResource = new ClassPathResource("correo/sello.png");
+        this.bloqueoTotalClientes = bloqueoTotalClientes;
+        if (bloqueoTotalClientes) {
+            log.warn("==========================================================================");
+            log.warn(" [SEGURIDAD ACTIVA] app.bloqueo-total-clientes=true");
+            log.warn(" EmailService QUEDA 100% BLOQUEADO: Cero correos a clientes reales.");
+            log.warn("==========================================================================");
+        }
     }
 
     @Async
@@ -666,6 +675,11 @@ public class EmailService {
     // SES/SendGrid): antes este método no devolvía nada y quien llamaba marcaba "enviado" con
     // solo haberlo intentado, sin saber si en realidad había fallado.
     private boolean enviarHtml(String destinatario, String asunto, String cuerpoHtml, boolean esBoletin) {
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Envío de correo CANCELADO hacia '{}' con asunto '{}' (app.bloqueo-total-clientes=true). Cero correos a clientes reales.",
+                    destinatario, asunto);
+            return true;
+        }
         String[] destinatarios = separarCorreos(destinatario);
         if (destinatarios.length == 0) {
             log.warn("No se pudo enviar el correo '{}': '{}' no tiene ninguna dirección válida.", asunto, destinatario);

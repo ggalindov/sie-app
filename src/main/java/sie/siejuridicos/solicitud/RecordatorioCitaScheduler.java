@@ -2,6 +2,7 @@ package sie.siejuridicos.solicitud;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +29,23 @@ public class RecordatorioCitaScheduler {
     private final SolicitudRepository solicitudRepository;
     private final SolicitudService solicitudService;
     private final RegistroSistemaService registroSistemaService;
+    private final boolean bloqueoTotalClientes;
 
     public RecordatorioCitaScheduler(SolicitudRepository solicitudRepository, SolicitudService solicitudService,
-                                      RegistroSistemaService registroSistemaService) {
+                                      RegistroSistemaService registroSistemaService,
+                                      @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.solicitudRepository = solicitudRepository;
         this.solicitudService = solicitudService;
         this.registroSistemaService = registroSistemaService;
+        this.bloqueoTotalClientes = bloqueoTotalClientes;
     }
 
     @Scheduled(cron = "${app.recordatorios.cron}")
     @Transactional
     public void enviarRecordatoriosDeLaProximaHora() {
+        if (bloqueoTotalClientes) {
+            return;
+        }
         LocalDateTime ahora = LocalDateTime.now();
         LocalDateTime enUnaHora = ahora.plusHours(1);
 

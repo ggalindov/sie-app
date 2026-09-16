@@ -24,6 +24,7 @@ public record EstadisticasResponse(
         long suscriptoresMarketingActivos,
         long usuariosInternosActivos,
         Map<String, Long> usuariosPorRol,
-        long visitantesMesActual
+        long visitantesMesActual,
+        Map<String, Long> historicoVisitantes
 ) {
 }

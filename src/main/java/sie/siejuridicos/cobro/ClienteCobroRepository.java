@@ -18,4 +18,6 @@ public interface ClienteCobroRepository extends JpaRepository<ClienteCobro, Long
     // Usada por el webhook de WhatsApp (ver CobroService.registrarRespuesta()) para saber a
     // quién le llegó la respuesta, sin descifrar el teléfono de cada fila para compararlo.
     List<ClienteCobro> findByTelefonoHashAndActivoTrue(String telefonoHash);
+
+    List<ClienteCobro> findByClienteCrmIdAndActivoTrue(Long clienteCrmId);
 }

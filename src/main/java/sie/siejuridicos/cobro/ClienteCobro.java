@@ -99,6 +99,9 @@ public class ClienteCobro {
     @Column(name = "fecha_ultimo_recordatorio_whatsapp")
     private LocalDateTime fechaUltimoRecordatorioWhatsapp;
 
+    @Column(name = "cliente_crm_id")
+    private Long clienteCrmId;
+
     @Column(name = "activo", nullable = false)
     private boolean activo = true;
 
@@ -224,6 +227,14 @@ public class ClienteCobro {
 
     public void setActivo(boolean activo) {
         this.activo = activo;
+    }
+
+    public Long getClienteCrmId() {
+        return clienteCrmId;
+    }
+
+    public void setClienteCrmId(Long clienteCrmId) {
+        this.clienteCrmId = clienteCrmId;
     }
 
     public LocalDateTime getFechaCreacion() {

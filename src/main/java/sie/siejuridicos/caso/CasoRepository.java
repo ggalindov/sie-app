@@ -70,4 +70,6 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     // se procesó de último. Solo tiene sentido confiar en esa columna como corrección del
     // nombre cuando el cliente tiene un único caso (sin ambigüedad de cuál fila manda).
     long countByCliente(Cliente cliente);
+
+    List<Caso> findByClienteClienteCrmId(Long clienteCrmId);
 }

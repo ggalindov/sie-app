@@ -86,7 +86,8 @@ public class WhatsAppService {
             @Value("${app.whatsapp.header-image-url:https://siejuridicos.com/marca/logo.png}") String urlImagenCabecera,
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
             @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
-            @Value("${app.firma.sitio-web}") String sitioWeb) {
+            @Value("${app.firma.sitio-web}") String sitioWeb,
+            @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.accessToken = accessToken;
         this.phoneNumberId = phoneNumberId;
         this.nombrePlantilla = nombrePlantilla;
@@ -99,11 +100,19 @@ public class WhatsAppService {
         this.sitioWeb = sitioWeb;
         this.numeroAdminNotificaciones = normalizarCelular(numeroAdminNotificaciones);
         this.numeroAvisoBlog = normalizarCelular(numeroAvisoBlog);
-        this.configurado = !accessToken.isBlank() && !phoneNumberId.isBlank();
-        if (!configurado) {
-            log.warn("WhatsApp Cloud API no configurado (faltan WHATSAPP_ACCESS_TOKEN / "
-                    + "WHATSAPP_PHONE_NUMBER_ID): la notificación de radicado se enviará solo por "
-                    + "correo hasta que se configure.");
+        if (bloqueoTotalClientes) {
+            this.configurado = false;
+            log.warn("==========================================================================");
+            log.warn(" [SEGURIDAD ACTIVA] app.bloqueo-total-clientes=true");
+            log.warn(" WhatsAppService QUEDA 100% BLOQUEADO: Cero mensajes a clientes reales.");
+            log.warn("==========================================================================");
+        } else {
+            this.configurado = !accessToken.isBlank() && !phoneNumberId.isBlank();
+            if (!configurado) {
+                log.warn("WhatsApp Cloud API no configurado (faltan WHATSAPP_ACCESS_TOKEN / "
+                        + "WHATSAPP_PHONE_NUMBER_ID): la notificación de radicado se enviará solo por "
+                        + "correo hasta que se configure.");
+            }
         }
         if (this.numeroAdminNotificaciones == null) {
             log.warn("app.whatsapp.admin-numero ('{}') no es un celular colombiano reconocible -- "

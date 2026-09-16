@@ -115,7 +115,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <MotionConfig reducedMotion="user">
           <SiteChrome>{children}</SiteChrome>
           <PointerBlur />
-          <Toaster position="bottom-right" richColors />
+          <Toaster
+            position="top-right"
+            expand={true}
+            visibleToasts={6}
+            closeButton={true}
+            richColors
+            gap={10}
+            toastOptions={{
+              duration: 5000,
+              className: "!rounded-xl !shadow-xl border border-line backdrop-blur-md",
+            }}
+          />
         </MotionConfig>
       </body>
     </html>

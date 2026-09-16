@@ -13,8 +13,10 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
+import sie.siejuridicos.crm.EtapaPipeline;
 import sie.siejuridicos.usuario.UsuarioInterno;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -85,6 +87,19 @@ public class Solicitud {
 
     @Column(name = "lugar_reunion")
     private String lugarReunion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "etapa_pipeline", length = 30)
+    private EtapaPipeline etapaPipeline = EtapaPipeline.NUEVO;
+
+    @Column(name = "valor_estimado")
+    private BigDecimal valorEstimado;
+
+    @Column(name = "area_practica", length = 100)
+    private String areaPractica;
+
+    @Column(name = "cliente_crm_id")
+    private Long clienteCrmId;
 
     public Long getId() {
         return id;
@@ -158,6 +173,10 @@ public class Solicitud {
         return fechaActualizacionEstado;
     }
 
+    public void setFechaActualizacionEstado(LocalDateTime fechaActualizacionEstado) {
+        this.fechaActualizacionEstado = fechaActualizacionEstado;
+    }
+
     public LocalDateTime getFechaCita() {
         return fechaCita;
     }
@@ -204,5 +223,37 @@ public class Solicitud {
 
     public void setLugarReunion(String lugarReunion) {
         this.lugarReunion = lugarReunion;
+    }
+
+    public EtapaPipeline getEtapaPipeline() {
+        return etapaPipeline;
+    }
+
+    public void setEtapaPipeline(EtapaPipeline etapaPipeline) {
+        this.etapaPipeline = etapaPipeline;
+    }
+
+    public BigDecimal getValorEstimado() {
+        return valorEstimado;
+    }
+
+    public void setValorEstimado(BigDecimal valorEstimado) {
+        this.valorEstimado = valorEstimado;
+    }
+
+    public String getAreaPractica() {
+        return areaPractica;
+    }
+
+    public void setAreaPractica(String areaPractica) {
+        this.areaPractica = areaPractica;
+    }
+
+    public Long getClienteCrmId() {
+        return clienteCrmId;
+    }
+
+    public void setClienteCrmId(Long clienteCrmId) {
+        this.clienteCrmId = clienteCrmId;
     }
 }

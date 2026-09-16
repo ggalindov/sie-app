@@ -73,6 +73,23 @@ public class EstadisticasService {
             usuariosPorRol.put(rol.name(), usuarioInternoRepository.countByRolAndActivoTrue(rol));
         }
 
+        Map<String, Long> historicoVisitantes = new LinkedHashMap<>();
+        try {
+            for (Object[] fila : visitaUnicaRepository.obtenerHistoricoVisitantes()) {
+                if (fila != null && fila.length >= 2 && fila[0] != null && fila[1] != null) {
+                    String mes = fila[0].toString();
+                    long total = ((Number) fila[1]).longValue();
+                    historicoVisitantes.put(mes, total);
+                }
+            }
+        } catch (Exception ex) {
+            historicoVisitantes.put(java.time.YearMonth.now().toString(), visitaUnicaRepository.contarVisitantesMesActual());
+        }
+
+        long visitantesMes = historicoVisitantes.getOrDefault(
+                java.time.YearMonth.now().toString(),
+                visitaUnicaRepository.contarVisitantesMesActual());
+
         LocalDateTime ahora = LocalDateTime.now();
 
         return new EstadisticasResponse(
@@ -89,7 +106,8 @@ public class EstadisticasService {
                 suscriptorMarketingRepository.countByActivoTrue(),
                 usuarioInternoRepository.countByActivoTrue(),
                 usuariosPorRol,
-                visitaUnicaRepository.contarVisitantesMesActual()
+                visitantesMes,
+                historicoVisitantes
         );
     }
 }

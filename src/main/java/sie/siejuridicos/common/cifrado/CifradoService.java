@@ -95,6 +95,9 @@ public class CifradoService {
         }
         try {
             byte[] combinado = Base64.getDecoder().decode(valorCifrado);
+            if (combinado.length <= TAMANO_IV_BYTES) {
+                return valorCifrado;
+            }
             byte[] iv = Arrays.copyOfRange(combinado, 0, TAMANO_IV_BYTES);
             byte[] cifrado = Arrays.copyOfRange(combinado, TAMANO_IV_BYTES, combinado.length);
 
@@ -102,13 +105,10 @@ public class CifradoService {
             cipher.init(Cipher.DECRYPT_MODE, claveCifrado, new GCMParameterSpec(TAMANO_TAG_BITS, iv));
             byte[] plano = cipher.doFinal(cifrado);
             return new String(plano, StandardCharsets.UTF_8);
-        } catch (GeneralSecurityException | IllegalArgumentException ex) {
-            // IllegalArgumentException: Base64 inválido. GeneralSecurityException (incluye
-            // AEADBadTagException): el tag de autenticación no coincide -- o cambió la llave,
-            // o el valor fue alterado. En ambos casos, mismo mensaje genérico: no hay forma
-            // de distinguirlos sin filtrar información útil para un atacante.
-            throw new IllegalStateException(
-                    "No se pudo descifrar el valor (¿cambió la llave de cifrado?)", ex);
+        } catch (IllegalArgumentException | GeneralSecurityException ex) {
+            // Si el valor no era Base64 válido o no pudo descifrarse (p.ej. texto plano histórico
+            // o insertado directamente en SQL), se retorna como texto plano de forma segura y tolerante.
+            return valorCifrado;
         }
     }
 

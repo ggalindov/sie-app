@@ -411,6 +411,7 @@ export type Estadisticas = {
   usuariosInternosActivos: number;
   usuariosPorRol: Record<"ADMIN_GENERAL" | "ABOGADO", number>;
   visitantesMesActual: number;
+  historicoVisitantes?: Record<string, number>;
 };
 
 export function obtenerEstadisticas(): Promise<Estadisticas> {
@@ -608,6 +609,255 @@ export function sincronizarCobros(): Promise<ResumenSincronizacionCobros> {
 
 export function enviarRecordatoriosCobros(): Promise<ResumenEnvioRecordatoriosCobros> {
   return pedido<ResumenEnvioRecordatoriosCobros>("/api/admin/cobros/enviar-recordatorios", { method: "POST" });
+}
+
+export function cambiarRespuestaCobro(
+  id: number,
+  respuesta: string | null,
+  pagoEsteMes?: boolean,
+): Promise<ClienteCobro> {
+  return pedido<ClienteCobro>(`/api/admin/cobros/${id}/respuesta`, {
+    method: "PATCH",
+    body: JSON.stringify({ respuesta, pagoEsteMes }),
+  });
+}
+
+export function simularRespuestaCobro(
+  telefono: string,
+  respuesta: string,
+): Promise<ClienteCobro[]> {
+  return pedido<ClienteCobro[]>("/api/admin/cobros/simular-respuesta", {
+    method: "POST",
+    body: JSON.stringify({ telefono, respuesta }),
+  });
+}
+
+// ---------- CRM Jurídico Integral ----------
+
+export type TipoClienteCrm = "PERSONA_NATURAL" | "EMPRESA";
+export type EstadoClienteCrm = "PROSPECTO" | "ACTIVO" | "INACTIVO" | "FINALIZADO";
+export type TipoActividadCrm = "LLAMADA" | "WHATSAPP" | "CORREO" | "REUNION" | "NOTA_INTERNA" | "CAMBIO_ESTADO" | "PAGO";
+export type PrioridadTareaCrm = "ALTA" | "MEDIA" | "BAJA";
+export type EtapaPipeline =
+  | "NUEVO"
+  | "CONTACTADO"
+  | "CITA_PROGRAMADA"
+  | "VALORACION"
+  | "PROPUESTA_ENVIADA"
+  | "CONTRATADO"
+  | "DESCARTADO";
+
+export type ClienteCrm = {
+  id: number;
+  tipo: TipoClienteCrm;
+  nombre: string;
+  cedulaNit: string | null;
+  correo: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  ciudad: string | null;
+  estado: EstadoClienteCrm;
+  etiqueta: string | null;
+  notas: string | null;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+  totalCasos: number;
+  totalCobros: number;
+  pagoAlDia: boolean;
+};
+
+export type CasoVinculado = {
+  id: number;
+  radicadoId: string | null;
+  fuente: string;
+  numeroCaso: string | null;
+  correoEnviado: boolean;
+  whatsappEnviado: boolean;
+};
+
+export type CobroVinculado = {
+  id: number;
+  tipo: string;
+  numeroFila: string;
+  honorarios: string | null;
+  pagoEsteMes: boolean | null;
+  respondioMensaje: string | null;
+  fechaUltimoRecordatorio: string | null;
+};
+
+export type CitaVinculada = {
+  id: number;
+  fechaHora: string;
+  tipoReunion: string;
+  linkReunion: string | null;
+  lugarReunion: string | null;
+};
+
+export type ActividadCrm = {
+  id: number;
+  clienteCrmId: number;
+  solicitudId: number | null;
+  casoId: number | null;
+  tipo: TipoActividadCrm;
+  titulo: string;
+  descripcion: string | null;
+  usuarioNombre: string | null;
+  fechaActividad: string;
+  fechaCreacion: string;
+};
+
+export type TareaCrm = {
+  id: number;
+  clienteCrmId: number;
+  titulo: string;
+  descripcion: string | null;
+  fechaVencimiento: string | null;
+  completada: boolean;
+  prioridad: PrioridadTareaCrm;
+  usuarioNombre: string | null;
+  fechaCreacion: string;
+};
+
+export type ClienteCrmDetalle = {
+  cliente: ClienteCrm;
+  casos: CasoVinculado[];
+  cobros: CobroVinculado[];
+  citas: CitaVinculada[];
+  actividades: ActividadCrm[];
+  tareas: TareaCrm[];
+};
+
+export type ItemPipeline = {
+  id: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  mensaje: string;
+  etapa: EtapaPipeline;
+  valorEstimado: number | null;
+  areaPractica: string | null;
+  fechaCreacion: string;
+  clienteCrmId: number | null;
+};
+
+export type CrmDashboard = {
+  totalClientes: number;
+  prospectosActivos: number;
+  casosActivos: number;
+  valorTotalPipeline: number;
+  cobrosAlDia: number;
+  cobrosPendientes: number;
+  leadsPorEtapa: Record<string, number>;
+};
+
+export function listarClientesCrm(opciones?: {
+  busqueda?: string;
+  estado?: EstadoClienteCrm;
+  tipo?: TipoClienteCrm;
+}): Promise<ClienteCrm[]> {
+  const parametros = new URLSearchParams();
+  if (opciones?.busqueda) parametros.set("busqueda", opciones.busqueda);
+  if (opciones?.estado) parametros.set("estado", opciones.estado);
+  if (opciones?.tipo) parametros.set("tipo", opciones.tipo);
+  return pedido<ClienteCrm[]>(`/api/admin/crm/clientes?${parametros.toString()}`);
+}
+
+export function obtenerClienteCrmDetalle(id: number): Promise<ClienteCrmDetalle> {
+  return pedido<ClienteCrmDetalle>(`/api/admin/crm/clientes/${id}`);
+}
+
+export function crearClienteCrm(datos: Partial<ClienteCrm>): Promise<ClienteCrm> {
+  return pedido<ClienteCrm>("/api/admin/crm/clientes", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+export function actualizarClienteCrm(id: number, datos: Partial<ClienteCrm>): Promise<ClienteCrm> {
+  return pedido<ClienteCrm>(`/api/admin/crm/clientes/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(datos),
+  });
+}
+
+export function archivarClienteCrm(id: number): Promise<void> {
+  return pedido<void>(`/api/admin/crm/clientes/${id}`, { method: "DELETE" });
+}
+
+export function obtenerPipelineCrm(): Promise<ItemPipeline[]> {
+  return pedido<ItemPipeline[]>("/api/admin/crm/pipeline");
+}
+
+export function cambiarEtapaPipeline(
+  solicitudId: number,
+  nuevaEtapa: EtapaPipeline,
+  nota?: string,
+  usuarioNombre?: string,
+): Promise<ItemPipeline> {
+  return pedido<ItemPipeline>(`/api/admin/crm/pipeline/${solicitudId}/etapa`, {
+    method: "PATCH",
+    body: JSON.stringify({ nuevaEtapa, nota, usuarioNombre }),
+  });
+}
+
+export function convertirProspectoACrm(
+  solicitudId: number,
+  datos: {
+    tipo?: TipoClienteCrm;
+    cedulaNit?: string;
+    direccion?: string;
+    ciudad?: string;
+    etiqueta?: string;
+    notas?: string;
+  },
+): Promise<ClienteCrm> {
+  return pedido<ClienteCrm>(`/api/admin/crm/pipeline/${solicitudId}/convertir`, {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+export function registrarActividadCrm(
+  clienteId: number,
+  actividad: {
+    tipo: TipoActividadCrm;
+    titulo: string;
+    descripcion?: string;
+    usuarioNombre?: string;
+    solicitudId?: number;
+    casoId?: number;
+  },
+): Promise<ActividadCrm> {
+  return pedido<ActividadCrm>(`/api/admin/crm/clientes/${clienteId}/actividades`, {
+    method: "POST",
+    body: JSON.stringify(actividad),
+  });
+}
+
+export function crearTareaCrm(
+  clienteId: number,
+  tarea: {
+    titulo: string;
+    descripcion?: string;
+    fechaVencimiento?: string;
+    prioridad?: PrioridadTareaCrm;
+    usuarioNombre?: string;
+  },
+): Promise<TareaCrm> {
+  return pedido<TareaCrm>(`/api/admin/crm/clientes/${clienteId}/tareas`, {
+    method: "POST",
+    body: JSON.stringify(tarea),
+  });
+}
+
+export function completarTareaCrm(tareaId: number, completada: boolean): Promise<TareaCrm> {
+  return pedido<TareaCrm>(`/api/admin/crm/tareas/${tareaId}/completar?completada=${completada}`, {
+    method: "PATCH",
+  });
+}
+
+export function obtenerDashboardCrm(): Promise<CrmDashboard> {
+  return pedido<CrmDashboard>("/api/admin/crm/dashboard");
 }
 
 // ---------- Registro del Sistema ----------

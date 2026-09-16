@@ -5,18 +5,22 @@ import { toast } from "sonner";
 import {
   ArrowsClockwise,
   ChatCircleText,
+  Check,
   CheckCircle,
+  DeviceMobile,
   EnvelopeSimple,
   HourglassMedium,
   PhoneSlash,
   Prohibit,
   Spinner,
   WhatsappLogo,
+  X,
 } from "@phosphor-icons/react";
 import {
   listarCobros,
   sincronizarCobros,
   enviarRecordatoriosCobros,
+  cambiarRespuestaCobro,
   ApiError,
   type ClienteCobro,
   type TipoClienteCobro,
@@ -64,6 +68,7 @@ export default function CobrosAdminPage() {
   const [clientes, setClientes] = useState<ClienteCobro[] | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
+  const [actualizandoId, setActualizandoId] = useState<number | null>(null);
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCobro | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
 
@@ -85,6 +90,26 @@ export default function CobrosAdminPage() {
       />
     );
   }
+
+  async function onCambiarRespuesta(id: number, respondio: string | null, pago: boolean) {
+    setActualizandoId(id);
+    try {
+      const act = await cambiarRespuestaCobro(id, respondio, pago);
+      setClientes((prev) => (prev ? prev.map((c) => (c.id === id ? act : c)) : null));
+      toast.success(
+        pago
+          ? "Respuesta actualizada: Pago Aprobado (SÍ)"
+          : respondio
+            ? "Respuesta actualizada: Rechazado (NO)"
+            : "Estado restablecido a pendiente",
+      );
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al actualizar respuesta");
+    } finally {
+      setActualizandoId(null);
+    }
+  }
+
 
   const clientesFiltrados =
     clientes?.filter(
@@ -179,6 +204,8 @@ export default function CobrosAdminPage() {
         descripcion="Notificando clientes activos pendientes de pago a través de WhatsApp Cloud API y Gmail SMTP con pausas de seguridad..."
       />
 
+
+
       {clientes !== null && clientes.length > 0 && (
         <>
           <div className="mt-6 flex flex-wrap gap-2">
@@ -260,68 +287,110 @@ export default function CobrosAdminPage() {
                   </p>
                 </div>
 
-                {/* Separador vertical + estado de cobro y notificaciones al costado derecho (mismo
-                    patrón que Casos para ver si se le envió por WhatsApp y correo). */}
+                {/* Separador vertical + estado de cobro y notificaciones al costado derecho */}
                 <div className="hidden self-stretch border-l border-line lg:block" aria-hidden="true" />
-                <div className="flex shrink-0 flex-col items-start gap-2.5 lg:w-64 lg:items-end">
+                <div className="flex shrink-0 flex-col items-start gap-2.5 lg:w-80 lg:items-end">
                   {!conCosto ? (
-                    <NotificationBadge tone="neutral" icon={<Prohibit weight="bold" className="h-3.5 w-3.5" />}>
+                    <NotificationBadge size="sm" tone="neutral" icon={<Prohibit weight="bold" className="h-3.5 w-3.5" />}>
                       Sin costo
                     </NotificationBadge>
                   ) : (
                     <>
-                      {c.pagoEsteMes ? (
-                        <NotificationBadge tone="success" icon={<CheckCircle weight="bold" className="h-3.5 w-3.5" />}>
-                          Respuesta de pago aprobada
-                        </NotificationBadge>
-                      ) : (
-                        <NotificationBadge tone="warning" icon={<HourglassMedium weight="bold" className="h-3.5 w-3.5" />}>
-                          Respuesta de pago pendiente
-                        </NotificationBadge>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                        {c.pagoEsteMes ? (
+                          <NotificationBadge size="sm" tone="success" icon={<CheckCircle weight="bold" className="h-3.5 w-3.5" />}>
+                            Pago aprobado
+                          </NotificationBadge>
+                        ) : (
+                          <NotificationBadge size="sm" tone="warning" icon={<HourglassMedium weight="bold" className="h-3.5 w-3.5" />}>
+                            Pendiente
+                          </NotificationBadge>
+                        )}
 
-                      {c.correo ? (
-                        <NotificationBadge
-                          tone={c.correoEnviado ? "success" : "warning"}
-                          icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
-                        >
-                          {c.correoEnviado
-                            ? c.fechaUltimoRecordatorioCorreo
-                              ? `Correo enviado (${formatearFecha(c.fechaUltimoRecordatorioCorreo)})`
-                              : "Correo enviado"
-                            : "Correo pendiente"}
-                        </NotificationBadge>
-                      ) : (
-                        <NotificationBadge tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
-                          Sin correo capturado
-                        </NotificationBadge>
-                      )}
+                        {c.correo ? (
+                          <NotificationBadge
+                            size="sm"
+                            tone={c.correoEnviado ? "success" : "warning"}
+                            icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
+                          >
+                            {c.correoEnviado ? "Correo enviado" : "Correo pend."}
+                          </NotificationBadge>
+                        ) : (
+                          <NotificationBadge size="sm" tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
+                            Sin correo
+                          </NotificationBadge>
+                        )}
 
-                      {c.telefono ? (
-                        <NotificationBadge
-                          tone={c.whatsappEnviado ? "success" : "warning"}
-                          icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
-                        >
-                          {c.whatsappEnviado
-                            ? c.fechaUltimoRecordatorioWhatsapp
-                              ? `WhatsApp enviado (${formatearFecha(c.fechaUltimoRecordatorioWhatsapp)})`
-                              : "WhatsApp enviado"
-                            : "WhatsApp pendiente"}
-                        </NotificationBadge>
-                      ) : (
-                        <NotificationBadge tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>
-                          Sin teléfono
-                        </NotificationBadge>
-                      )}
+                        {c.telefono ? (
+                          <NotificationBadge
+                            size="sm"
+                            tone={c.whatsappEnviado ? "success" : "warning"}
+                            icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
+                          >
+                            {c.whatsappEnviado ? "WA enviado" : "WA pend."}
+                          </NotificationBadge>
+                        ) : (
+                          <NotificationBadge size="sm" tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>
+                            Sin tel
+                          </NotificationBadge>
+                        )}
 
-                      {c.respondioMensaje && (
-                        <NotificationBadge
-                          tone={c.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}
-                          icon={<ChatCircleText weight="bold" className="h-3.5 w-3.5" />}
+                        {c.respondioMensaje && (
+                          <NotificationBadge
+                            size="sm"
+                            tone={c.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}
+                            icon={<ChatCircleText weight="bold" className="h-3.5 w-3.5" />}
+                          >
+                            Resp: {c.respondioMensaje}
+                          </NotificationBadge>
+                        )}
+                      </div>
+
+                      {/* Botones de acción manual rápida */}
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
+                        <span className="mr-1 text-[11px] font-medium uppercase tracking-wider text-ink-soft">
+                          Ajuste:
+                        </span>
+                        <button
+                          type="button"
+                          disabled={actualizandoId === c.id}
+                          onClick={() => onCambiarRespuesta(c.id, "SI", true)}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                            c.pagoEsteMes
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          }`}
+                          title="Marcar como pago confirmado (SÍ)"
                         >
-                          Respondió: {c.respondioMensaje}
-                        </NotificationBadge>
-                      )}
+                          <Check className="h-3 w-3" weight="bold" />
+                          Aceptó
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actualizandoId === c.id}
+                          onClick={() => onCambiarRespuesta(c.id, "NO", false)}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                            c.respondioMensaje?.toUpperCase() === "NO"
+                              ? "bg-rose-600 text-white shadow-xs"
+                              : "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          }`}
+                          title="Marcar como no pago (NO)"
+                        >
+                          <X className="h-3 w-3" weight="bold" />
+                          No pagó
+                        </button>
+                        {(c.respondioMensaje || c.pagoEsteMes) && (
+                          <button
+                            type="button"
+                            disabled={actualizandoId === c.id}
+                            onClick={() => onCambiarRespuesta(c.id, null, false)}
+                            className="inline-flex items-center rounded-md px-1.5 py-1 text-xs text-ink-soft hover:bg-ink/5 hover:text-ink"
+                            title="Restablecer a pendiente"
+                          >
+                            Limpiar
+                          </button>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>

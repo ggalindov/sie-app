@@ -15,4 +15,9 @@ public interface VisitaUnicaRepository extends JpaRepository<VisitaUnica, Long> 
     // contador del panel administrativo.
     @Query(value = "SELECT fn_contar_visitantes_mes_actual()", nativeQuery = true)
     long contarVisitantesMesActual();
+
+    // invoca fn_obtener_historico_visitantes (V41): retorna la serie cronológica de visitantes
+    // guardados por mes para la gráfica exponencial X-Y.
+    @Query(value = "SELECT anio_mes, total_visitantes FROM fn_obtener_historico_visitantes()", nativeQuery = true)
+    java.util.List<Object[]> obtenerHistoricoVisitantes();
 }

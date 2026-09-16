@@ -21,7 +21,8 @@ public enum TipoRegistroSistema {
     // radicado en sí no cuenta como dato sensible del cliente -- es el código que nosotros
     // mismos le enviamos por correo para que lo use en esta consulta pública (mismo criterio
     // ya usado en HojaCalculoService al decidir qué es seguro loguear).
-    CONSULTA_ESTADO_CASO("Consulta de estado de caso");
+    CONSULTA_ESTADO_CASO("Consulta de estado de caso"),
+    GESTION_CRM("Gestión CRM");
 
     private final String nombreVisible;
 

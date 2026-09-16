@@ -15,7 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { obtenerEstadisticas, type Estadisticas } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, EmptyState, AdminLoader } from "@/components/admin/ui";
-import { DonutChart, GaugeRadial } from "@/components/admin/charts";
+import { DonutChart, GaugeRadial, GraficaExponencialXY } from "@/components/admin/charts";
 import { useAuth } from "@/lib/auth-context";
 
 // Misma asignación de color por categoría en toda la página (nunca cambia según el
@@ -127,12 +127,31 @@ export default function EstadisticasPage() {
     <div>
       <AdminPageHeader title="Estadísticas" description="Un vistazo agregado a la actividad de la firma." />
 
-      {/* Contador grande y destacado, fuera de la grilla de tarjetas chicas: es el
-          primer número que pidió ver el dueño de la firma. */}
+      {/* Gráfica X-Y Exponencial de Visitantes y Persistencia Mensual */}
       <AdminCard accent className="mb-6">
-        <SectionTitle icono={Globe} etiqueta="Visitantes este mes" />
-        <p className="mt-4 font-display text-6xl text-ink">{datos.visitantesMesActual}</p>
-        <p className="mt-1 text-sm text-ink-soft">Visitantes únicos aproximados al sitio público este mes.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-line/60 pb-3.5">
+          <div>
+            <SectionTitle icono={Globe} etiqueta="Visitantes mensuales y tendencia de crecimiento" />
+            <p className="mt-1 text-xs text-ink-soft">
+              Conteo de visitas únicas consolidadas con persistencia y acumulación histórica mes a mes.
+            </p>
+          </div>
+
+          <div className="flex items-baseline gap-2 sm:text-right shrink-0">
+            <span className="text-xs text-ink-soft">Mes actual:</span>
+            <p className="font-display text-3xl font-bold text-ink sm:text-4xl">
+              {datos.visitantesMesActual.toLocaleString("es-CO")}
+            </p>
+            <span className="text-xs text-ink-soft">visitas</span>
+          </div>
+        </div>
+
+        <div className="mt-4 w-full">
+          <GraficaExponencialXY
+            historico={datos.historicoVisitantes}
+            visitantesMesActual={datos.visitantesMesActual}
+          />
+        </div>
       </AdminCard>
 
       {/* Casework: lo que le importa al día a día de cualquier abogado del equipo */}

@@ -31,6 +31,9 @@ set ADMIN_BOOTSTRAP_PASSWORD=ClaveAdmin2026!
 rem Firma de los JWT (cambia esto por una clave propia larga y aleatoria en produccion)
 set JWT_SECRET=cambia-esto-por-una-clave-larga-y-aleatoria-de-al-menos-32-caracteres
 
+rem MODO DE SEGURIDAD TOTAL: Bloquea envios de WhatsApp, correos y tareas masivas a clientes
+set BLOQUEO_TOTAL_CLIENTES=true
+
 rem Necesaria solo para probar el chatbot (POST /api/chatbot/mensaje). Deja vacio si no la tienes aun.
 set ANTHROPIC_API_KEY=
 

@@ -93,6 +93,17 @@ public class Cliente {
         this.telefono = telefono;
     }
 
+    @Column(name = "cliente_crm_id")
+    private Long clienteCrmId;
+
+    public Long getClienteCrmId() {
+        return clienteCrmId;
+    }
+
+    public void setClienteCrmId(Long clienteCrmId) {
+        this.clienteCrmId = clienteCrmId;
+    }
+
     public LocalDateTime getFechaCreacion() {
         return fechaCreacion;
     }

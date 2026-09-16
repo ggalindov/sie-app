@@ -14,6 +14,7 @@ import sie.siejuridicos.boletin.BoletinEnviado;
 import sie.siejuridicos.boletin.BoletinEnviadoRepository;
 import sie.siejuridicos.common.exception.ErroresBaseDatos;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
+import sie.siejuridicos.common.seguridad.HtmlSanitizer;
 import sie.siejuridicos.correo.EmailService;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.marketing.SuscriptorMarketingRepository;
@@ -104,7 +105,7 @@ public class ArticuloService {
         Articulo articulo = new Articulo();
         articulo.setTitulo(request.titulo());
         articulo.setSlug(generarSlugUnico(request.titulo()));
-        articulo.setContenido(request.contenido());
+        articulo.setContenido(HtmlSanitizer.sanitizar(request.contenido()));
         articulo.setResumen(request.resumen());
         articulo.setImagenUrl(request.imagenUrl());
         articulo.setTipoContenido(request.tipoContenido());
@@ -129,7 +130,7 @@ public class ArticuloService {
         }
         boolean yaEstabaPublicado = articulo.getEstado() == EstadoArticulo.PUBLICADO;
         articulo.setTitulo(request.titulo());
-        articulo.setContenido(request.contenido());
+        articulo.setContenido(HtmlSanitizer.sanitizar(request.contenido()));
         articulo.setResumen(request.resumen());
         articulo.setImagenUrl(request.imagenUrl());
         articulo.setTipoContenido(request.tipoContenido());

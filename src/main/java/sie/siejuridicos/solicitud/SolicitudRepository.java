@@ -36,4 +36,8 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long>, Jpa
     long countByFechaCitaAfter(LocalDateTime momento);
 
     long countByFechaCreacionAfter(LocalDateTime momento);
+
+    List<Solicitud> findByClienteCrmId(Long clienteCrmId);
+
+    List<Solicitud> findAllByOrderByFechaCreacionDesc();
 }

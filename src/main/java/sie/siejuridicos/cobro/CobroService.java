@@ -163,11 +163,12 @@ public class CobroService {
             cliente.setHonorarios(fila.honorarios());
             cambio = true;
         }
-        if (!Objects.equals(fila.pagoEsteMes(), cliente.getPagoEsteMes())) {
+        if (fila.pagoEsteMes() != null && !Objects.equals(fila.pagoEsteMes(), cliente.getPagoEsteMes())) {
             cliente.setPagoEsteMes(fila.pagoEsteMes());
             cambio = true;
         }
-        if (!Objects.equals(fila.respondioMensaje(), cliente.getRespondioMensaje())) {
+        if (fila.respondioMensaje() != null && !fila.respondioMensaje().isBlank()
+                && !Objects.equals(fila.respondioMensaje(), cliente.getRespondioMensaje())) {
             cliente.setRespondioMensaje(fila.respondioMensaje());
             cambio = true;
         }
@@ -385,22 +386,114 @@ public class CobroService {
         }
     }
 
-    // Llamado por el webhook de WhatsApp (ver WhatsAppWebhookController) cuando el cliente
-    // responde al botón de sí/no del recordatorio. telefonoNormalizado ya viene en el mismo
-    // formato E.164-sin-"+" que se usó para calcular telefonoHash al sincronizar (ver
-    // calcularTelefonoHash), así que se puede buscar directo por igualdad del índice ciego,
-    // sin descifrar el teléfono de cada cliente activo uno por uno.
+    // Llamado por el webhook de WhatsApp (ver WhatsAppWebhookController) o simulación de prueba
+    // cuando el cliente responde al botón de sí/no del recordatorio.
+    // Desacoplado de Google Sheets: el estado del cliente en el sistema se guarda e impacta de inmediato
+    // en Postgres sin riesgo de rollback si la hoja está ocupada o falla la red.
     @Transactional
-    public void registrarRespuesta(String telefonoNormalizado, String respuesta) {
+    public List<ClienteCobroResponse> registrarRespuesta(String telefonoNormalizado, String respuesta) {
         String hash = cifradoService.indiceCiego(telefonoNormalizado);
-        List<ClienteCobro> encontrados = clienteCobroRepository.findByTelefonoHashAndActivoTrue(hash);
+        List<ClienteCobro> encontrados = new ArrayList<>(clienteCobroRepository.findByTelefonoHashAndActivoTrue(hash));
+
+        // Fallback robusto: si no coincidió el hash ciego (por variaciones de formato al capturar),
+        // buscamos entre los clientes activos comparando los últimos 10 dígitos del teléfono.
+        if (encontrados.isEmpty() && telefonoNormalizado != null) {
+            String digitosEntrantes = telefonoNormalizado.replaceAll("[^0-9]", "");
+            String ultimos10Entrantes = digitosEntrantes.length() >= 10
+                    ? digitosEntrantes.substring(digitosEntrantes.length() - 10)
+                    : digitosEntrantes;
+
+            if (!ultimos10Entrantes.isBlank()) {
+                List<ClienteCobro> todosActivos = clienteCobroRepository.findByActivoTrueOrderByNombreAsc();
+                for (ClienteCobro c : todosActivos) {
+                    if (c.getTelefono() != null) {
+                        String digitosGuardados = c.getTelefono().replaceAll("[^0-9]", "");
+                        if (digitosGuardados.endsWith(ultimos10Entrantes)) {
+                            encontrados.add(c);
+                            if (c.getTelefonoHash() == null) {
+                                c.setTelefonoHash(hash);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (encontrados.isEmpty()) {
+            log.warn("Cobros: no se encontró ningún cliente activo con teléfono '{}' para registrar respuesta '{}'",
+                    telefonoNormalizado, respuesta);
+            return List.of();
+        }
+
         boolean esSi = "Sí".equalsIgnoreCase(respuesta) || "Si".equalsIgnoreCase(respuesta);
+        boolean esNo = "No".equalsIgnoreCase(respuesta);
+        List<ClienteCobroResponse> actualizados = new ArrayList<>();
+
         for (ClienteCobro cliente : encontrados) {
             cliente.setRespondioMensaje(respuesta);
             if (esSi) {
                 cliente.setPagoEsteMes(true);
+            } else if (esNo) {
+                cliente.setPagoEsteMes(false);
             }
-            hojaCobrosService.marcarRespuesta(cliente.getTipo(), cliente.getNumeroFila(), respuesta);
+            clienteCobroRepository.save(cliente);
+            actualizados.add(ClienteCobroResponse.desde(cliente));
+
+            log.info("Cobros: respuesta guardada exitosamente para '{}' (fila {}): respondio='{}', pagoEsteMes={}",
+                    cliente.getNombre(), cliente.getNumeroFila(), respuesta, cliente.getPagoEsteMes());
+
+            // Intento seguro hacia Google Sheets: NUNCA hace rollback de la BD local si la hoja falla
+            try {
+                hojaCobrosService.marcarRespuesta(cliente.getTipo(), cliente.getNumeroFila(), respuesta);
+            } catch (Exception ex) {
+                log.warn("Cobros: no se pudo escribir la respuesta en Google Sheets para fila {}: {}",
+                        cliente.getNumeroFila(), ex.getMessage());
+            }
         }
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.SINCRONIZACION_COBROS,
+                "Respuesta de cobro '%s' registrada para %d cliente(s) con teléfono %s"
+                        .formatted(respuesta, actualizados.size(), telefonoNormalizado),
+                null,
+                true);
+
+        return actualizados;
+    }
+
+    // Actualización manual directa desde el panel de administración
+    @Transactional
+    public ClienteCobroResponse actualizarRespuestaManual(Long id, String respuesta, Boolean pagoEsteMes) {
+        ClienteCobro cliente = clienteCobroRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cliente de cobro no encontrado con ID: " + id));
+
+        cliente.setRespondioMensaje(respuesta);
+        if (pagoEsteMes != null) {
+            cliente.setPagoEsteMes(pagoEsteMes);
+        } else if ("Sí".equalsIgnoreCase(respuesta) || "Si".equalsIgnoreCase(respuesta)) {
+            cliente.setPagoEsteMes(true);
+        } else if ("No".equalsIgnoreCase(respuesta)) {
+            cliente.setPagoEsteMes(false);
+        }
+
+        clienteCobroRepository.save(cliente);
+
+        if (respuesta != null && !respuesta.isBlank()) {
+            try {
+                hojaCobrosService.marcarRespuesta(cliente.getTipo(), cliente.getNumeroFila(), respuesta);
+            } catch (Exception ex) {
+                log.warn("Cobros: no se pudo actualizar manualmente la fila {} en Google Sheets: {}",
+                        cliente.getNumeroFila(), ex.getMessage());
+            }
+        }
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.SINCRONIZACION_COBROS,
+                "Respuesta de cobro actualizada manualmente para '%s': respondio='%s', pago=%s"
+                        .formatted(cliente.getNombre(), cliente.getRespondioMensaje(), cliente.getPagoEsteMes()),
+                null,
+                true);
+
+        return ClienteCobroResponse.desde(cliente);
     }
 }

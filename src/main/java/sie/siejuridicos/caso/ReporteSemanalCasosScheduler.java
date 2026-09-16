@@ -2,6 +2,7 @@ package sie.siejuridicos.caso;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import sie.siejuridicos.caso.dto.ResumenReporteSemanal;
@@ -23,13 +24,20 @@ public class ReporteSemanalCasosScheduler {
     private static final Logger log = LoggerFactory.getLogger(ReporteSemanalCasosScheduler.class);
 
     private final CasoService casoService;
+    private final boolean bloqueoTotalClientes;
 
-    public ReporteSemanalCasosScheduler(CasoService casoService) {
+    public ReporteSemanalCasosScheduler(CasoService casoService,
+                                        @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.casoService = casoService;
+        this.bloqueoTotalClientes = bloqueoTotalClientes;
     }
 
     @Scheduled(cron = "${app.casos.reporte-semanal-cron}")
     public void enviarReporteSemanal() {
+        if (bloqueoTotalClientes) {
+            log.info("[SEGURIDAD ACTIVA] ReporteSemanalCasosScheduler OMITIDO por app.bloqueo-total-clientes=true. Cero mensajes a clientes.");
+            return;
+        }
         LocalDate hoy = LocalDate.now();
         boolean esLunes = hoy.getDayOfWeek() == DayOfWeek.MONDAY;
         boolean esMartes = hoy.getDayOfWeek() == DayOfWeek.TUESDAY;

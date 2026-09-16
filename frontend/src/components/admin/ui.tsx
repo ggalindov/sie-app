@@ -96,19 +96,39 @@ const notificationTones = {
 export function NotificationBadge({
   children,
   tone = "neutral",
+  size = "md",
   icon,
+  className,
 }: {
   children: ReactNode;
   tone?: keyof typeof notificationTones;
+  size?: "sm" | "md";
   icon: ReactNode;
+  className?: string;
 }) {
   const t = notificationTones[tone];
+  const isSm = size === "sm";
   return (
-    <span className={cn("inline-flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-4 text-sm font-semibold", t.wrap)}>
-      <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", t.iconWrap)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full font-medium transition-all",
+        isSm
+          ? "gap-1.5 py-1 pl-1 pr-3 text-xs"
+          : "gap-2 py-1 pl-1.5 pr-3.5 text-xs font-semibold sm:text-[13px]",
+        t.wrap,
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-full",
+          isSm ? "h-5 w-5" : "h-6 w-6",
+          t.iconWrap,
+        )}
+      >
         {icon}
       </span>
-      {children}
+      <span>{children}</span>
     </span>
   );
 }

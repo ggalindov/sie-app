@@ -2,6 +2,7 @@ package sie.siejuridicos.cobro;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
@@ -21,13 +22,20 @@ public class RecordatorioCobroScheduler {
     private static final Logger log = LoggerFactory.getLogger(RecordatorioCobroScheduler.class);
 
     private final CobroService cobroService;
+    private final boolean bloqueoTotalClientes;
 
-    public RecordatorioCobroScheduler(CobroService cobroService) {
+    public RecordatorioCobroScheduler(CobroService cobroService,
+                                      @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.cobroService = cobroService;
+        this.bloqueoTotalClientes = bloqueoTotalClientes;
     }
 
     @Scheduled(cron = "${app.cobros.recordatorio-cron}")
     public void enviarRecordatoriosDelMes() {
+        if (bloqueoTotalClientes) {
+            log.info("[SEGURIDAD ACTIVA] RecordatorioCobroScheduler OMITIDO por app.bloqueo-total-clientes=true. Cero mensajes a clientes.");
+            return;
+        }
         int diaDelMes = LocalDate.now().getDayOfMonth();
         if (diaDelMes < 3 || diaDelMes > 5) {
             log.info("Recordatorio automático de cobro: hoy es día {} del mes. Se omite. "

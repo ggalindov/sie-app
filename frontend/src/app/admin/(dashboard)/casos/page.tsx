@@ -264,13 +264,14 @@ export default function CasosAdminPage() {
                   enorme en pantallas anchas. Se oculta en móvil, donde el bloque de la
                   derecha simplemente cae debajo por el flex-col del contenedor. */}
               <div className="hidden self-stretch border-l border-line lg:block" aria-hidden="true" />
-              <div className="flex shrink-0 flex-col items-start gap-2.5 lg:w-56 lg:items-end">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 lg:max-w-md lg:justify-end">
                 {c.radicadoId ? (
                   <>
                     {c.correoCliente ? (
                       <NotificationBadge
+                        size="sm"
                         tone={c.correoEnviado ? "success" : "warning"}
-                        icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
+                        icon={<EnvelopeSimple weight="bold" className="h-3 w-3" />}
                       >
                         {c.correoEnviado
                           ? c.fechaUltimoReporteSemanal
@@ -279,14 +280,15 @@ export default function CasosAdminPage() {
                           : "Correo pendiente"}
                       </NotificationBadge>
                     ) : (
-                      <NotificationBadge tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
-                        Sin correo capturado
+                      <NotificationBadge size="sm" tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3 w-3" />}>
+                        Sin correo
                       </NotificationBadge>
                     )}
                     {c.telefonoCliente ? (
                       <NotificationBadge
+                        size="sm"
                         tone={c.whatsappEnviado ? "success" : "warning"}
-                        icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
+                        icon={<WhatsappLogo weight="bold" className="h-3 w-3" />}
                       >
                         {c.whatsappEnviado
                           ? c.fechaUltimoReporteWhatsapp
@@ -295,13 +297,13 @@ export default function CasosAdminPage() {
                           : "WhatsApp pendiente"}
                       </NotificationBadge>
                     ) : (
-                      <NotificationBadge tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>
+                      <NotificationBadge size="sm" tone="neutral" icon={<PhoneSlash weight="bold" className="h-3 w-3" />}>
                         Sin teléfono
                       </NotificationBadge>
                     )}
                   </>
                 ) : (
-                  <NotificationBadge tone="neutral" icon={<HourglassMedium weight="bold" className="h-3.5 w-3.5" />}>
+                  <NotificationBadge size="sm" tone="neutral" icon={<HourglassMedium weight="bold" className="h-3 w-3" />}>
                     Sin radicado aún
                   </NotificationBadge>
                 )}

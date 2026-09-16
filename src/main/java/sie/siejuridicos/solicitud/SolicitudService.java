@@ -1,5 +1,8 @@
 package sie.siejuridicos.solicitud;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -33,22 +36,32 @@ import java.util.Set;
 @Service
 public class SolicitudService {
 
+    private static final Logger log = LoggerFactory.getLogger(SolicitudService.class);
+
     private final SolicitudRepository solicitudRepository;
     private final UsuarioInternoRepository usuarioInternoRepository;
     private final SuscriptorMarketingService suscriptorMarketingService;
     private final EmailService emailService;
     private final WhatsAppService whatsAppService;
+    private final boolean bloqueoTotalClientes;
 
     public SolicitudService(SolicitudRepository solicitudRepository,
                              UsuarioInternoRepository usuarioInternoRepository,
                              SuscriptorMarketingService suscriptorMarketingService,
                              EmailService emailService,
-                             WhatsAppService whatsAppService) {
+                             WhatsAppService whatsAppService,
+                             @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.solicitudRepository = solicitudRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.suscriptorMarketingService = suscriptorMarketingService;
         this.emailService = emailService;
         this.whatsAppService = whatsAppService;
+        this.bloqueoTotalClientes = bloqueoTotalClientes;
+        if (bloqueoTotalClientes) {
+            log.warn("==========================================================================");
+            log.warn(" [SEGURIDAD ACTIVA] SolicitudService en MODO SEGURO: Cero envíos a clientes.");
+            log.warn("==========================================================================");
+        }
     }
 
     // @Transactional (sin readOnly) es necesario aquí: fn_crear_solicitud hace un INSERT
@@ -69,10 +82,14 @@ public class SolicitudService {
                 suscriptorMarketingService.suscribir(request.nombre(), request.correo());
             }
 
-            emailService.enviarConfirmacionYPromocionSolicitud(creada);
-            emailService.enviarNotificacionAdminNuevaSolicitud(creada);
-            whatsAppService.enviarNotificacionAdminNuevaSolicitud(
-                    creada.getNombre(), creada.getCorreo(), creada.getTelefono(), creada.getMensaje());
+            if (bloqueoTotalClientes) {
+                log.warn("[SEGURIDAD ACTIVA] Solicitud creada en BD (ID={}), pero se BLOQUEARON todas las notificaciones salientes de correo y WhatsApp.", creada.getId());
+            } else {
+                emailService.enviarConfirmacionYPromocionSolicitud(creada);
+                emailService.enviarNotificacionAdminNuevaSolicitud(creada);
+                whatsAppService.enviarNotificacionAdminNuevaSolicitud(
+                        creada.getNombre(), creada.getCorreo(), creada.getTelefono(), creada.getMensaje());
+            }
 
             return SolicitudResponse.desde(creada);
         } catch (DataAccessException ex) {
@@ -226,11 +243,15 @@ public class SolicitudService {
         solicitud.setRecordatorioEnviado(false);
         Solicitud actualizada = solicitudRepository.save(solicitud);
 
-        emailService.enviarConfirmacionCita(actualizada);
-        emailService.enviarNotificacionAdminNuevaCita(actualizada);
-        whatsAppService.enviarConfirmacionCita(
-                actualizada.getNombre(), actualizada.getTelefono(),
-                actualizada.getFechaCita(), detalleAccesoParaWhatsApp(actualizada));
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Cita agendada para Solicitud ID={}, pero se BLOQUEARON las notificaciones salientes de confirmación a cliente y admin.", actualizada.getId());
+        } else {
+            emailService.enviarConfirmacionCita(actualizada);
+            emailService.enviarNotificacionAdminNuevaCita(actualizada);
+            whatsAppService.enviarConfirmacionCita(
+                    actualizada.getNombre(), actualizada.getTelefono(),
+                    actualizada.getFechaCita(), detalleAccesoParaWhatsApp(actualizada));
+        }
 
         return SolicitudResponse.desde(actualizada);
     }
@@ -243,6 +264,10 @@ public class SolicitudService {
     // mismo dato, solo cambia cuándo se manda; no amerita una segunda plantilla aparte que
     // aprobar en Meta solo para esto.
     public void enviarRecordatorioCita(Solicitud solicitud) {
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Recordatorio de cita omitido para Solicitud ID={} por bloqueo de pruebas.", solicitud.getId());
+            return;
+        }
         emailService.enviarRecordatorioCita(solicitud);
         whatsAppService.enviarConfirmacionCita(
                 solicitud.getNombre(), solicitud.getTelefono(),
