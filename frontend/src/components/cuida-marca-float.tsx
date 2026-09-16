@@ -17,7 +17,7 @@ export function CuidaMarcaFloat() {
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, delay: 1, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed bottom-22 right-4 sm:bottom-24 sm:right-6 z-40"
+      className="hidden sm:block fixed bottom-24 right-6 z-40"
     >
       {/* onHoverStart/onHoverEnd viven en un div normal aparte, nunca en el mismo
           motion.div que anima la entrada con delay -- bug real encontrado en vivo: con
