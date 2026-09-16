@@ -10,7 +10,10 @@ import "./globals.css";
 // Misma derivación que sitemap.ts/robots.ts: el sitio público vive un nivel
 // arriba de NEXT_PUBLIC_API_URL (que apunta a ".../api"), sin depender de
 // una variable de entorno nueva solo para esto.
-const SITE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/api\/?$/, "");
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+const SITE_URL = (rawApiUrl && rawApiUrl !== "https://" && rawApiUrl !== "http://" && rawApiUrl.length > 8)
+  ? rawApiUrl.replace(/\/api\/?$/, "")
+  : "https://siejuridicos.com";
 
 // De vuelta a la pareja original (Playfair Display + Manrope), a pedido explícito del
 // usuario tras probar Fraunces, Bodoni Moda y Libre Caslon Display sin que ninguna
