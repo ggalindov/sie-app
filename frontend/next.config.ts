@@ -37,6 +37,9 @@ const csp = [
   "font-src 'self' data:",
   "media-src 'self'",
   `connect-src 'self' ${apiOrigin}`,
+  // frame-src / child-src: permite incrustar reproductores de video (YouTube) en blogs y panel
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
+  "child-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

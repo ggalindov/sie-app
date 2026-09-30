@@ -65,6 +65,9 @@ public class Articulo {
     @Column(name = "tiempo_lectura_min")
     private Integer tiempoLecturaMin;
 
+    @Column(name = "video_youtube_url")
+    private String videoYoutubeUrl;
+
     public Long getId() {
         return id;
     }
@@ -163,5 +166,13 @@ public class Articulo {
 
     public void setTiempoLecturaMin(Integer tiempoLecturaMin) {
         this.tiempoLecturaMin = tiempoLecturaMin;
+    }
+
+    public String getVideoYoutubeUrl() {
+        return videoYoutubeUrl;
+    }
+
+    public void setVideoYoutubeUrl(String videoYoutubeUrl) {
+        this.videoYoutubeUrl = videoYoutubeUrl;
     }
 }

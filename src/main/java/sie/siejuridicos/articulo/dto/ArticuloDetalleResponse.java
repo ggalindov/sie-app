@@ -32,7 +32,8 @@ public record ArticuloDetalleResponse(
         EstadoArticulo estado,
         Instant fechaCreacion,
         Instant fechaPublicacion,
-        Integer tiempoLecturaMin
+        Integer tiempoLecturaMin,
+        String videoYoutubeUrl
 ) {
     public static ArticuloDetalleResponse desde(Articulo articulo) {
         return new ArticuloDetalleResponse(
@@ -48,7 +49,8 @@ public record ArticuloDetalleResponse(
                 articulo.getEstado(),
                 FechasUtil.aInstanteUtc(articulo.getFechaCreacion()),
                 FechasUtil.aInstanteUtc(articulo.getFechaPublicacion()),
-                articulo.getTiempoLecturaMin()
+                articulo.getTiempoLecturaMin(),
+                articulo.getVideoYoutubeUrl()
         );
     }
 }

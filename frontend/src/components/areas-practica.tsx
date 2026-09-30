@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { Dialog } from "@base-ui/react/dialog";
@@ -28,8 +29,19 @@ export function AreasPractica() {
 
     function verificarParametro() {
       try {
-        const parametros = new URLSearchParams(window.location.search);
-        const slug = parametros.get("area");
+        let slug = new URLSearchParams(window.location.search).get("area");
+        if (!slug && window.location.hash.includes("?")) {
+          slug = new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf("?"))).get("area");
+        }
+        if (!slug && window.location.hash.startsWith("#area-")) {
+          slug = window.location.hash.replace("#area-", "");
+        }
+        if (!slug) {
+          const directo = window.location.hash.replace("#", "");
+          if (["laboral", "familia", "civil", "mercantil", "administrativo", "constitucional"].includes(directo)) {
+            slug = directo;
+          }
+        }
         if (slug) abrirPorSlug(slug);
       } catch {
         // no crítico
@@ -38,6 +50,7 @@ export function AreasPractica() {
 
     verificarParametro();
     window.addEventListener("popstate", verificarParametro);
+    window.addEventListener("hashchange", verificarParametro);
 
     function onAbrirArea(e: Event) {
       const custom = e as CustomEvent<string>;
@@ -47,11 +60,10 @@ export function AreasPractica() {
 
     return () => {
       window.removeEventListener("popstate", verificarParametro);
+      window.removeEventListener("hashchange", verificarParametro);
       window.removeEventListener("abrir-area", onAbrirArea);
     };
   }, []);
-
-
 
   return (
     <section
@@ -93,11 +105,18 @@ export function AreasPractica() {
               key={area.slug}
               type="button"
               onClick={() => setSeleccionada(area)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSeleccionada(area);
+                }
+              }}
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE }}
               whileHover={{ y: -6 }}
+              whileTap={{ scale: 0.98 }}
               className="group relative flex flex-col rounded-2xl sm:rounded-3xl bg-surface border border-line hover:border-gold/60 p-3 sm:p-3.5 shadow-xs hover:shadow-[0_20px_45px_-12px_rgba(217,169,37,0.22)] transition-all duration-500 text-left cursor-pointer overflow-hidden"
             >
               {/* Portada Fotográfica Limpia */}
@@ -106,11 +125,12 @@ export function AreasPractica() {
                   src={area.foto}
                   alt={area.nombre}
                   fill
+                  priority={i < 4}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-105 filter brightness-[0.96] group-hover:brightness-100"
                 />
                 {/* Sutil viñeta degradada */}
-                <div className="absolute inset-0 bg-gradient-to-t from-night/40 via-transparent to-night/20" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-night/40 via-transparent to-night/20" />
               </div>
 
               {/* Título Totalmente Limpio */}
@@ -246,6 +266,17 @@ export function AreasPractica() {
                         />
                       </button>
                     </MagneticButton>
+
+                    <Link
+                      href={`/areas/${seleccionada.slug}`}
+                      className="group inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface/60 px-4 py-3 text-xs font-semibold text-ink-soft hover:text-ink hover:border-gold/50 transition-colors"
+                    >
+                      <span>Ver página completa</span>
+                      <ArrowUpRight
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-gold-deep transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                      />
+                    </Link>
                   </div>
 
                   {/* Selector Rápido entre Áreas */}

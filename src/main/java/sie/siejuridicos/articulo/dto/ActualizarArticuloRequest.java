@@ -37,6 +37,10 @@ public record ActualizarArticuloRequest(
         @Positive(message = "El tiempo de lectura debe ser mayor a cero")
         Integer tiempoLecturaMin,
 
+        @Size(max = 500, message = "El enlace de video de YouTube no puede superar los 500 caracteres")
+        @Pattern(regexp = "^(https?://.+)?$", message = "El enlace de video debe empezar por http:// o https://")
+        String videoYoutubeUrl,
+
         @NotNull(message = "El estado es obligatorio")
         EstadoArticulo estado
 ) {

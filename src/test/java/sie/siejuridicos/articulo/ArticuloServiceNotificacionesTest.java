@@ -86,7 +86,7 @@ class ArticuloServiceNotificacionesTest {
     private static ActualizarArticuloRequest solicitudPublicar() {
         return new ActualizarArticuloRequest(
                 "Título de prueba", "Contenido", null, null,
-                TipoContenido.BLOG, 1L, null, EstadoArticulo.PUBLICADO);
+                TipoContenido.BLOG, 1L, null, null, EstadoArticulo.PUBLICADO);
     }
 
     @Test

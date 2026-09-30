@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { UploadSimple } from "@phosphor-icons/react";
+import { UploadSimple, YoutubeLogo } from "@phosphor-icons/react";
 import type { Categoria } from "@/lib/api";
+import { extraerYouTubeId } from "@/lib/utils";
 import {
   crearArticulo,
   actualizarArticulo,
@@ -30,6 +31,7 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
   const [idCategoria, setIdCategoria] = useState<number | "">(articulo?.categoria.id ?? "");
   const [resumen, setResumen] = useState(articulo?.resumen ?? "");
   const [imagenUrl, setImagenUrl] = useState(articulo?.imagenUrl ?? "");
+  const [videoYoutubeUrl, setVideoYoutubeUrl] = useState(articulo?.videoYoutubeUrl ?? "");
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
   const [tipoContenido, setTipoContenido] = useState<TipoContenido>(articulo?.tipoContenido ?? "BLOG");
@@ -83,6 +85,7 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
       contenido,
       resumen: resumen.trim(),
       imagenUrl: imagenUrl.trim(),
+      videoYoutubeUrl: videoYoutubeUrl.trim() || null,
       tipoContenido,
       idCategoria: Number(idCategoria),
       tiempoLecturaMin: tiempoLecturaMin ? Number(tiempoLecturaMin) : null,
@@ -255,6 +258,26 @@ export function ArticuloForm({ articulo }: { articulo?: ArticuloAdmin }) {
       </div>
 
       <div className="space-y-2">
+        <label htmlFor="videoYoutubeUrl" className="flex items-center gap-2 text-sm font-medium text-ink">
+          <YoutubeLogo className="h-5 w-5 text-red-600" weight="fill" />
+          <span>Video de YouTube (opcional)</span>
+        </label>
+        <input
+          id="videoYoutubeUrl"
+          value={videoYoutubeUrl}
+          onChange={(e) => setVideoYoutubeUrl(e.target.value)}
+          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
+          placeholder="https://www.youtube.com/watch?v=... o https://youtu.be/..."
+        />
+        <p className="text-xs text-ink-soft">
+          Integra un video interactivo dentro del blog. Soporta enlaces directos de YouTube, videos cortos (Shorts) o enlaces compartidos (youtu.be). Al publicarse, los visitantes podrán reproducir el video en alta definición dentro del artículo.
+        </p>
+        {videoYoutubeUrl.trim() && (
+          <YouTubePreview url={videoYoutubeUrl.trim()} />
+        )}
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm font-medium text-ink">Contenido</label>
         <RichTextEditor value={contenido} onChange={setContenido} />
       </div>
@@ -294,3 +317,33 @@ function ImagenPreview({ url }: { url: string }) {
     />
   );
 }
+
+function YouTubePreview({ url }: { url: string }) {
+  const videoId = extraerYouTubeId(url);
+
+  if (!videoId) {
+    return (
+      <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-600 dark:text-amber-400">
+        No se pudo reconocer un enlace válido de YouTube. Formatos soportados: https://www.youtube.com/watch?v=..., https://youtu.be/... o shorts.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2 pt-1">
+      <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-xl bg-black ring-1 ring-line shadow-md">
+        <iframe
+          src={`https://www.youtube.com/embed/${videoId}?rel=0`}
+          title="Vista previa del reproductor de YouTube"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="absolute inset-0 h-full w-full border-0"
+        />
+      </div>
+      <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+        <span>✓</span> Video reconocido (ID: <span className="font-mono font-bold">{videoId}</span>). El reproductor quedará activo dentro del blog.
+      </p>
+    </div>
+  );
+}
+

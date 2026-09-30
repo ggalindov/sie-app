@@ -112,6 +112,7 @@ public class ArticuloService {
         articulo.setCategoria(categoria);
         articulo.setAutor(usuarioInternoRepository.getReferenceById(autorId));
         articulo.setTiempoLecturaMin(request.tiempoLecturaMin());
+        articulo.setVideoYoutubeUrl(request.videoYoutubeUrl());
 
         return ArticuloDetalleResponse.desde(articuloRepository.save(articulo));
     }
@@ -135,6 +136,7 @@ public class ArticuloService {
         articulo.setImagenUrl(request.imagenUrl());
         articulo.setTipoContenido(request.tipoContenido());
         articulo.setTiempoLecturaMin(request.tiempoLecturaMin());
+        articulo.setVideoYoutubeUrl(request.videoYoutubeUrl());
 
         if (request.estado() == EstadoArticulo.PUBLICADO) {
             // fn_publicar_articulo valida integridad (título/contenido/categoría) contra la fila

@@ -33,6 +33,7 @@ export type ArticuloResumen = {
   autorNombre: string;
   fechaPublicacion: string;
   tiempoLecturaMin: number | null;
+  videoYoutubeUrl: string | null;
 };
 
 export type ArticuloDetalle = ArticuloResumen & {

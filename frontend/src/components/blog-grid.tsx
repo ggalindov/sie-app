@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
+import { Play } from "@phosphor-icons/react";
 import type { ArticuloResumen } from "@/lib/api";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -47,7 +48,7 @@ export function BlogGrid({ articulos }: { articulos: ArticuloResumen[] }) {
             href={`/blog/${articulo.slug}`}
             className="group flex h-full flex-col overflow-hidden rounded-3xl bg-surface ring-1 ring-line transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_-28px_rgba(20,19,15,0.35)] hover:ring-gold-deep/30"
           >
-            <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-night">
+            <div className="relative flex aspect-[16/10] items-center justify-center overflow-hidden bg-night">
               {articulo.imagenUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- enlace externo arbitrario pegado por el admin
                 <img
@@ -57,6 +58,12 @@ export function BlogGrid({ articulos }: { articulos: ArticuloResumen[] }) {
                 />
               ) : (
                 <span className="font-display text-2xl text-gold/40">{articulo.categoria.nombre}</span>
+              )}
+              {articulo.videoYoutubeUrl && (
+                <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-night/85 px-2.5 py-1 text-[11px] font-medium text-paper backdrop-blur-sm ring-1 ring-white/10">
+                  <Play weight="fill" className="h-3 w-3 text-red-500" />
+                  <span>Video</span>
+                </div>
               )}
             </div>
             <div className="flex flex-1 flex-col p-6">

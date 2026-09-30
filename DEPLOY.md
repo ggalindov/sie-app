@@ -260,27 +260,28 @@ depende de Meta, sigue llegando con normalidad con el mismo link de acceso.
 
 Cada vez que un artículo pasa a PUBLICADO (ver `ArticuloService.notificarPublicacion`), además
 del correo interno a redes sociales y el boletín a suscriptores, se manda un WhatsApp a un
-**único número fijo** (pedido explícito del usuario, `WHATSAPP_NUMERO_AVISO_BLOG`) avisando
+**único número fijo** (pedido explícito del usuario, `WHATSAPP_NUMERO_AVISO_BLOG=3126029742`) avisando
 que se publicó contenido nuevo, con el título y el link directo al artículo.
 
-**A diferencia de las cuatro notificaciones anteriores, esta es de texto libre, no de
-plantilla** — pedido explícito del usuario: como siempre va al mismo único destinatario
-interno (nunca a un cliente distinto cada vez), no necesita pasar por aprobación de Meta.
-No hay nada que crear en el Administrador de plantillas para este aviso.
+Para garantizar la entrega en cualquier momento (incluso fuera de la ventana de 24 horas de Meta),
+esta notificación utiliza la plantilla oficial de WhatsApp:
 
-Ojo con la limitación real de la propia API de WhatsApp (no de este código, no se puede
-evitar con nada de configuración): un mensaje de texto libre iniciado por el negocio **solo
-se entrega mientras exista una "ventana de servicio al cliente" abierta** con ese número —
-las últimas 24 horas desde que esa persona le escribió algo al número de WhatsApp de la
-firma. Si `WHATSAPP_NUMERO_AVISO_BLOG` no le ha escrito nada al número de la firma en ese
-lapso, Meta rechaza el envío silenciosamente (mismo comportamiento con gracia del resto de
-esta clase: sin error visible para nadie, el correo interno a redes sociales sigue llegando
-con normalidad). Si se necesita que este aviso llegue siempre, sin depender de que alguien
-mantenga la conversación activa, la solución sería aprobar una plantilla para este caso
-también (mismo procedimiento de las secciones anteriores).
-
-Completa en `.env.prod`: `WHATSAPP_NUMERO_AVISO_BLOG` (ya trae el número fijo pedido,
-`3126029742`; cámbialo solo si piden otro).
+1. **Crear la plantilla**:
+   - En **Meta Business Suite → WhatsApp Manager → Plantillas de mensajes** (o mediante `scripts/crear_plantilla_blog_meta.py`):
+     - **Categoría**: Utilidad (Utility).
+     - **Nombre**: `aviso_nuevo_blog` (o el configurado en `WHATSAPP_TEMPLATE_BLOG_NAME`).
+     - **Idioma**: Español (es_CO).
+     - **Cuerpo**:
+       ```text
+       Se acaba de publicar un nuevo contenido en SIE Jurídicos: {{1}}. Puedes leerlo completo aquí: {{2}}
+       ```
+     - **Ejemplo**:
+       - `{{1}}`: Novedades laborales y jurisprudencia reciente
+       - `{{2}}`: https://siejuridicos.com/blog/novedades-laborales
+2. **Enviar a revisión**: Meta aprueba automáticamente las plantillas de tipo Utilidad en pocos minutos.
+3. Completa en `.env.prod`:
+   - `WHATSAPP_TEMPLATE_BLOG_NAME=aviso_nuevo_blog`
+   - `WHATSAPP_NUMERO_AVISO_BLOG=3126029742`
 
 ## 3. Levantar el stack
 

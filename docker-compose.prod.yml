@@ -90,8 +90,9 @@ services:
       - WHATSAPP_ADMIN_NUMERO=${WHATSAPP_ADMIN_NUMERO:-+573124781583}
       # Confirmación de reunión agendada desde el Calendario del panel (ver DEPLOY.md 2.5).
       - WHATSAPP_TEMPLATE_CITA_NAME=${WHATSAPP_TEMPLATE_CITA_NAME:-confirmacion_cita}
-      # Aviso de blog/noticia publicado, correo siempre + WhatsApp de TEXTO LIBRE (no
-      # plantilla) a un único número fijo (ver DEPLOY.md 2.6).
+      # Aviso de blog/noticia publicado, correo siempre + WhatsApp mediante plantilla oficial
+      # de Meta a un único número fijo (3126029742, ver DEPLOY.md 2.6).
+      - WHATSAPP_TEMPLATE_BLOG_NAME=${WHATSAPP_TEMPLATE_BLOG_NAME:-aviso_nuevo_blog}
       - WHATSAPP_NUMERO_AVISO_BLOG=${WHATSAPP_NUMERO_AVISO_BLOG:-3126029742}
       # Imágenes de portada de artículos subidas desde el panel (ver ImagenArticuloService):
       # ruta absoluta dentro del volumen montado abajo, no la ruta relativa de desarrollo

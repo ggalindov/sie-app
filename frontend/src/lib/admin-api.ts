@@ -243,6 +243,7 @@ export type ArticuloAdmin = {
   fechaCreacion: string;
   fechaPublicacion: string | null;
   tiempoLecturaMin: number | null;
+  videoYoutubeUrl: string | null;
 };
 
 export function listarArticulosAdmin(): Promise<ArticuloAdmin[]> {
@@ -258,6 +259,7 @@ export type ArticuloInput = {
   contenido: string;
   resumen: string;
   imagenUrl: string;
+  videoYoutubeUrl?: string | null;
   tipoContenido: TipoContenido;
   idCategoria: number;
   tiempoLecturaMin: number | null;

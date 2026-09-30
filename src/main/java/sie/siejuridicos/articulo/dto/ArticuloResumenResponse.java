@@ -22,7 +22,8 @@ public record ArticuloResumenResponse(
         CategoriaResponse categoria,
         String autorNombre,
         Instant fechaPublicacion,
-        Integer tiempoLecturaMin
+        Integer tiempoLecturaMin,
+        String videoYoutubeUrl
 ) {
     public static ArticuloResumenResponse desde(Articulo articulo) {
         return new ArticuloResumenResponse(
@@ -35,7 +36,8 @@ public record ArticuloResumenResponse(
                 CategoriaResponse.desde(articulo.getCategoria()),
                 articulo.getAutor().getNombre(),
                 FechasUtil.aInstanteUtc(articulo.getFechaPublicacion()),
-                articulo.getTiempoLecturaMin()
+                articulo.getTiempoLecturaMin(),
+                articulo.getVideoYoutubeUrl()
         );
     }
 }

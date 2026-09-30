@@ -57,6 +57,7 @@ public class WhatsAppService {
     private final String nombrePlantillaSolicitud;
     private final String nombrePlantillaCita;
     private final String nombrePlantillaReporteSemanal;
+    private final String nombrePlantillaBlog;
     private final String codigoIdiomaPlantilla;
     private final String urlImagenCabecera;
     private final String sitioWeb;
@@ -86,6 +87,7 @@ public class WhatsAppService {
             @Value("${app.whatsapp.header-image-url:https://siejuridicos.com/marca/logo.png}") String urlImagenCabecera,
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
             @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
+            @Value("${app.whatsapp.plantilla-blog-nombre:aviso_nuevo_blog}") String nombrePlantillaBlog,
             @Value("${app.firma.sitio-web}") String sitioWeb,
             @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.accessToken = accessToken;
@@ -95,6 +97,7 @@ public class WhatsAppService {
         this.nombrePlantillaSolicitud = nombrePlantillaSolicitud;
         this.nombrePlantillaCita = nombrePlantillaCita;
         this.nombrePlantillaReporteSemanal = nombrePlantillaReporteSemanal;
+        this.nombrePlantillaBlog = nombrePlantillaBlog;
         this.codigoIdiomaPlantilla = codigoIdiomaPlantilla;
         this.urlImagenCabecera = urlImagenCabecera;
         this.sitioWeb = sitioWeb;
@@ -359,23 +362,16 @@ public class WhatsAppService {
     // EmailService.enviarAvisoRedesSociales. A un único número fijo (ver numeroAvisoBlog),
     // nunca al teléfono de un cliente.
     //
-    // A DIFERENCIA de las demás notificaciones de esta clase, esta es de texto libre
-    // ("type": "text"), NO de plantilla -- pedido explícito del usuario: un único destinatario
-    // interno fijo, no un cliente nuevo cada vez, así que no hace falta pasar por aprobación
-    // de Meta para esta en particular. Ojo con la limitación real de la propia API de
-    // WhatsApp (no de este código): un mensaje de texto libre iniciado por el negocio SOLO se
-    // entrega mientras exista una "ventana de servicio al cliente" abierta con ese número (las
-    // últimas 24h desde que esa persona le escribió algo al número de WhatsApp de la firma) --
-    // si nadie le escribe al número de la firma desde 3126029742 dentro de esas 24h, Meta
-    // rechaza el envío (no es un bug de esta clase, es una regla dura de la plataforma). Si
-    // eso llega a pasar, la solución sería aprobar una plantilla para este aviso también.
+    // Notificación formal por WhatsApp usando plantilla aprobada de Meta (ver nombrePlantillaBlog)
+    // para garantizar la entrega en cualquier momento hacia numeroAvisoBlog (3126029742), sin
+    // depender de la ventana de 24 horas de servicio al cliente.
     @Async
     public void enviarAvisoBlogPublicado(String titulo, String url) {
         if (!configurado || numeroAvisoBlog == null) {
             return;
         }
         try {
-            String cuerpo = construirCuerpoTextoBlog(titulo, url);
+            String cuerpo = construirCuerpoPlantillaBlog(titulo, url);
             HttpRequest solicitud = HttpRequest.newBuilder()
                     .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
                     .timeout(Duration.ofSeconds(8))
@@ -385,24 +381,44 @@ public class WhatsAppService {
                     .build();
             HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el aviso de blog publicado por WhatsApp: {}",
-                        respuesta.statusCode(), respuesta.body());
+                log.warn("Meta respondió {} al enviar el aviso de blog publicado por WhatsApp con plantilla {}: {}",
+                        respuesta.statusCode(), nombrePlantillaBlog, respuesta.body());
+            } else {
+                log.info("Aviso de blog publicado enviado exitosamente por WhatsApp a {} con plantilla {}",
+                        numeroAvisoBlog, nombrePlantillaBlog);
             }
         } catch (Exception ex) {
             log.warn("No se pudo enviar el aviso de blog publicado por WhatsApp: {}", ex.getMessage());
         }
     }
 
-    private String construirCuerpoTextoBlog(String titulo, String url) {
-        String mensaje = "Se acaba de publicar contenido nuevo en el sitio: " + titulo + ". Puedes verlo aquí: " + url;
+    private String construirCuerpoPlantillaBlog(String titulo, String url) {
         return """
                 {
                   "messaging_product": "whatsapp",
                   "to": "%s",
-                  "type": "text",
-                  "text": { "body": "%s" }
+                  "type": "template",
+                  "template": {
+                    "name": "%s",
+                    "language": { "code": "%s" },
+                    "components": [
+                      {
+                        "type": "body",
+                        "parameters": [
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" }
+                        ]
+                      }
+                    ]
+                  }
                 }
-                """.formatted(numeroAvisoBlog, escaparJson(mensaje));
+                """.formatted(
+                numeroAvisoBlog,
+                nombrePlantillaBlog,
+                codigoIdiomaPlantilla,
+                escaparJson(titulo),
+                escaparJson(url)
+        );
     }
 
     private String construirCuerpoPlantillaSolicitud(String nombreCliente, String correoCliente,

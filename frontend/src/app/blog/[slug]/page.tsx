@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getArticuloPorSlug } from "@/lib/api";
 import { ArticuloCabecera } from "@/components/articulo-cabecera";
+import { extraerYouTubeId } from "@/lib/utils";
 
 // timeZone explícito: ver el mismo comentario en blog-grid.tsx -- sin esto, la fecha se
 // muestra en la zona de quien renderiza (navegador o servidor), no en la de Colombia.
@@ -60,6 +61,8 @@ export default async function ArticuloPage({
 
   if (!articulo) notFound();
 
+  const videoId = extraerYouTubeId(articulo.videoYoutubeUrl);
+
   return (
     <main className="flex-1 pt-32 pb-24 md:pt-36">
       <article className="mx-auto max-w-3xl px-6">
@@ -83,6 +86,18 @@ export default async function ArticuloPage({
             )
           }
         />
+
+        {videoId && (
+          <div className="relative mt-8 aspect-video w-full overflow-hidden rounded-2xl md:rounded-3xl bg-night shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] ring-1 ring-gold/25 md:mt-10">
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}?rel=0`}
+              title={`Video: ${articulo.titulo}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0"
+            />
+          </div>
+        )}
 
         <div
           className="contenido-articulo mt-10 text-ink md:mt-12"
