@@ -400,12 +400,12 @@ export default function ConsultaCasoPage() {
                 ) : (
                   /* Estado: Con actuaciones en vivo */
                   <div className="space-y-7">
-                    {resultado.estado && (
+                    {(resultado.estado || resultado.ultimaDecision) && (
                       <div className="rounded-2xl border-l-4 border-gold bg-gold-pale/25 p-5 sm:p-7 ring-1 ring-gold/20">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                           <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold-deep">
                             <span className="h-2 w-2 rounded-full bg-gold-deep" />
-                            Actuación Procesal Más Reciente
+                            {resultado.estado ? "Actuación Procesal Más Reciente" : "Última Decisión / Providencia"}
                           </span>
                           {resultado.fechaActualizacionHoja && (
                             <span className="text-xs font-medium text-ink-soft">
@@ -414,12 +414,12 @@ export default function ConsultaCasoPage() {
                           )}
                         </div>
                         <p className="whitespace-pre-line text-sm sm:text-base leading-relaxed text-ink font-medium">
-                          {resultado.estado}
+                          {resultado.estado || resultado.ultimaDecision}
                         </p>
                       </div>
                     )}
 
-                    {resultado.ultimaDecision && (
+                    {resultado.ultimaDecision && resultado.estado && resultado.estado.trim() !== resultado.ultimaDecision.trim() && (
                       <div className="rounded-2xl bg-surface p-5 sm:p-6 ring-1 ring-line">
                         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-soft mb-2">
                           <Scales weight="light" className="h-4 w-4 text-gold-deep" />

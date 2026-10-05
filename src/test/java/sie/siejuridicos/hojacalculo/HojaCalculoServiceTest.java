@@ -36,21 +36,22 @@ class HojaCalculoServiceTest {
 
     private static final String SPREADSHEET_ID = "hoja-de-prueba";
 
-    // Fila de JUDICIALES con 17 columnas (A..Q, índices 0..16): índice 1=despacho,
-    // 2=información del caso, 3=tipo, 5=nombre cliente, 6=radicado, 7=última decisión,
-    // 8=fecha de actualización (columna real "ESTADO", mal nombrada -- ver comentario de
-    // construirConfiguraciones()), 9=estado real ("UBICACIÓN Y ÚLTIMA ACTUALIZACIÓN").
+    // Fila de JUDICIALES con 18 columnas (A..R, índices 0..17): índice 1=despacho,
+    // 2=información del caso, 3=tipo, 5=nombre cliente, 6=columna vacía, 7=radicado,
+    // 8=última decisión, 9=fecha de actualización ("ESTADO", fecha de providencia),
+    // 10=estado real ("UBICACIÓN Y ÚLTIMA ACTUALIZACIÓN").
     private static List<Object> filaJudiciales(String radicado, String sufijoDatos) {
-        Object[] fila = new Object[17];
+        Object[] fila = new Object[18];
         fila[0] = "NO-" + sufijoDatos;
         fila[1] = "Juzgado " + sufijoDatos;
         fila[2] = "Partes del proceso " + sufijoDatos;
         fila[3] = "Laboral";
         fila[5] = "Cliente " + sufijoDatos;
-        fila[6] = radicado;
-        fila[7] = "Última decisión " + sufijoDatos;
-        fila[8] = "01/01/2026";
-        fila[9] = "En trámite";
+        fila[6] = "";
+        fila[7] = radicado;
+        fila[8] = "Última decisión " + sufijoDatos;
+        fila[9] = "01/01/2026";
+        fila[10] = "En trámite";
         // Arrays.asList, no List.of: la fila real tiene columnas sin usar (null) entre las que
         // sí importan para esta prueba -- List.of() rechaza elementos null.
         return Arrays.asList(fila);
@@ -69,7 +70,7 @@ class HojaCalculoServiceTest {
 
     @Test
     void devuelveExactamenteLosDatosDeLaFilaConEseRadicado() throws IOException {
-        Sheets sheets = sheetsConFilas("JUDICIALES!A3:Q", List.of(
+        Sheets sheets = sheetsConFilas("JUDICIALES!A5:R", List.of(
                 fila("2026-00111-A", "cliente-A"),
                 fila("2026-00222-B", "cliente-B")
         ));
@@ -95,7 +96,7 @@ class HojaCalculoServiceTest {
         // "123" no debe encontrar la fila cuyo radicado real es "2026-00123-A": una
         // coincidencia por contains()/startsWith() en vez de igualdad exacta expondría el
         // caso de un cliente a partir de un fragmento adivinado de su radicado.
-        Sheets sheets = sheetsConFilas("JUDICIALES!A3:Q", List.of(fila("2026-00123-A", "cliente-A")));
+        Sheets sheets = sheetsConFilas("JUDICIALES!A5:R", List.of(fila("2026-00123-A", "cliente-A")));
         HojaCalculoService servicio = new HojaCalculoService(SPREADSHEET_ID, sheets);
 
         assertTrue(servicio.buscarPorRadicado(FuenteCaso.JUDICIALES, "123").isEmpty());
@@ -106,7 +107,7 @@ class HojaCalculoServiceTest {
 
     @Test
     void laComparacionEsInsensibleAMayusculasPeroExacta() throws IOException {
-        Sheets sheets = sheetsConFilas("JUDICIALES!A3:Q", List.of(fila("abc-2026-001", "cliente-A")));
+        Sheets sheets = sheetsConFilas("JUDICIALES!A5:R", List.of(fila("abc-2026-001", "cliente-A")));
         HojaCalculoService servicio = new HojaCalculoService(SPREADSHEET_ID, sheets);
 
         assertTrue(servicio.buscarPorRadicado(FuenteCaso.JUDICIALES, "ABC-2026-001").isPresent());
@@ -120,7 +121,7 @@ class HojaCalculoServiceTest {
     void nuncaMezclaDatosDeUnaFuenteConLosDeOtraAunqueElRadicadoCoincidaEnTexto() throws IOException {
         Sheets sheets = mock(Sheets.class, RETURNS_DEEP_STUBS);
         when(sheets.spreadsheets().values()
-                .get(eq(SPREADSHEET_ID), eq("JUDICIALES!A3:Q"))
+                .get(eq(SPREADSHEET_ID), eq("JUDICIALES!A5:R"))
                 .setValueRenderOption("FORMATTED_VALUE")
                 .execute())
                 .thenReturn(new ValueRange().setValues(List.of(fila("RAD-COMPARTIDO", "cliente-judicial"))));
@@ -154,7 +155,7 @@ class HojaCalculoServiceTest {
 
     @Test
     void sinCoincidenciaDevuelveVacioEnVezDeError() throws IOException {
-        Sheets sheets = sheetsConFilas("JUDICIALES!A3:Q", List.of(fila("2026-00111-A", "cliente-A")));
+        Sheets sheets = sheetsConFilas("JUDICIALES!A5:R", List.of(fila("2026-00111-A", "cliente-A")));
         HojaCalculoService servicio = new HojaCalculoService(SPREADSHEET_ID, sheets);
 
         assertTrue(servicio.buscarPorRadicado(FuenteCaso.JUDICIALES, "NO-EXISTE").isEmpty());

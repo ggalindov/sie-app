@@ -14,6 +14,10 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
 
     Optional<Caso> findByRadicadoId(String radicadoId);
 
+    // Búsqueda para radicados que en la hoja vienen con anotación entre paréntesis, ej "NUMERO (2025-01386)"
+    @Query("SELECT c FROM Caso c WHERE c.radicadoId LIKE CONCAT(:codigo, ' (%') OR c.radicadoId LIKE CONCAT(:codigo, '(%')")
+    List<Caso> buscarPorRadicadoPrefijo(@Param("codigo") String codigo);
+
     // Llave de la sincronización automática (ver CasoService.sincronizarDesdeHoja()): decide
     // si una fila de la hoja ya existe localmente o hay que crearla. Por fuente, no solo por
     // número: el mismo número puede repetirse entre hojas distintas sin ser el mismo caso

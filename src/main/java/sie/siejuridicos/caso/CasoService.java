@@ -865,6 +865,12 @@ public class CasoService {
             }
         }
         if (caso.isEmpty()) {
+            List<Caso> porPrefijo = casoRepository.buscarPorRadicadoPrefijo(radicadoBuscado);
+            if (porPrefijo.size() == 1) {
+                caso = Optional.of(porPrefijo.get(0));
+            }
+        }
+        if (caso.isEmpty()) {
             registroSistemaService.registrar(
                     TipoRegistroSistema.CONSULTA_ESTADO_CASO,
                     "Radicado \"%s\" consultó su estado, pero no existe ningún caso registrado con ese radicado"
