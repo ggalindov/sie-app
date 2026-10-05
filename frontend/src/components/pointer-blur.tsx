@@ -36,9 +36,9 @@ export function PointerBlur() {
     let isHoveringInteractive = false;
     let animId: number;
 
-    const LERP_AMB = 0.12;
-    const LERP_SCALE = 0.14;
-    const LERP_OPACITY = 0.14;
+    const LERP_AMB = 0.16;
+    const LERP_SCALE = 0.15;
+    const LERP_OPACITY = 0.15;
 
     function onPointerMove(e: PointerEvent) {
       targetX = e.clientX;
@@ -54,16 +54,16 @@ export function PointerBlur() {
 
       if (esInteractivo !== isHoveringInteractive) {
         isHoveringInteractive = esInteractivo;
-        targetScale = esInteractivo ? 1.22 : 1;
+        targetScale = esInteractivo ? 1.14 : 1;
       }
     }
 
     function onPointerDown() {
-      targetScale = isHoveringInteractive ? 1.1 : 0.88;
+      targetScale = isHoveringInteractive ? 1.05 : 0.90;
     }
 
     function onPointerUp() {
-      targetScale = isHoveringInteractive ? 1.22 : 1;
+      targetScale = isHoveringInteractive ? 1.14 : 1;
     }
 
     function onMouseLeave() {
@@ -116,14 +116,14 @@ export function PointerBlur() {
       style={{ opacity: 0 }}
       className="pointer-events-none fixed inset-0 z-[99999] overflow-hidden select-none"
     >
-      {/* Solo el resplandor / blur ambiental dorado (sin bordes, aros ni puntos) - versión compacta y condensada */}
+      {/* Halo ambiental dorado translúcido comprimido y contenido */}
       <div
         ref={ambientRef}
-        className="pointer-events-none absolute left-0 top-0 h-[120px] w-[120px] rounded-full will-change-transform"
+        className="pointer-events-none absolute left-0 top-0 h-[76px] w-[76px] rounded-full will-change-transform"
         style={{
           background:
-            "radial-gradient(circle at center, rgba(217,169,37,0.30) 0%, rgba(217,169,37,0.12) 35%, rgba(217,169,37,0.02) 60%, transparent 75%)",
-          filter: "blur(14px)",
+            "radial-gradient(circle at center, rgba(217,169,37,0.36) 0%, rgba(217,169,37,0.15) 32%, rgba(217,169,37,0.02) 58%, transparent 72%)",
+          filter: "blur(9px)",
           transform: "translate3d(-400px, -400px, 0)",
         }}
       />
