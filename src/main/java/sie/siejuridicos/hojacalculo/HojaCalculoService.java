@@ -56,13 +56,15 @@ import java.util.Optional;
 //
 // - JUDICIALES: encabezados en la fila 4, datos desde la 5. A "NO.", B "DESPACHO JUDICIAL",
 //   C "PARTES DEL PROCESO", D "TIPO", E "APODERADO(A)" (abogado interno de la firma, nunca se
-//   expone), F "SUJETO PROCESAL REPRESENTADO" (nombre del cliente), G "" (columna en blanco insertada),
-//   H "RADICADO", I "ÚLTIMA DECISIÓN", J "ESTADO" (a pesar del nombre, en la práctica SIEMPRE
-//   trae una fecha real -- se usa como fecha de actualización), K "UBICACIÓN Y ÚLTIMA ACTUALIZACIÓN"
-//   (texto describiendo en qué etapa/lugar del proceso está, ej. "SECRETARIA-LETRA", "DESPACHO" --
-//   esto es lo que de verdad describe el "estado" para el cliente), Q "CORREO DEL CLIENTE",
-//   R "TELÉFONO DEL CLIENTE". Columnas L "PENDIENTE", M "CORREO" (del despacho, no del cliente),
-//   N "AUDIENCIAS", O "SUSTITUCIONES", P "OBSERVACIONES" son notas internas de la firma, no se exponen.
+//   expone), F "SUJETO PROCESAL REPRESENTADO" (nombre del cliente), G "RADICADO",
+//   H "ÚLTIMA DECISIÓN", I "ESTADO" (a pesar del nombre, en la práctica SIEMPRE trae una
+//   fecha real -- mismo patrón de columna mal nombrada que ya existía en la hoja anterior,
+//   se usa como fecha de actualización), J "UBICACIÓN Y ÚLTIMA ACTUALIZACIÓN" (texto
+//   describiendo en qué etapa/lugar del proceso está, ej. "SECRETARIA-LETRA",
+//   "REANUDACIÓN" -- esto es lo que de verdad describe el "estado" para el cliente),
+//   P "CORREO DEL CLIENTE", Q "TELÉFONO DEL CLIENTE". Columnas K "PENDIENTE", L "CORREO"
+//   (del despacho, no del cliente), M "AUDIENCIAS", N "SUSTITUCIONES", O "OBSERVACIONES" son
+//   notas internas de la firma, no se exponen.
 // - PROCESOS COMISARÍA (nombre de pestaña sin guion al final, con tilde -- distinto del de la
 //   hoja anterior): encabezados en la fila 2, datos desde la 3. NO tiene columna de número de
 //   caso (igual que antes) -- se usa una huella de contenido como llave sintética de
@@ -124,8 +126,8 @@ public class HojaCalculoService {
     private static Map<FuenteCaso, ConfiguracionFuente> construirConfiguraciones() {
         Map<FuenteCaso, ConfiguracionFuente> mapa = new EnumMap<>(FuenteCaso.class);
         mapa.put(FuenteCaso.JUDICIALES, new ConfiguracionFuente(
-                FuenteCaso.JUDICIALES, "JUDICIALES!A5:R",
-                null, 1, 2, null, 3, 8, 10, 9, 7, 5, 16, 17));
+                FuenteCaso.JUDICIALES, "JUDICIALES!A3:Q",
+                null, 1, 2, null, 3, 7, 9, 8, 6, 5, 15, 16));
         // idxNumeroCaso=null a propósito -- CAMBIO CRÍTICO DE INTEGRIDAD encontrado en esta
         // migración a la hoja nueva, no en la anterior: JUDICIALES SÍ confiaba en la columna
         // "NO." como llave estable (a diferencia de las otras dos fuentes, ver más abajo),
