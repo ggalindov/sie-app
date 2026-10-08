@@ -220,6 +220,7 @@ public class ChatbotService {
                     .options(AnthropicChatOptions.builder()
                             .model(modelo)
                             .maxTokens(maxTokensNivel)
+                            .thinkingDisabled()
                             .cacheOptions(OPCIONES_CACHE))
                     .call()
                     .chatResponse();
