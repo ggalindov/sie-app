@@ -101,9 +101,10 @@ export function AreasPractica() {
         {/* Grilla Limpia: Solo Foto y Título */}
         <div className="mt-8 sm:mt-10 lg:mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7">
           {areasPractica.map((area, i) => (
-            <motion.button
+            <motion.div
               key={area.slug}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => setSeleccionada(area)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -113,20 +114,20 @@ export function AreasPractica() {
               }}
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
+              viewport={{ once: true, amount: 0.1 }}
               transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE }}
               whileHover={{ y: -6 }}
               whileTap={{ scale: 0.98 }}
-              className="group relative flex flex-col rounded-2xl sm:rounded-3xl bg-surface border border-line hover:border-gold/60 p-3 sm:p-3.5 shadow-xs hover:shadow-[0_20px_45px_-12px_rgba(217,169,37,0.22)] transition-all duration-500 text-left cursor-pointer overflow-hidden"
+              className="group relative flex w-full flex-col rounded-2xl sm:rounded-3xl bg-surface border border-line hover:border-gold/60 p-3 sm:p-3.5 shadow-xs hover:shadow-[0_20px_45px_-12px_rgba(217,169,37,0.22)] transition-all duration-500 text-left cursor-pointer overflow-hidden"
             >
-              {/* Portada Fotográfica Limpia */}
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl sm:rounded-2xl bg-night">
+              {/* Portada Fotográfica Limpia y Garantizada en Móvil */}
+              <div className="relative aspect-[16/10] w-full min-h-[200px] xs:min-h-[220px] sm:min-h-[210px] shrink-0 overflow-hidden rounded-xl sm:rounded-2xl bg-night">
                 <Image
                   src={area.foto}
                   alt={area.nombre}
                   fill
-                  priority={i < 4}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  priority
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-105 filter brightness-[0.96] group-hover:brightness-100"
                 />
                 {/* Sutil viñeta degradada */}
@@ -143,7 +144,7 @@ export function AreasPractica() {
                   className="h-5 w-5 shrink-0 text-ink-soft/40 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-gold-deep"
                 />
               </div>
-            </motion.button>
+            </motion.div>
           ))}
         </div>
       </div>
