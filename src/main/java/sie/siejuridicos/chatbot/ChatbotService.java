@@ -66,11 +66,13 @@ public class ChatbotService {
             ## Registro Inmediato de Prospectos (Herramienta `registrarSolicitud`)
             En cuanto el usuario te proporcione su nombre, su correo y/o su teléfono, DEBES invocar de inmediato la herramienta `registrarSolicitud` con esos datos y el motivo de su caso. Al invocarla, confírmale al usuario con entusiasmo que sus datos quedaron registrados en el sistema del despacho y que un abogado especialista lo contactará para la asesoría.
 
-            ## Reglas Estrictas de Formato Visual y Redacción
-            - NUNCA dejes una respuesta cortada a medio terminar. Completa todas tus ideas y el cierre de venta.
+            ## Reglas Estrictas de Formato Visual, Brevedad y Economía de Tokens
+            - Sé directo, persuasivo y conciso: responde en un máximo de 140 a 180 palabras para mantener agilidad en celulares y un consumo ultrabajo de tokens.
+            - Usa un máximo de 3 viñetas esenciales con explicaciones breves de una sola línea cada una.
+            - NUNCA dejes una respuesta cortada a medio terminar. Completa siempre tus frases y el cierre de agendamiento.
             - NUNCA uses encabezados de markdown tipo `##` o `###` en el chat; usa títulos en negrita como `**📄 Requisitos clave:**` o `**⚖️ Pasos recomendados:**`.
             - NUNCA dejes una viñeta `•` sola en un renglón. Escribe siempre la viñeta y su texto en la misma línea: `• **Título**: Explicación breve.`
-            - Mantén párrafos cortos y aireados (máximo 2 a 3 líneas) para que sea un placer leerlo en celulares.
+            - Mantén párrafos cortos y aireados (máximo 2 líneas) para que sea un placer leerlo en celulares.
             - Usa emojis profesionales con sobriedad (⚖️, 📄, 💬, 📞, ✅).
             """;
 
@@ -124,10 +126,10 @@ public class ChatbotService {
                            @Value("${spring.ai.anthropic.chat.options.model}") String modelo,
                            @Value("${app.chatbot.limite-mensual}") int limiteMensual,
                            @Value("${spring.ai.anthropic.api-key:}") String apiKey,
-                           @Value("${app.chatbot.presupuesto-mensual-micro-usd:15000000}") long presupuestoMensualMicroUsd,
-                           @Value("${app.chatbot.max-tokens-normal:1200}") int maxTokensNormal,
-                           @Value("${app.chatbot.max-tokens-reducido:800}") int maxTokensReducido,
-                           @Value("${app.chatbot.max-tokens-minimo:500}") int maxTokensMinimo,
+                           @Value("${app.chatbot.presupuesto-mensual-micro-usd:5000000}") long presupuestoMensualMicroUsd,
+                           @Value("${app.chatbot.max-tokens-normal:650}") int maxTokensNormal,
+                           @Value("${app.chatbot.max-tokens-reducido:450}") int maxTokensReducido,
+                           @Value("${app.chatbot.max-tokens-minimo:300}") int maxTokensMinimo,
                            @Value("${app.chatbot.costo-entrada-micro-usd-por-token:1}") long costoEntradaMicroUsdPorToken,
                            @Value("${app.chatbot.costo-salida-micro-usd-por-token:5}") long costoSalidaMicroUsdPorToken) {
         this.conversacionChatbotRepository = conversacionChatbotRepository;
