@@ -273,7 +273,7 @@ esta notificación utiliza la plantilla oficial de WhatsApp:
      - **Idioma**: Español (es_CO).
      - **Cuerpo**:
        ```text
-       Se acaba de publicar un nuevo contenido en SIE Jurídicos: {{1}}. Puedes leerlo completo aquí: {{2}}
+       Recordatorio: Se acaba de publicar un nuevo contenido en SIE Jurídicos: {{1}}. Puedes leerlo completo aquí: {{2}}
        ```
      - **Ejemplo**:
        - `{{1}}`: Novedades laborales y jurisprudencia reciente

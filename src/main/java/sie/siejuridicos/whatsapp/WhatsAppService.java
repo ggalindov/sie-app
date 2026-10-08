@@ -362,14 +362,16 @@ public class WhatsAppService {
     // EmailService.enviarAvisoRedesSociales. A un único número fijo (ver numeroAvisoBlog),
     // nunca al teléfono de un cliente.
     //
-    // Notificación formal por WhatsApp usando plantilla aprobada de Meta (ver nombrePlantillaBlog)
-    // para garantizar la entrega en cualquier momento hacia numeroAvisoBlog (3126029742), sin
-    // depender de la ventana de 24 horas de servicio al cliente.
+    // Notificación por WhatsApp hacia numeroAvisoBlog (3126029742) cuando se publica un blog/noticia:
+    // Intenta primero la plantilla oficial de Meta (nombrePlantillaBlog); si Meta responde con
+    // error (por ejemplo si la plantilla aún no está creada/aprobada en Meta), recurre de inmediato
+    // al mensaje de texto directo de recordatorio para asegurar la entrega sin interrupciones.
     @Async
     public void enviarAvisoBlogPublicado(String titulo, String url) {
         if (!configurado || numeroAvisoBlog == null) {
             return;
         }
+        boolean enviadoPorPlantilla = false;
         try {
             String cuerpo = construirCuerpoPlantillaBlog(titulo, url);
             HttpRequest solicitud = HttpRequest.newBuilder()
@@ -386,9 +388,52 @@ public class WhatsAppService {
             } else {
                 log.info("Aviso de blog publicado enviado exitosamente por WhatsApp a {} con plantilla {}",
                         numeroAvisoBlog, nombrePlantillaBlog);
+                enviadoPorPlantilla = true;
             }
         } catch (Exception ex) {
-            log.warn("No se pudo enviar el aviso de blog publicado por WhatsApp: {}", ex.getMessage());
+            log.warn("No se pudo enviar el aviso de blog publicado por WhatsApp con plantilla: {}", ex.getMessage());
+        }
+
+        // Si la plantilla no está activa o falló, recurrir al recordatorio directo de texto
+        if (!enviadoPorPlantilla) {
+            log.info("Intentando envío alternativo de recordatorio de blog a {}...", numeroAvisoBlog);
+            enviarAvisoBlogDirecto(titulo, url);
+        }
+    }
+
+    private boolean enviarAvisoBlogDirecto(String titulo, String url) {
+        try {
+            String texto = "🔔 *Recordatorio SIE Jurídicos*: Se acaba de publicar un nuevo artículo en el blog.\n\n"
+                    + "📰 *" + titulo + "*\n\n"
+                    + "Léelo aquí: " + url;
+            String cuerpo = """
+                    {
+                      "messaging_product": "whatsapp",
+                      "to": "%s",
+                      "type": "text",
+                      "text": { "body": "%s" }
+                    }
+                    """.formatted(numeroAvisoBlog, escaparJson(texto));
+
+            HttpRequest solicitud = HttpRequest.newBuilder()
+                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                    .timeout(Duration.ofSeconds(8))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                    .build();
+            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+            if (respuesta.statusCode() < 300) {
+                log.info("Recordatorio de blog publicado enviado exitosamente por WhatsApp a {}", numeroAvisoBlog);
+                return true;
+            } else {
+                log.warn("Meta respondió {} al enviar recordatorio directo de blog a {}: {}",
+                        respuesta.statusCode(), numeroAvisoBlog, respuesta.body());
+                return false;
+            }
+        } catch (Exception ex) {
+            log.warn("No se pudo enviar el recordatorio directo de blog a {}: {}", numeroAvisoBlog, ex.getMessage());
+            return false;
         }
     }
 

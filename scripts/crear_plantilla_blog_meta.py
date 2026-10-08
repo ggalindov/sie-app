@@ -63,7 +63,7 @@ def main():
         "components": [
             {
                 "type": "BODY",
-                "text": "Se acaba de publicar un nuevo contenido en SIE Jurídicos: {{1}}. Puedes leerlo completo aquí: {{2}}",
+                "text": "Recordatorio: Se acaba de publicar un nuevo contenido en SIE Jurídicos: {{1}}. Puedes leerlo completo aquí: {{2}}",
                 "example": {
                     "body_text": [
                         [
