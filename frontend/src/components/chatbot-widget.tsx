@@ -9,6 +9,7 @@ import {
   ArrowClockwise,
   WhatsappLogo,
   Sparkle,
+  CalendarCheck,
 } from "@phosphor-icons/react";
 import { enviarMensajeChatbot, type TurnoChat } from "@/lib/api";
 
@@ -17,29 +18,29 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const MENSAJE_BIENVENIDA: TurnoChat = {
   rol: "ASISTENTE",
   contenido:
-    "Hola, soy **Siebot**, asesor virtual de **SIE Jurídicos**.\n\nPuedo orientarte con precisión sobre derecho laboral, de familia, civil, comercial y registro de marcas en Colombia, explicarte nuestras tarifas o agendarte una consulta directa con un abogado del despacho.\n\n¿En qué situación jurídica te podemos ayudar hoy?",
+    "Hola, soy **Siebot**, asesor virtual de **SIE Jurídicos**.\n\nEn nuestra firma contamos con más de 20 años de trayectoria y más de 800 casos resueltos con éxito en derecho laboral, de familia, civil, comercial y marcas en Colombia.\n\n¿En qué situación jurídica te encuentras hoy? Cuéntame brevemente tu caso para orientarte y coordinar tu asesoría personalizada con uno de nuestros abogados especialistas.",
 };
 
 const SUGERENCIAS = [
   {
     icono: "⚖️",
     etiqueta: "Despido o liquidación",
-    mensaje: "¿Cómo me pueden asesorar si fui despedido de mi trabajo o no me han liquidado?",
+    mensaje: "Fui despedido de mi trabajo. ¿Cómo me pueden asesorar y cómo agendamos cita?",
   },
   {
     icono: "👨‍👩‍👧",
-    etiqueta: "Divorcio y alimentos",
-    mensaje: "¿Qué requisitos se necesitan para un divorcio o fijar cuota de alimentos en Colombia?",
+    etiqueta: "Alimentos o divorcio",
+    mensaje: "Necesito asesoría jurídica para fijar una cuota de alimentos o tramitar un divorcio.",
   },
   {
     icono: "🏢",
-    etiqueta: "Marcas y Sociedades SAS",
-    mensaje: "¿Cómo es el trámite para registrar una marca ante la SIC o constituir una SAS?",
+    etiqueta: "Marcas o crear SAS",
+    mensaje: "Deseo registrar una marca ante la SIC o constituir una empresa SAS con asesoría de la firma.",
   },
   {
     icono: "📅",
     etiqueta: "Agendar cita con abogado",
-    mensaje: "Deseo agendar una consulta jurídica personalizada con un abogado de SIE Jurídicos.",
+    mensaje: "Deseo agendar una consulta jurídica personalizada con un abogado especialista de SIE Jurídicos.",
   },
 ];
 
@@ -123,10 +124,30 @@ function FormatoTexto({
     return parts.length > 0 ? parts : line;
   }
 
-  const rawLines = texto.split("\n");
+  // Paso 1: Normalización para unir viñetas huérfanas (ej: "•\nTexto del requisito")
+  const raw = texto.split("\n");
+  const lineasNormalizadas: string[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const t = raw[i].trim();
+    if (!t) {
+      lineasNormalizadas.push("");
+      continue;
+    }
+    // Si la línea es únicamente una viñeta ("•", "-", "*") y la siguiente tiene texto, unirlas
+    if (/^[•\-\*]$/.test(t) && i + 1 < raw.length && raw[i + 1].trim().length > 0) {
+      lineasNormalizadas.push(`• ${raw[i + 1].trim()}`);
+      i++;
+    } else {
+      lineasNormalizadas.push(t);
+    }
+  }
+
+  // Paso 2: Clasificación en bloques estructurales
   type Elemento =
+    | { tipo: "encabezado"; texto: string }
     | { tipo: "lista"; items: string[] }
     | { tipo: "parrafo"; lineas: string[] };
+
   const elementos: Elemento[] = [];
   let bufferParrafo: string[] = [];
   let bufferLista: string[] = [];
@@ -145,17 +166,31 @@ function FormatoTexto({
     }
   }
 
-  for (const rawLine of rawLines) {
-    const trimmed = rawLine.trim();
+  for (const line of lineasNormalizadas) {
+    const trimmed = line.trim();
     if (!trimmed) {
       flushLista();
       flushParrafo();
       continue;
     }
-    const esBullet = /^([•\-\*]|\d+[\.\)])\s+/.test(trimmed);
+
+    // Encabezado de markdown (ej: "## 📄 Cuota de alimentos")
+    const matchEncabezado = trimmed.match(/^#{1,4}\s+(.*)$/);
+    if (matchEncabezado) {
+      flushLista();
+      flushParrafo();
+      elementos.push({ tipo: "encabezado", texto: matchEncabezado[1] });
+      continue;
+    }
+
+    // Viñetas o listas numeradas
+    const esBullet = /^([•\-\*]|\d+[\.\)])\s*(.*)$/.test(trimmed);
     if (esBullet) {
       flushParrafo();
-      bufferLista.push(trimmed.replace(/^([•\-\*]|\d+[\.\)])\s+/, ""));
+      const limpio = trimmed.replace(/^([•\-\*]|\d+[\.\)])\s*/, "").trim();
+      if (limpio.length > 0) {
+        bufferLista.push(limpio);
+      }
     } else {
       flushLista();
       bufferParrafo.push(trimmed);
@@ -167,21 +202,34 @@ function FormatoTexto({
   return (
     <div className="space-y-2 text-[13.5px] sm:text-sm leading-relaxed">
       {elementos.map((elem, idx) => {
+        if (elem.tipo === "encabezado") {
+          return (
+            <p
+              key={idx}
+              className="font-semibold text-ink text-[13.5px] sm:text-sm mt-2 mb-1 flex items-center gap-1.5"
+            >
+              {renderInline(elem.texto)}
+            </p>
+          );
+        }
+
         if (elem.tipo === "lista") {
           return (
-            <ul key={idx} className="space-y-1 pl-0.5">
+            <ul key={idx} className="space-y-1.5 my-1.5 pl-0.5">
               {elem.items.map((item, itemIdx) => (
                 <li key={itemIdx} className="flex items-start gap-2">
                   <span
                     className={
                       rol === "USUARIO"
-                        ? "text-ink-fixed font-bold mt-0.5 text-xs"
-                        : "text-gold-deep font-bold mt-0.5 text-xs"
+                        ? "text-ink-fixed font-bold mt-0.5 text-xs select-none shrink-0"
+                        : "text-gold-deep font-bold mt-0.5 text-xs select-none shrink-0"
                     }
                   >
                     •
                   </span>
-                  <span className="flex-1">{renderInline(item)}</span>
+                  <span className="flex-1 min-w-0 leading-relaxed">
+                    {renderInline(item)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -261,7 +309,7 @@ export function ChatbotWidget() {
         {
           rol: "ASISTENTE",
           contenido:
-            "En este momento no pude procesar tu mensaje. Puedes escribirnos directamente por WhatsApp al [+57 324 3668845](https://wa.me/573243668845) o agendar tu cita.",
+            "En este momento no pude procesar tu mensaje. Puedes escribirnos directamente por WhatsApp al [+57 324 3668845](https://wa.me/573243668845) para coordinar tu cita prioritaria con nuestros abogados.",
         },
       ]);
     } finally {
@@ -332,7 +380,7 @@ export function ChatbotWidget() {
         </AnimatePresence>
       </motion.button>
 
-      {/* Ventana de chat responsiva (Completamente en Modo Claro) */}
+      {/* Ventana de chat responsiva (Completamente en Modo Claro y Optimizada a Venta) */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -359,18 +407,18 @@ export function ChatbotWidget() {
                 <p className="text-sm font-semibold tracking-tight text-ink">Siebot</p>
                 <p className="text-xs text-ink-soft truncate flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-2xs" />
-                  En línea • Asesor Jurídico Virtual
+                  En línea • Asesoría y Agendamiento SIE
                 </p>
               </div>
 
-              {/* Botones de acción rápida en header (Modo Claro) */}
+              {/* Botones de acción rápida en header */}
               <div className="flex items-center gap-1">
                 <a
-                  href="https://wa.me/573243668845?text=Hola%2C%20quisiera%20asesor%C3%ADa%20jur%C3%ADdica%20con%20un%20abogado%20de%20SIE%20Jur%C3%ADdicos"
+                  href="https://wa.me/573243668845?text=Hola%2C%20quisiera%20agendar%20una%20asesor%C3%ADa%20jur%C3%ADdica%20con%20un%20abogado%20de%20SIE%20Jur%C3%ADdicos"
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="Hablar por WhatsApp con un abogado"
-                  aria-label="Hablar por WhatsApp con un abogado"
+                  title="Agendar por WhatsApp con un abogado"
+                  aria-label="Agendar por WhatsApp con un abogado"
                   className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
                 >
                   <WhatsappLogo className="h-4.5 w-4.5" weight="fill" />
@@ -433,12 +481,12 @@ export function ChatbotWidget() {
                 </div>
               ))}
 
-              {/* Sugerencias Rápidas al inicio de la conversación */}
+              {/* Sugerencias Rápidas al inicio de la conversación orientadas a venta */}
               {mensajes.length <= 2 && (
                 <div className="pt-2 pb-1">
                   <p className="text-[11.5px] font-medium text-ink-soft mb-2 px-1 flex items-center gap-1">
                     <Sparkle weight="fill" className="h-3 w-3 text-gold-deep" />
-                    Preguntas frecuentes que puedes hacer:
+                    Consultas frecuentes que atendemos:
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {SUGERENCIAS.map((sug, idx) => (
@@ -470,7 +518,7 @@ export function ChatbotWidget() {
                     />
                   </div>
                   <div className="flex items-center gap-2 rounded-2xl rounded-tl-xs bg-surface border border-line px-4 py-3 shadow-xs">
-                    <span className="text-xs text-ink-soft">Siebot está escribiendo</span>
+                    <span className="text-xs text-ink-soft">Siebot está preparando la orientación</span>
                     <div className="flex gap-1 items-center">
                       {[0, 1, 2].map((i) => (
                         <motion.span
@@ -490,7 +538,7 @@ export function ChatbotWidget() {
               )}
             </div>
 
-            {/* Input y formulario de envío (Modo Claro sin texto de pie) */}
+            {/* Input y formulario de envío */}
             <form
               onSubmit={enviar}
               className="border-t border-line bg-surface p-2.5 sm:p-3"
@@ -501,7 +549,7 @@ export function ChatbotWidget() {
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
                   aria-label="Escribe tu consulta legal"
-                  placeholder="Escribe tu consulta legal..."
+                  placeholder="Cuéntame tu caso para agendar asesoría..."
                   className="flex-1 rounded-full border border-line bg-paper px-4 py-2.5 text-base sm:text-sm text-ink placeholder:text-ink-soft/60 focus:border-gold-deep focus:bg-surface focus:outline-none focus:ring-1 focus:ring-gold-deep transition-all shadow-inner"
                 />
                 <button
