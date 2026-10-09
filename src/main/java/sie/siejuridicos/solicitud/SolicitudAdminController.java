@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -149,6 +150,22 @@ public class SolicitudAdminController {
     public ResponseEntity<Void> responder(@PathVariable Long id,
                                             @Valid @RequestBody ResponderSolicitudRequest request) {
         solicitudService.responder(id, request.asunto(), request.mensaje());
-        return ResponseEntity.ok().build();
+        // noContent() (204), no ok().build() (200 con cuerpo vacío): bug real encontrado en
+        // producción -- pedido<T>() en el frontend (admin-api.ts) solo trata como "sin cuerpo"
+        // un 204; con 200 intentaba res.json() sobre una respuesta vacía, eso lanzaba
+        // "Unexpected end of JSON input" DESPUÉS de que el correo ya se había enviado de
+        // verdad, y el admin veía "No se pudo enviar la respuesta" en un envío que sí llegó.
+        return ResponseEntity.noContent().build();
+    }
+
+    // Eliminación permanente de una solicitud (ver SolicitudService.eliminar) -- requiere que
+    // el admin/abogado escriba literalmente "ELIMINAR" en el panel antes de poder confirmar
+    // (ver ConfirmarEliminarModal en el frontend); aun así, a nivel de API esto es un DELETE
+    // real sin ninguna palabra de por medio: la confirmación de la palabra es una barrera de
+    // UI, no algo que el backend pueda o deba validar.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        solicitudService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

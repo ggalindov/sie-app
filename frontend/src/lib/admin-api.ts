@@ -188,6 +188,10 @@ export function responderSolicitud(id: number, asunto: string, mensaje: string) 
   });
 }
 
+export function eliminarSolicitud(id: number) {
+  return pedido<void>(`/api/admin/solicitudes/${id}`, { method: "DELETE" });
+}
+
 export function agendarCita(
   id: number,
   datos: {

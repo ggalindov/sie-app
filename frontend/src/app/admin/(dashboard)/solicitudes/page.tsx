@@ -12,11 +12,13 @@ import {
   EnvelopeSimple,
   PaperPlaneTilt,
   Phone,
+  Trash,
   WhatsappLogo,
 } from "@phosphor-icons/react";
 import {
   listarSolicitudes,
   actualizarEstadoSolicitud,
+  eliminarSolicitud,
   exportarSolicitudes,
   listarResponsables,
   ApiError,
@@ -28,6 +30,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { AgendarReunionModal } from "@/components/admin/agendar-reunion-modal";
 import { ResponderSolicitudModal } from "@/components/admin/responder-solicitud-modal";
+import { ConfirmarEliminarModal } from "@/components/admin/confirmar-eliminar-modal";
 
 const ESTADOS: EstadoSolicitud[] = ["NUEVO", "CONTACTADO", "CERRADO"];
 
@@ -67,6 +70,8 @@ export default function SolicitudesPage() {
   const [hasta, setHasta] = useState("");
   const [modalCitaId, setModalCitaId] = useState<number | null>(null);
   const [modalResponderId, setModalResponderId] = useState<number | null>(null);
+  const [modalEliminarId, setModalEliminarId] = useState<number | null>(null);
+  const [eliminando, setEliminando] = useState(false);
   const [descargando, setDescargando] = useState(false);
 
   useEffect(() => {
@@ -116,6 +121,22 @@ export default function SolicitudesPage() {
 
   const solicitudCita = solicitudes?.find((s) => s.id === modalCitaId) ?? null;
   const solicitudResponder = solicitudes?.find((s) => s.id === modalResponderId) ?? null;
+  const solicitudEliminar = solicitudes?.find((s) => s.id === modalEliminarId) ?? null;
+
+  async function onEliminar() {
+    if (!solicitudEliminar) return;
+    setEliminando(true);
+    try {
+      await eliminarSolicitud(solicitudEliminar.id);
+      setSolicitudes((prev) => prev?.filter((s) => s.id !== solicitudEliminar.id) ?? null);
+      toast.success("Solicitud eliminada.");
+      setModalEliminarId(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo eliminar la solicitud.");
+    } finally {
+      setEliminando(false);
+    }
+  }
 
   return (
     <div>
@@ -255,6 +276,14 @@ export default function SolicitudesPage() {
                   <CalendarPlus className="h-4 w-4" weight="light" />
                   {s.fechaCita ? "Reprogramar" : "Agendar reunión"}
                 </AdminButton>
+                <button
+                  type="button"
+                  onClick={() => setModalEliminarId(s.id)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-red-50 hover:text-red-700"
+                  aria-label="Eliminar solicitud"
+                >
+                  <Trash className="h-4 w-4" weight="light" />
+                </button>
               </div>
             </AdminCard>
           ))}
@@ -275,6 +304,15 @@ export default function SolicitudesPage() {
       <ResponderSolicitudModal
         solicitud={solicitudResponder}
         onClose={() => setModalResponderId(null)}
+      />
+
+      <ConfirmarEliminarModal
+        abierto={!!solicitudEliminar}
+        titulo="Eliminar solicitud"
+        descripcion={`Vas a eliminar permanentemente la solicitud de ${solicitudEliminar?.nombre ?? ""}. Esta acción no se puede deshacer.`}
+        eliminando={eliminando}
+        onConfirmar={onEliminar}
+        onCancelar={() => setModalEliminarId(null)}
       />
     </div>
   );

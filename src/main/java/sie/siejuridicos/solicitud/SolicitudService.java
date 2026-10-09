@@ -225,6 +225,19 @@ public class SolicitudService {
         }
     }
 
+    // Eliminación permanente de una solicitud -- pedido explícito del usuario para poder
+    // limpiar leads de prueba/spam/duplicados desde el panel. Sin función PL/pgSQL propia
+    // (a diferencia de crear/actualizarEstado): un DELETE simple no tiene ninguna regla de
+    // negocio que validar más allá de que el registro exista, mismo criterio que
+    // ArticuloService.eliminar.
+    @Transactional
+    public void eliminar(Long id) {
+        if (!solicitudRepository.existsById(id)) {
+            throw new RecursoNoEncontradoException("No existe la solicitud con id " + id);
+        }
+        solicitudRepository.deleteById(id);
+    }
+
     @Transactional
     public SolicitudResponse actualizarEstado(Long id, EstadoSolicitud nuevoEstado) {
         try {

@@ -175,14 +175,34 @@ public class EmailService {
                     solicitud.getId());
             return false;
         }
+        // Insignia + nota de cierre que identifican este correo como una respuesta personal
+        // de Gerencia, escrita a mano -- pedido explícito del usuario: el cliente debe poder
+        // distinguir esto de inmediato de los correos automáticos de arriba (confirmación,
+        // recordatorio, etc.), que nunca llevan esta insignia.
+        String insignia = """
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td style="border-left:3px solid %s;padding:2px 0 2px 16px;">
+                <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Respuesta personal de Gerencia</p>
+                </td></tr>
+                </table>
+                """.formatted(COLOR_DORADO, COLOR_DORADO);
+        String notaFirmadaAMano = """
+                <p style="margin:20px 0 0;padding-top:14px;border-top:1px solid #E4DFD1;font-size:12px;color:#736C5C;">
+                Este mensaje fue redactado personalmente por Gerencia en atención a tu solicitud -- no es una
+                respuesta automática.</p>
+                """;
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
                 %s
                 %s
+                %s
+                %s
                 """.formatted(
                 escaparHtml(solicitud.getNombre()),
+                insignia,
                 escaparHtmlConParrafos(cuerpoMensaje),
-                firmaCierre()
+                firmaCierreGerencia(),
+                notaFirmadaAMano
         );
         return enviarHtml(solicitud.getCorreo(), correoGerencia, asunto, cuerpo, false);
     }
@@ -570,6 +590,14 @@ public class EmailService {
     private String firmaCierre() {
         return """
                 <p style="margin:24px 0 0;">Atentamente,<br><strong>Equipo %s</strong></p>
+                """.formatted(nombreFirma);
+    }
+
+    // Firma propia de enviarRespuestaSolicitud() -- "Gerencia", no "Equipo", para que coincida
+    // con la insignia "Respuesta personal de Gerencia" del cuerpo del correo.
+    private String firmaCierreGerencia() {
+        return """
+                <p style="margin:24px 0 0;">Atentamente,<br><strong>Gerencia de %s</strong></p>
                 """.formatted(nombreFirma);
     }
 
