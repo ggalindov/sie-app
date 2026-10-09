@@ -14,6 +14,7 @@ import {
   ChatCircleText,
   Check,
   CurrencyDollar,
+  DotsSixVertical,
   EnvelopeSimple,
   FileText,
   Funnel,
@@ -65,15 +66,30 @@ import {
 } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
 
+// Etiquetas renombradas (pedido explícito del usuario): el lenguaje original ("Contratado /
+// Ganado", "En Valoración") leía como un CRM de ventas genérico, no como algo pensado para
+// un bufete. Las keys (EtapaPipeline, lo que viaja al backend) no cambian, solo el texto
+// que ve el abogado/admin.
 const ETAPAS_ORDENADAS: { key: EtapaPipeline; label: string; tone: "neutral" | "gold" | "warning" | "success" | "danger" }[] = [
-  { key: "NUEVO", label: "Nuevo Prospecto", tone: "neutral" },
+  { key: "NUEVO", label: "Nuevo contacto", tone: "neutral" },
   { key: "CONTACTADO", label: "Contactado", tone: "warning" },
-  { key: "CITA_PROGRAMADA", label: "Cita Agendada", tone: "gold" },
-  { key: "VALORACION", label: "En Valoración", tone: "warning" },
-  { key: "PROPUESTA_ENVIADA", label: "Propuesta Enviada", tone: "gold" },
-  { key: "CONTRATADO", label: "Contratado / Ganado", tone: "success" },
+  { key: "CITA_PROGRAMADA", label: "Cita agendada", tone: "gold" },
+  { key: "VALORACION", label: "Estudio del caso", tone: "warning" },
+  { key: "PROPUESTA_ENVIADA", label: "Propuesta enviada", tone: "gold" },
+  { key: "CONTRATADO", label: "Cliente activo", tone: "success" },
   { key: "DESCARTADO", label: "Descartado", tone: "danger" },
 ];
+
+// Color de acento por etapa, reutilizado en la barra superior de cada columna y en el
+// avatar de iniciales de cada tarjeta -- mismo lenguaje visual que el acento dorado del
+// ítem activo del sidebar, para que el pipeline se sienta parte del mismo sistema.
+const TONE_ACCENT: Record<string, string> = {
+  neutral: "bg-ink/25",
+  gold: "bg-gold",
+  warning: "bg-amber-400",
+  success: "bg-emerald-500",
+  danger: "bg-red-400",
+};
 
 function formatearMoneda(val: number | null) {
   if (!val || val === 0) return "$ 0 COP";
@@ -90,6 +106,13 @@ function tieneCosto(honorarios: string | null | undefined): boolean {
   return /[1-9]/.test(honorarios);
 }
 
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[1][0]).toUpperCase();
+}
+
 export default function CrmAdminPage() {
   const { sesion } = useAuth();
 
@@ -98,6 +121,10 @@ export default function CrmAdminPage() {
   // Estado Pipeline
   const [pipelineItems, setPipelineItems] = useState<ItemPipeline[] | null>(null);
   const [cargandoPipeline, setCargandoPipeline] = useState(false);
+  // Arrastrar y soltar entre etapas (además de las flechas, que siguen siendo el único
+  // camino en touch -- el drag and drop nativo de HTML5 no funciona en móvil/tablet).
+  const [arrastrandoId, setArrastrandoId] = useState<number | null>(null);
+  const [columnaSobrevolada, setColumnaSobrevolada] = useState<EtapaPipeline | null>(null);
 
   // Estado Directorio
   const [clientes, setClientes] = useState<ClienteCrm[] | null>(null);
@@ -515,68 +542,90 @@ export default function CrmAdminPage() {
             <AdminLoader />
           ) : (
             <div className="overflow-x-auto pb-4">
-              {/* Columnas más angostas que antes (w-72/288px -> w-60/240px): con 7 etapas el
-                  tablero completo seguía necesitando scroll horizontal de todas formas, pero
-                  antes desperdiciaba espacio incluso en columnas vacías ("Sin oportunidades"). */}
               <div className="flex gap-3">
                 {ETAPAS_ORDENADAS.map((etapa, idx) => {
                   const itemsEnEtapa = pipelineItems?.filter((p) => p.etapa === etapa.key) || [];
                   const valorTotalEtapa = itemsEnEtapa.reduce((acc, curr) => acc + (curr.valorEstimado || 0), 0);
+                  const vacia = itemsEnEtapa.length === 0;
+                  const sobrevolada = columnaSobrevolada === etapa.key;
 
                   return (
                     <div
                       key={etapa.key}
-                      className="w-60 shrink-0 flex flex-col rounded-xl border border-line bg-paper-soft p-3"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (columnaSobrevolada !== etapa.key) setColumnaSobrevolada(etapa.key);
+                      }}
+                      onDragLeave={() => setColumnaSobrevolada((c) => (c === etapa.key ? null : c))}
+                      onDrop={() => {
+                        if (arrastrandoId !== null) onMoverEtapa(arrastrandoId, etapa.key);
+                        setArrastrandoId(null);
+                        setColumnaSobrevolada(null);
+                      }}
+                      className={`w-60 shrink-0 flex flex-col rounded-xl border bg-paper-soft p-3 transition-colors ${
+                        sobrevolada ? "border-gold bg-gold-pale/25" : "border-line"
+                      } ${vacia && !sobrevolada ? "opacity-70" : ""}`}
                     >
-                      {/* Cabecera de Etapa */}
-                      <div className="flex items-center justify-between pb-2 border-b border-line">
-                        <div className="flex items-center gap-2">
-                          <Badge tone={etapa.tone}>{etapa.label}</Badge>
-                          <span className="text-xs font-semibold text-ink-soft">({itemsEnEtapa.length})</span>
-                        </div>
+                      {/* Barra de acento arriba (mismo lenguaje visual que el ítem activo del
+                          sidebar) en vez de un Badge suelto -- identifica la etapa de un
+                          vistazo sin competir en peso visual con el nombre. */}
+                      <div className={`-mx-3 -mt-3 mb-2 h-[3px] shrink-0 rounded-t-xl ${TONE_ACCENT[etapa.tone]}`} />
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-ink">{etapa.label}</p>
+                        <span className="text-[11px] font-mono text-ink-soft">{itemsEnEtapa.length}</span>
                       </div>
                       {valorTotalEtapa > 0 && (
-                        <p className="mt-1 text-[11px] font-mono text-gold-deep">
+                        <p className="mt-0.5 text-[11px] font-mono text-gold-deep">
                           {formatearMoneda(valorTotalEtapa)}
                         </p>
                       )}
 
                       {/* Tarjetas del Kanban */}
-                      <div className="mt-3 flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
-                        {itemsEnEtapa.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-line/60 p-4 text-center text-xs text-ink-soft">
-                            Sin oportunidades
+                      <div className="mt-3 flex-1 space-y-2.5 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+                        {vacia ? (
+                          <div
+                            className={`rounded-lg border border-dashed p-4 text-center text-[11px] transition-colors ${
+                              sobrevolada ? "border-gold text-gold-deep" : "border-line/60 text-ink-soft"
+                            }`}
+                          >
+                            {sobrevolada ? "Soltar aquí" : "Sin oportunidades"}
                           </div>
                         ) : (
                           itemsEnEtapa.map((item) => (
                             <div
                               key={item.id}
-                              className="rounded-lg border border-line bg-paper p-3.5 shadow-xs transition-shadow hover:shadow-sm"
+                              draggable
+                              onDragStart={() => setArrastrandoId(item.id)}
+                              onDragEnd={() => {
+                                setArrastrandoId(null);
+                                setColumnaSobrevolada(null);
+                              }}
+                              className={`group cursor-grab rounded-lg border border-line bg-paper p-3 shadow-xs transition-all hover:shadow-sm active:cursor-grabbing ${
+                                arrastrandoId === item.id ? "opacity-40" : ""
+                              }`}
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="font-semibold text-xs text-ink">{item.nombre}</p>
-                                {item.clienteCrmId ? (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                    <UserCheck weight="bold" className="h-3 w-3" />
-                                    Cliente
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => onConvertirACliente(item.id)}
-                                    className="inline-flex items-center gap-1 rounded bg-gold/20 hover:bg-gold/30 px-1.5 py-0.5 text-[10px] font-medium text-gold-deep transition-colors"
-                                    title="Convertir a Cliente 360"
-                                  >
-                                    <User weight="bold" className="h-3 w-3" />
-                                    Convertir
-                                  </button>
-                                )}
+                              <div className="flex items-start gap-2">
+                                <span
+                                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-ink-fixed ${TONE_ACCENT[etapa.tone]}`}
+                                >
+                                  {iniciales(item.nombre)}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-semibold text-ink">{item.nombre}</p>
+                                  {item.areaPractica && (
+                                    <p className="truncate text-[10px] text-ink-soft">{item.areaPractica}</p>
+                                  )}
+                                </div>
+                                <DotsSixVertical
+                                  className="h-3.5 w-3.5 shrink-0 text-ink-soft/40 opacity-0 transition-opacity group-hover:opacity-100"
+                                  weight="bold"
+                                />
                               </div>
 
-                              <div className="mt-2 space-y-1 text-xs text-ink-soft">
+                              <div className="mt-2 space-y-1 text-[11px] text-ink-soft">
                                 {item.telefono && (
                                   <div className="flex items-center gap-1">
-                                    <Phone className="h-3 w-3" />
+                                    <Phone className="h-3 w-3 shrink-0" />
                                     <span>{item.telefono}</span>
                                   </div>
                                 )}
@@ -588,27 +637,36 @@ export default function CrmAdminPage() {
                                 )}
                               </div>
 
-                              {item.areaPractica && (
-                                <div className="mt-2">
-                                  <span className="inline-block rounded bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink">
-                                    {item.areaPractica}
-                                  </span>
-                                </div>
-                              )}
-
                               {item.mensaje && (
-                                <p className="mt-2 text-xs text-ink-soft line-clamp-2 italic bg-paper-soft/50 p-1.5 rounded">
+                                <p className="mt-2 text-[11px] text-ink-soft line-clamp-2 italic bg-paper-soft/60 p-1.5 rounded">
                                   "{item.mensaje}"
                                 </p>
                               )}
 
-                              <div className="mt-3 pt-2 border-t border-line/60 flex items-center justify-between text-xs">
+                              <div className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-between">
                                 <span className="text-[11px] font-mono font-medium text-gold-deep">
                                   {item.valorEstimado ? formatearMoneda(item.valorEstimado) : "Sin cotizar"}
                                 </span>
 
-                                {/* Controles de avance de etapa */}
                                 <div className="flex items-center gap-1">
+                                  {item.clienteCrmId ? (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                      <UserCheck weight="bold" className="h-3 w-3" />
+                                      Cliente
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => onConvertirACliente(item.id)}
+                                      className="inline-flex items-center gap-1 rounded bg-gold/20 hover:bg-gold/30 px-1.5 py-0.5 text-[10px] font-medium text-gold-deep transition-colors"
+                                      title="Convertir a Cliente 360"
+                                    >
+                                      <User weight="bold" className="h-3 w-3" />
+                                      Convertir
+                                    </button>
+                                  )}
+                                  {/* Flechas: único camino en touch, el drag nativo de HTML5
+                                      no existe en móvil/tablet */}
                                   {idx > 0 && (
                                     <button
                                       type="button"
@@ -639,6 +697,9 @@ export default function CrmAdminPage() {
                   );
                 })}
               </div>
+              <p className="mt-3 text-[11px] text-ink-soft">
+                Arrastra una tarjeta a otra columna para cambiarla de etapa, o usa las flechas.
+              </p>
             </div>
           )}
         </div>
