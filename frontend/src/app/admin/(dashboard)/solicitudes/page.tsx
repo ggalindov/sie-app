@@ -4,7 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarBlank, CalendarPlus, DownloadSimple } from "@phosphor-icons/react";
+import {
+  CalendarBlank,
+  CalendarPlus,
+  ChatCircleText,
+  DownloadSimple,
+  EnvelopeSimple,
+  PaperPlaneTilt,
+  Phone,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
 import {
   listarSolicitudes,
   actualizarEstadoSolicitud,
@@ -18,6 +27,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { AgendarReunionModal } from "@/components/admin/agendar-reunion-modal";
+import { ResponderSolicitudModal } from "@/components/admin/responder-solicitud-modal";
 
 const ESTADOS: EstadoSolicitud[] = ["NUEVO", "CONTACTADO", "CERRADO"];
 
@@ -56,6 +66,7 @@ export default function SolicitudesPage() {
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [modalCitaId, setModalCitaId] = useState<number | null>(null);
+  const [modalResponderId, setModalResponderId] = useState<number | null>(null);
   const [descargando, setDescargando] = useState(false);
 
   useEffect(() => {
@@ -104,6 +115,7 @@ export default function SolicitudesPage() {
   }
 
   const solicitudCita = solicitudes?.find((s) => s.id === modalCitaId) ?? null;
+  const solicitudResponder = solicitudes?.find((s) => s.id === modalResponderId) ?? null;
 
   return (
     <div>
@@ -182,6 +194,45 @@ export default function SolicitudesPage() {
                   {s.fechaCita && ` · Reunión: ${formatearFecha(s.fechaCita)}`}
                   {s.fechaCita && s.responsables.length > 0 && ` (${s.responsables.map((r) => r.nombre).join(", ")})`}
                 </p>
+
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
+                  {s.telefono && (
+                    <a
+                      href={`https://wa.me/57${s.telefono.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      <WhatsappLogo weight="bold" className="h-3.5 w-3.5" />
+                      WhatsApp
+                    </a>
+                  )}
+                  {s.telefono && (
+                    <a
+                      href={`tel:+57${s.telefono.replace(/\D/g, "")}`}
+                      className="inline-flex items-center gap-1 rounded-lg border border-line bg-paper px-2.5 py-1 text-xs font-medium text-ink hover:bg-ink/5"
+                    >
+                      <Phone weight="bold" className="h-3.5 w-3.5" />
+                      Llamar
+                    </a>
+                  )}
+                  {s.telefono && (
+                    <a
+                      href={`sms:+57${s.telefono.replace(/\D/g, "")}`}
+                      className="inline-flex items-center gap-1 rounded-lg border border-line bg-paper px-2.5 py-1 text-xs font-medium text-ink hover:bg-ink/5"
+                    >
+                      <ChatCircleText weight="bold" className="h-3.5 w-3.5" />
+                      SMS
+                    </a>
+                  )}
+                  <a
+                    href={`mailto:${s.correo}?subject=${encodeURIComponent("SIE Jurídicos - Respuesta a tu solicitud")}`}
+                    className="inline-flex items-center gap-1 rounded-lg border border-line bg-paper px-2.5 py-1 text-xs font-medium text-ink hover:bg-ink/5"
+                  >
+                    <EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />
+                    Correo
+                  </a>
+                </div>
               </div>
 
               <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -196,6 +247,10 @@ export default function SolicitudesPage() {
                     </option>
                   ))}
                 </select>
+                <AdminButton variant="ghost" onClick={() => setModalResponderId(s.id)} className="text-xs">
+                  <PaperPlaneTilt className="h-4 w-4" weight="light" />
+                  Responder
+                </AdminButton>
                 <AdminButton variant="ghost" onClick={() => setModalCitaId(s.id)} className="text-xs">
                   <CalendarPlus className="h-4 w-4" weight="light" />
                   {s.fechaCita ? "Reprogramar" : "Agendar reunión"}
@@ -215,6 +270,11 @@ export default function SolicitudesPage() {
           setSolicitudes((prev) => prev?.map((s) => (s.id === actualizada.id ? actualizada : s)) ?? null);
           setModalCitaId(null);
         }}
+      />
+
+      <ResponderSolicitudModal
+        solicitud={solicitudResponder}
+        onClose={() => setModalResponderId(null)}
       />
     </div>
   );

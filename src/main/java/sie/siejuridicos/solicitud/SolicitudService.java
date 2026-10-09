@@ -204,6 +204,27 @@ public class SolicitudService {
                 .toList();
     }
 
+    // Respuesta manual que un abogado/admin manda desde el "buzón" de una solicitud en el
+    // panel (ver SolicitudAdminController.responder): un asunto y un cuerpo libres, enviados
+    // con el mismo formato de marca que el resto de correos de la firma (ver
+    // EmailService.enviarRespuestaSolicitud) y siempre con copia a gerencia. A propósito NO
+    // cambia el estado de la solicitud por sí sola -- responder no implica necesariamente que
+    // el caso quede CONTACTADO o CERRADO, eso lo sigue decidiendo quien atiende desde el
+    // selector de estado que ya existía.
+    @Transactional(readOnly = true)
+    public void responder(Long id, String asunto, String mensaje) {
+        Solicitud solicitud = solicitudRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe la solicitud con id " + id));
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Respuesta a Solicitud ID={} NO enviada (app.bloqueo-total-clientes=true).", id);
+            throw new EntidadInvalidaException("El envío de correos a clientes está bloqueado en este entorno.");
+        }
+        boolean enviado = emailService.enviarRespuestaSolicitud(solicitud, asunto, mensaje);
+        if (!enviado) {
+            throw new EntidadInvalidaException("No se pudo enviar el correo. Verifica la configuración de SMTP.");
+        }
+    }
+
     @Transactional
     public SolicitudResponse actualizarEstado(Long id, EstadoSolicitud nuevoEstado) {
         try {

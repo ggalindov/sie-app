@@ -22,6 +22,7 @@ import sie.siejuridicos.security.UsuarioInternoPrincipal;
 import sie.siejuridicos.solicitud.dto.ActualizarEstadoSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.AgendarCitaRequest;
 import sie.siejuridicos.solicitud.dto.CrearSolicitudDirectaRequest;
+import sie.siejuridicos.solicitud.dto.ResponderSolicitudRequest;
 import sie.siejuridicos.solicitud.dto.ResponsableReunionResponse;
 import sie.siejuridicos.solicitud.dto.SolicitudResponse;
 
@@ -138,5 +139,16 @@ public class SolicitudAdminController {
                                                            @Valid @RequestBody AgendarCitaRequest request,
                                                            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
         return ResponseEntity.ok(solicitudService.agendarCita(id, request, principal));
+    }
+
+    // Buzón de respuesta directa de una solicitud (ver SolicitudService.responder): el
+    // abogado/admin escribe asunto y mensaje en el panel, el backend arma el correo con el
+    // formato de marca de la firma y lo manda al correo del cliente con copia obligatoria a
+    // gerencia (ver EmailService.enviarRespuestaSolicitud / app.correo.gerencia).
+    @PostMapping("/{id}/responder")
+    public ResponseEntity<Void> responder(@PathVariable Long id,
+                                            @Valid @RequestBody ResponderSolicitudRequest request) {
+        solicitudService.responder(id, request.asunto(), request.mensaje());
+        return ResponseEntity.ok().build();
     }
 }

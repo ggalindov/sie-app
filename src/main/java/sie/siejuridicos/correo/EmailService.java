@@ -58,6 +58,7 @@ public class EmailService {
     private final JavaMailSender mailSender;
     private final String remitente;
     private final String correoAdmin;
+    private final String correoGerencia;
     private final String correoAvisoRedes;
     private final String nombreFirma;
     private final String sitioWeb;
@@ -71,6 +72,7 @@ public class EmailService {
     public EmailService(JavaMailSender mailSender,
                          @Value("${app.correo.remitente}") String remitente,
                          @Value("${app.correo.admin}") String correoAdmin,
+                         @Value("${app.correo.gerencia}") String correoGerencia,
                          @Value("${app.redes-sociales.correo-aviso}") String correoAvisoRedes,
                          @Value("${app.firma.nombre}") String nombreFirma,
                          @Value("${app.firma.sitio-web}") String sitioWeb,
@@ -81,6 +83,7 @@ public class EmailService {
         this.mailSender = mailSender;
         this.remitente = remitente;
         this.correoAdmin = correoAdmin;
+        this.correoGerencia = correoGerencia;
         this.correoAvisoRedes = correoAvisoRedes;
         this.nombreFirma = nombreFirma;
         this.sitioWeb = sitioWeb;
@@ -154,6 +157,34 @@ public class EmailService {
                 escaparHtml(solicitud.getMensaje())
         );
         enviarHtml(correoAdmin, "Nueva solicitud: " + solicitud.getNombre(), cuerpo);
+    }
+
+    // Respuesta manual que un abogado/admin manda desde el "buzón" de una solicitud en el
+    // panel (POST /api/admin/solicitudes/{id}/responder): a diferencia de los correos
+    // automáticos de arriba, el asunto y el cuerpo los escribe la persona en el panel -- igual
+    // pasa por la misma plantilla() de marca (logo, sello, pie) para que el cliente reciba algo
+    // con la misma identidad visual que el resto de correos de la firma, no un mailto: en texto
+    // plano suelto. Siempre va con copia a gerencia (ver app.correo.gerencia) -- pedido
+    // explícito del usuario, para que gerencia quede al tanto de toda respuesta que se le
+    // manda a un cliente sin que quien responde tenga que acordarse de copiarla a mano.
+    // Síncrono (no @Async) porque el panel necesita saber de inmediato si de verdad se envió,
+    // para no mostrarle "enviado" al abogado cuando en realidad el SMTP falló.
+    public boolean enviarRespuestaSolicitud(Solicitud solicitud, String asunto, String cuerpoMensaje) {
+        if (asunto == null || asunto.isBlank() || cuerpoMensaje == null || cuerpoMensaje.isBlank()) {
+            log.warn("Se intentó responder la solicitud {} sin asunto o sin mensaje -- se canceló el envío.",
+                    solicitud.getId());
+            return false;
+        }
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                %s
+                %s
+                """.formatted(
+                escaparHtml(solicitud.getNombre()),
+                escaparHtmlConParrafos(cuerpoMensaje),
+                firmaCierre()
+        );
+        return enviarHtml(solicitud.getCorreo(), correoGerencia, asunto, cuerpo, false);
     }
 
     // true solo si de verdad hay algo que mostrar para el tipo de reunión guardado: una
@@ -675,6 +706,13 @@ public class EmailService {
     // SES/SendGrid): antes este método no devolvía nada y quien llamaba marcaba "enviado" con
     // solo haberlo intentado, sin saber si en realidad había fallado.
     private boolean enviarHtml(String destinatario, String asunto, String cuerpoHtml, boolean esBoletin) {
+        return enviarHtml(destinatario, null, asunto, cuerpoHtml, esBoletin);
+    }
+
+    // Variante con copia (CC) -- usada por enviarRespuestaSolicitud() para que gerencia quede
+    // copiada en toda respuesta manual, sin duplicar el resto de la lógica de envío (plantilla,
+    // alternativa de texto plano, cabeceras de boletín, etc.).
+    private boolean enviarHtml(String destinatario, String copiaA, String asunto, String cuerpoHtml, boolean esBoletin) {
         if (bloqueoTotalClientes) {
             log.warn("[SEGURIDAD ACTIVA] Envío de correo CANCELADO hacia '{}' con asunto '{}' (app.bloqueo-total-clientes=true). Cero correos a clientes reales.",
                     destinatario, asunto);
@@ -701,6 +739,12 @@ public class EmailService {
             // rota, mostrando "SIE JURÃ­DICOS" en la bandeja del destinatario).
             helper.setFrom(remitente, nombreFirma);
             helper.setTo(destinatarios);
+            if (copiaA != null && !copiaA.isBlank()) {
+                String[] copias = separarCorreos(copiaA);
+                if (copias.length > 0) {
+                    helper.setCc(copias);
+                }
+            }
             // Un remitente coherente entre "From" y "Reply-To" (misma cuenta ya usada
             // para las notificaciones al admin) es una señal más de legitimidad para los
             // filtros de spam, además de ser simplemente lo correcto: si alguien responde,

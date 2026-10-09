@@ -178,6 +178,16 @@ export function actualizarEstadoSolicitud(id: number, nuevoEstado: EstadoSolicit
   });
 }
 
+// Buzón de respuesta directa (ver EmailService.enviarRespuestaSolicitud en el backend): el
+// correo sale con el formato de marca de la firma y siempre con copia a gerencia, sin que
+// quien responde tenga que acordarse de agregarla a mano.
+export function responderSolicitud(id: number, asunto: string, mensaje: string) {
+  return pedido<void>(`/api/admin/solicitudes/${id}/responder`, {
+    method: "POST",
+    body: JSON.stringify({ asunto, mensaje }),
+  });
+}
+
 export function agendarCita(
   id: number,
   datos: {
