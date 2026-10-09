@@ -485,7 +485,7 @@ export default function CrmAdminPage() {
           Directorio Clientes 360°
           {clientes && (
             <span className="rounded-full bg-ink/10 px-2 py-0.5 text-xs text-ink font-semibold">
-              {clientes.length}
+              {totalClientesDirectorio}
             </span>
           )}
         </button>
