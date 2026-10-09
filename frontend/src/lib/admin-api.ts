@@ -766,16 +766,27 @@ export type CrmDashboard = {
   leadsPorEtapa: Record<string, number>;
 };
 
+export type ClienteCrmPagina = {
+  contenido: ClienteCrm[];
+  pagina: number;
+  totalPaginas: number;
+  totalElementos: number;
+};
+
 export function listarClientesCrm(opciones?: {
   busqueda?: string;
   estado?: EstadoClienteCrm;
   tipo?: TipoClienteCrm;
-}): Promise<ClienteCrm[]> {
+  pagina?: number;
+  tamanoPagina?: number;
+}): Promise<ClienteCrmPagina> {
   const parametros = new URLSearchParams();
   if (opciones?.busqueda) parametros.set("busqueda", opciones.busqueda);
   if (opciones?.estado) parametros.set("estado", opciones.estado);
   if (opciones?.tipo) parametros.set("tipo", opciones.tipo);
-  return pedido<ClienteCrm[]>(`/api/admin/crm/clientes?${parametros.toString()}`);
+  parametros.set("pagina", String(opciones?.pagina ?? 0));
+  parametros.set("tamanoPagina", String(opciones?.tamanoPagina ?? 24));
+  return pedido<ClienteCrmPagina>(`/api/admin/crm/clientes?${parametros.toString()}`);
 }
 
 export function obtenerClienteCrmDetalle(id: number): Promise<ClienteCrmDetalle> {

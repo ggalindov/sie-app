@@ -23,6 +23,7 @@ import {
   MagnifyingGlass,
   MapPin,
   NotePencil,
+  PencilSimple,
   Phone,
   Plus,
   Trash,
@@ -104,14 +105,31 @@ export default function CrmAdminPage() {
   // Estado Directorio
   const [clientes, setClientes] = useState<ClienteCrm[] | null>(null);
   const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [inputBusqueda, setInputBusqueda] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCrm | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoClienteCrm | "TODOS">("TODOS");
+  const [paginaDirectorio, setPaginaDirectorio] = useState(0);
+  const [totalPaginasDirectorio, setTotalPaginasDirectorio] = useState(1);
+  const [totalClientesDirectorio, setTotalClientesDirectorio] = useState(0);
 
   // Estado Detalle / Ficha 360
   const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | null>(null);
   const [clienteDetalle, setClienteDetalle] = useState<ClienteCrmDetalle | null>(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
+
+  // Estado Edición de Cliente (Ficha 360°)
+  const [modoEdicionCliente, setModoEdicionCliente] = useState(false);
+  const [editNombre, setEditNombre] = useState("");
+  const [editTipo, setEditTipo] = useState<TipoClienteCrm>("PERSONA_NATURAL");
+  const [editCedulaNit, setEditCedulaNit] = useState("");
+  const [editCorreo, setEditCorreo] = useState("");
+  const [editTelefono, setEditTelefono] = useState("");
+  const [editCiudad, setEditCiudad] = useState("");
+  const [editEstado, setEditEstado] = useState<EstadoClienteCrm>("ACTIVO");
+  const [editNotas, setEditNotas] = useState("");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [archivando, setArchivando] = useState(false);
 
   // Estado Formulario Nueva Actividad / Nota
   const [nuevaActividadTipo, setNuevaActividadTipo] = useState<TipoActividadCrm>("NOTA_INTERNA");
@@ -159,13 +177,29 @@ export default function CrmAdminPage() {
         busqueda: busqueda.trim() || undefined,
         tipo: filtroTipo === "TODOS" ? undefined : filtroTipo,
         estado: filtroEstado === "TODOS" ? undefined : filtroEstado,
+        pagina: paginaDirectorio,
       });
-      setClientes(data);
+      setClientes(data.contenido);
+      setTotalPaginasDirectorio(data.totalPaginas);
+      setTotalClientesDirectorio(data.totalElementos);
     } catch {
       toast.error("No se pudieron cargar los clientes.");
     } finally {
       setCargandoClientes(false);
     }
+  }, [busqueda, filtroTipo, filtroEstado, paginaDirectorio]);
+
+  // Debounce de la búsqueda: evita una petición al backend por cada tecla escrita (el
+  // directorio ya pasa de 225 clientes, cada tecla disparaba una carga completa).
+  useEffect(() => {
+    const t = setTimeout(() => setBusqueda(inputBusqueda), 350);
+    return () => clearTimeout(t);
+  }, [inputBusqueda]);
+
+  // Vuelve a la primera página cada vez que cambia un filtro: quedarse en la página 4 de un
+  // resultado que ahora solo tiene 2 páginas confundiría más que reiniciar la vista.
+  useEffect(() => {
+    setPaginaDirectorio(0);
   }, [busqueda, filtroTipo, filtroEstado]);
 
   const cargarDashboard = useCallback(async () => {
@@ -196,12 +230,28 @@ export default function CrmAdminPage() {
   }, [cargarPipeline, cargarClientes, cargarDashboard]);
 
   useEffect(() => {
+    setModoEdicionCliente(false);
     if (clienteSeleccionadoId !== null) {
       cargarFichaCliente(clienteSeleccionadoId);
     } else {
       setClienteDetalle(null);
     }
   }, [clienteSeleccionadoId, cargarFichaCliente]);
+
+  // Precarga el formulario de edición con los datos actuales cada vez que llega (o se
+  // recarga) la ficha -- así "Editar" siempre arranca mostrando lo que de verdad hay
+  // guardado, no un formulario vacío ni datos de la ficha anterior.
+  useEffect(() => {
+    if (!clienteDetalle) return;
+    setEditNombre(clienteDetalle.cliente.nombre);
+    setEditTipo(clienteDetalle.cliente.tipo);
+    setEditCedulaNit(clienteDetalle.cliente.cedulaNit ?? "");
+    setEditCorreo(clienteDetalle.cliente.correo ?? "");
+    setEditTelefono(clienteDetalle.cliente.telefono ?? "");
+    setEditCiudad(clienteDetalle.cliente.ciudad ?? "");
+    setEditEstado(clienteDetalle.cliente.estado);
+    setEditNotas(clienteDetalle.cliente.notas ?? "");
+  }, [clienteDetalle]);
 
   // Transiciones de Pipeline
   async function onMoverEtapa(solicitudId: number, nuevaEtapa: EtapaPipeline) {
@@ -325,6 +375,57 @@ export default function CrmAdminPage() {
     }
   }
 
+  // Edición de Cliente en Ficha 360°
+  async function onGuardarEdicionCliente(e: React.FormEvent) {
+    e.preventDefault();
+    if (!clienteSeleccionadoId || !editNombre.trim()) {
+      toast.warning("El nombre es obligatorio.");
+      return;
+    }
+    setGuardandoEdicion(true);
+    try {
+      await actualizarClienteCrm(clienteSeleccionadoId, {
+        tipo: editTipo,
+        nombre: editNombre.trim(),
+        cedulaNit: editCedulaNit.trim() || undefined,
+        correo: editCorreo.trim() || undefined,
+        telefono: editTelefono.trim() || undefined,
+        ciudad: editCiudad.trim() || undefined,
+        estado: editEstado,
+        notas: editNotas.trim() || undefined,
+      });
+      toast.success("Cliente actualizado.");
+      setModoEdicionCliente(false);
+      cargarFichaCliente(clienteSeleccionadoId);
+      cargarClientes();
+      cargarDashboard();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo actualizar el cliente.");
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  }
+
+  // Archivar Cliente (solo ADMIN_GENERAL, igual que el backend): deja el cliente en estado
+  // INACTIVO, no lo borra -- sigue visible con el filtro "Inactivos" y se puede reactivar
+  // editando el estado de nuevo a Activo.
+  async function onArchivarCliente() {
+    if (!clienteSeleccionadoId || !clienteDetalle) return;
+    if (!window.confirm(`¿Archivar a "${clienteDetalle.cliente.nombre}"? Pasará a estado Inactivo.`)) return;
+    setArchivando(true);
+    try {
+      await archivarClienteCrm(clienteSeleccionadoId);
+      toast.success("Cliente archivado.");
+      cargarFichaCliente(clienteSeleccionadoId);
+      cargarClientes();
+      cargarDashboard();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo archivar el cliente.");
+    } finally {
+      setArchivando(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -410,7 +511,10 @@ export default function CrmAdminPage() {
             <AdminLoader />
           ) : (
             <div className="overflow-x-auto pb-4">
-              <div className="flex gap-4 min-w-[1200px]">
+              {/* Columnas más angostas que antes (w-72/288px -> w-60/240px): con 7 etapas el
+                  tablero completo seguía necesitando scroll horizontal de todas formas, pero
+                  antes desperdiciaba espacio incluso en columnas vacías ("Sin oportunidades"). */}
+              <div className="flex gap-3">
                 {ETAPAS_ORDENADAS.map((etapa, idx) => {
                   const itemsEnEtapa = pipelineItems?.filter((p) => p.etapa === etapa.key) || [];
                   const valorTotalEtapa = itemsEnEtapa.reduce((acc, curr) => acc + (curr.valorEstimado || 0), 0);
@@ -418,7 +522,7 @@ export default function CrmAdminPage() {
                   return (
                     <div
                       key={etapa.key}
-                      className="w-72 shrink-0 flex flex-col rounded-xl border border-line bg-paper-soft p-3"
+                      className="w-60 shrink-0 flex flex-col rounded-xl border border-line bg-paper-soft p-3"
                     >
                       {/* Cabecera de Etapa */}
                       <div className="flex items-center justify-between pb-2 border-b border-line">
@@ -545,8 +649,8 @@ export default function CrmAdminPage() {
               <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-soft" />
               <input
                 type="text"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
+                value={inputBusqueda}
+                onChange={(e) => setInputBusqueda(e.target.value)}
                 placeholder="Buscar por nombre, documento, correo o teléfono..."
                 className="w-full rounded-xl border border-line bg-paper pl-9 pr-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
               />
@@ -571,7 +675,8 @@ export default function CrmAdminPage() {
                 <option value="TODOS">Todos los estados</option>
                 <option value="ACTIVO">Activos</option>
                 <option value="PROSPECTO">Prospectos</option>
-                <option value="INACTIVO">Inactivos</option>
+                <option value="FINALIZADO">Finalizados</option>
+                <option value="INACTIVO">Inactivos / Archivados</option>
               </select>
             </div>
           </div>
@@ -654,6 +759,35 @@ export default function CrmAdminPage() {
                   </div>
                 </AdminCard>
               ))}
+            </div>
+          )}
+
+          {/* Paginación: el directorio ya pasa de 225 clientes, antes se renderizaban todos
+              de una sola vez en este grid (ver reforma del CRM) */}
+          {clientes && clientes.length > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-line pt-4 sm:flex-row">
+              <p className="text-xs text-ink-soft">
+                {totalClientesDirectorio} cliente{totalClientesDirectorio === 1 ? "" : "s"} en total
+                {" · "}página {paginaDirectorio + 1} de {totalPaginasDirectorio}
+              </p>
+              <div className="flex items-center gap-2">
+                <AdminButton
+                  variant="ghost"
+                  onClick={() => setPaginaDirectorio((p) => Math.max(0, p - 1))}
+                  disabled={paginaDirectorio === 0 || cargandoClientes}
+                >
+                  <ArrowLeft className="h-4 w-4" weight="bold" />
+                  Anterior
+                </AdminButton>
+                <AdminButton
+                  variant="ghost"
+                  onClick={() => setPaginaDirectorio((p) => Math.min(totalPaginasDirectorio - 1, p + 1))}
+                  disabled={paginaDirectorio >= totalPaginasDirectorio - 1 || cargandoClientes}
+                >
+                  Siguiente
+                  <ArrowRight className="h-4 w-4" weight="bold" />
+                </AdminButton>
+              </div>
             </div>
           )}
         </div>
@@ -743,13 +877,38 @@ export default function CrmAdminPage() {
                 <AddressBook weight="bold" className="h-5 w-5 text-gold-deep" />
                 <h2 className="text-base font-bold text-ink">Ficha Integral 360° del Cliente</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setClienteSeleccionadoId(null)}
-                className="p-1 rounded-lg text-ink-soft hover:bg-ink/5 hover:text-ink"
-              >
-                <X className="h-5 w-5" weight="bold" />
-              </button>
+              <div className="flex items-center gap-1">
+                {clienteDetalle && !modoEdicionCliente && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setModoEdicionCliente(true)}
+                      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-ink/5 hover:text-ink"
+                    >
+                      <PencilSimple weight="bold" className="h-3.5 w-3.5" />
+                      Editar
+                    </button>
+                    {sesion?.rol === "ADMIN_GENERAL" && clienteDetalle.cliente.estado !== "INACTIVO" && (
+                      <button
+                        type="button"
+                        onClick={onArchivarCliente}
+                        disabled={archivando}
+                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash weight="bold" className="h-3.5 w-3.5" />
+                        {archivando ? "Archivando..." : "Archivar"}
+                      </button>
+                    )}
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setClienteSeleccionadoId(null)}
+                  className="p-1 rounded-lg text-ink-soft hover:bg-ink/5 hover:text-ink"
+                >
+                  <X className="h-5 w-5" weight="bold" />
+                </button>
+              </div>
             </div>
 
             {cargandoDetalle || !clienteDetalle ? (
@@ -759,49 +918,156 @@ export default function CrmAdminPage() {
             ) : (
               <div className="p-6 space-y-6 flex-1">
                 {/* Cabecera Info Cliente */}
-                <div className="rounded-xl border border-line bg-paper-soft p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-ink">{clienteDetalle.cliente.nombre}</h3>
-                      <p className="text-xs text-ink-soft mt-0.5">
-                        {clienteDetalle.cliente.cedulaNit ? `NIT/CC: ${clienteDetalle.cliente.cedulaNit}` : "Sin ID"}
-                        {clienteDetalle.cliente.ciudad ? ` · ${clienteDetalle.cliente.ciudad}` : ""}
-                      </p>
+                {modoEdicionCliente ? (
+                  <form
+                    onSubmit={onGuardarEdicionCliente}
+                    className="rounded-xl border border-gold-deep/40 bg-paper-soft p-4 space-y-3"
+                  >
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={editTipo === "PERSONA_NATURAL"}
+                          onChange={() => setEditTipo("PERSONA_NATURAL")}
+                          className="text-gold focus:ring-gold"
+                        />
+                        Persona Natural
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={editTipo === "EMPRESA"}
+                          onChange={() => setEditTipo("EMPRESA")}
+                          className="text-gold focus:ring-gold"
+                        />
+                        Empresa
+                      </label>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge tone={clienteDetalle.cliente.tipo === "EMPRESA" ? "gold" : "neutral"}>
-                        {clienteDetalle.cliente.tipo === "EMPRESA" ? "Empresa" : "Persona Natural"}
-                      </Badge>
-                      <Badge tone={clienteDetalle.cliente.estado === "ACTIVO" ? "success" : "neutral"}>
-                        {clienteDetalle.cliente.estado}
-                      </Badge>
-                    </div>
-                  </div>
 
-                  {/* Vínculos directos de contacto */}
-                  <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-line">
-                    {clienteDetalle.cliente.telefono && (
-                      <a
-                        href={`https://wa.me/57${clienteDetalle.cliente.telefono.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    <input
+                      type="text"
+                      required
+                      value={editNombre}
+                      onChange={(e) => setEditNombre(e.target.value)}
+                      placeholder="Nombre completo o razón social"
+                      className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editCedulaNit}
+                        onChange={(e) => setEditCedulaNit(e.target.value)}
+                        placeholder="Cédula o NIT"
+                        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                      />
+                      <input
+                        type="text"
+                        value={editCiudad}
+                        onChange={(e) => setEditCiudad(e.target.value)}
+                        placeholder="Ciudad"
+                        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="email"
+                        value={editCorreo}
+                        onChange={(e) => setEditCorreo(e.target.value)}
+                        placeholder="Correo electrónico"
+                        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                      />
+                      <input
+                        type="tel"
+                        value={editTelefono}
+                        onChange={(e) => setEditTelefono(e.target.value)}
+                        placeholder="Teléfono celular"
+                        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                      />
+                    </div>
+
+                    <select
+                      value={editEstado}
+                      onChange={(e) => setEditEstado(e.target.value as EstadoClienteCrm)}
+                      className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                    >
+                      <option value="ACTIVO">Activo</option>
+                      <option value="PROSPECTO">Prospecto</option>
+                      <option value="FINALIZADO">Finalizado</option>
+                      <option value="INACTIVO">Inactivo</option>
+                    </select>
+
+                    <textarea
+                      rows={2}
+                      value={editNotas}
+                      onChange={(e) => setEditNotas(e.target.value)}
+                      placeholder="Notas internas o antecedentes"
+                      className="w-full rounded-lg border border-line bg-paper p-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+                    />
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setModoEdicionCliente(false)}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-ink/5"
                       >
-                        <WhatsappLogo weight="bold" className="h-4 w-4" />
-                        Abrir WhatsApp ({clienteDetalle.cliente.telefono})
-                      </a>
-                    )}
-                    {clienteDetalle.cliente.correo && (
-                      <a
-                        href={`mailto:${clienteDetalle.cliente.correo}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-paper border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-ink/5"
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={guardandoEdicion}
+                        className="rounded-lg bg-gold px-4 py-1.5 text-xs font-semibold text-ink-fixed hover:bg-gold-deep hover:text-white transition-colors disabled:opacity-50"
                       >
-                        <EnvelopeSimple weight="bold" className="h-4 w-4" />
-                        Enviar Correo
-                      </a>
-                    )}
+                        {guardandoEdicion ? "Guardando..." : "Guardar cambios"}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="rounded-xl border border-line bg-paper-soft p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-ink">{clienteDetalle.cliente.nombre}</h3>
+                        <p className="text-xs text-ink-soft mt-0.5">
+                          {clienteDetalle.cliente.cedulaNit ? `NIT/CC: ${clienteDetalle.cliente.cedulaNit}` : "Sin ID"}
+                          {clienteDetalle.cliente.ciudad ? ` · ${clienteDetalle.cliente.ciudad}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge tone={clienteDetalle.cliente.tipo === "EMPRESA" ? "gold" : "neutral"}>
+                          {clienteDetalle.cliente.tipo === "EMPRESA" ? "Empresa" : "Persona Natural"}
+                        </Badge>
+                        <Badge tone={clienteDetalle.cliente.estado === "ACTIVO" ? "success" : "neutral"}>
+                          {clienteDetalle.cliente.estado}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Vínculos directos de contacto */}
+                    <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-line">
+                      {clienteDetalle.cliente.telefono && (
+                        <a
+                          href={`https://wa.me/57${clienteDetalle.cliente.telefono.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                        >
+                          <WhatsappLogo weight="bold" className="h-4 w-4" />
+                          Abrir WhatsApp ({clienteDetalle.cliente.telefono})
+                        </a>
+                      )}
+                      {clienteDetalle.cliente.correo && (
+                        <a
+                          href={`mailto:${clienteDetalle.cliente.correo}`}
+                          className="inline-flex items-center gap-1 rounded-lg bg-paper border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-ink/5"
+                        >
+                          <EnvelopeSimple weight="bold" className="h-4 w-4" />
+                          Enviar Correo
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Casos Vinculados */}
                 <div>

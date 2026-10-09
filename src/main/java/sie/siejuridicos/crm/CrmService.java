@@ -14,6 +14,7 @@ import sie.siejuridicos.crm.dto.ActividadCrmResponse;
 import sie.siejuridicos.crm.dto.ActualizarClienteCrmRequest;
 import sie.siejuridicos.crm.dto.CambiarEtapaPipelineRequest;
 import sie.siejuridicos.crm.dto.ClienteCrmDetalleResponse;
+import sie.siejuridicos.crm.dto.ClienteCrmPaginaResponse;
 import sie.siejuridicos.crm.dto.ClienteCrmResponse;
 import sie.siejuridicos.crm.dto.ConvertirProspectoRequest;
 import sie.siejuridicos.crm.dto.CrearActividadCrmRequest;
@@ -36,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,14 +77,22 @@ public class CrmService {
     // =========================================================================
 
     @Transactional(readOnly = true)
-    public List<ClienteCrmResponse> listarClientes(String busqueda, EstadoClienteCrm estado, TipoClienteCrm tipo) {
+    public ClienteCrmPaginaResponse listarClientes(String busqueda, EstadoClienteCrm estado, TipoClienteCrm tipo,
+                                                     int pagina, int tamanoPagina) {
         List<ClienteCrm> base = (estado != null)
                 ? clienteCrmRepository.findByEstadoOrderByNombreAsc(estado)
                 : clienteCrmRepository.findAllByOrderByFechaCreacionDesc();
 
         String q = (busqueda == null || busqueda.isBlank()) ? null : busqueda.strip().toLowerCase(Locale.ROOT);
 
-        return base.stream()
+        // nombre/cédula/correo/teléfono están cifrados en la base de datos (ver
+        // ClienteCrm/CampoCifradoConverter): no hay forma de filtrarlos con un LIKE en SQL,
+        // es la razón de ser de los *Hash (igualdad exacta, no búsqueda parcial). El filtro
+        // de texto libre necesariamente descifra en memoria. Lo que sí se corrige abajo es
+        // dejar de construir la ficha completa (2 consultas extra por cliente: casos y
+        // cobros) para los clientes que no van en la página pedida -- antes se hacía para
+        // los 225+ clientes en cada carga del directorio, sin importar cuántos se mostraran.
+        List<ClienteCrm> filtrados = base.stream()
                 .filter(c -> tipo == null || c.getTipo() == tipo)
                 .filter(c -> {
                     if (q == null) return true;
@@ -92,8 +102,19 @@ public class CrmService {
                             || (c.getTelefono() != null && c.getTelefono().toLowerCase(Locale.ROOT).contains(q))
                             || (c.getEtiqueta() != null && c.getEtiqueta().toLowerCase(Locale.ROOT).contains(q));
                 })
+                .toList();
+
+        int tam = Math.max(1, Math.min(tamanoPagina, 100));
+        int totalPaginas = Math.max(1, (int) Math.ceil(filtrados.size() / (double) tam));
+        int paginaSegura = Math.max(0, Math.min(pagina, totalPaginas - 1));
+
+        List<ClienteCrmResponse> contenido = filtrados.stream()
+                .skip((long) paginaSegura * tam)
+                .limit(tam)
                 .map(this::construirClienteResponse)
                 .toList();
+
+        return new ClienteCrmPaginaResponse(contenido, paginaSegura, totalPaginas, filtrados.size());
     }
 
     private ClienteCrmResponse construirClienteResponse(ClienteCrm c) {
@@ -323,6 +344,36 @@ public class CrmService {
             }
         }
 
+        // Bug real corregido aquí: antes SIEMPRE se creaba un ClienteCrm nuevo, incluso
+        // cuando la misma persona ya tenía un cliente en el directorio (volvió a escribir
+        // por el formulario público, o ya era cliente activo) -- eso fue lo que llenó el
+        // directorio de duplicados reales con el mismo teléfono/correo (confirmado en
+        // producción: "Yerika Alexandra Samaniego Arango" y "Yerika Samaniego", mismo
+        // teléfono y correo, dos registros). Antes de crear, se busca por los mismos índices
+        // ciegos que ya usa crearCliente() para esto mismo (telefonoHash primero, correoHash
+        // de respaldo) -- si existe, se reutiliza y solo se vincula la solicitud nueva, en
+        // vez de duplicar el registro.
+        ClienteCrm existentePorContacto = buscarClienteExistentePorContacto(s.getTelefono(), s.getCorreo());
+        if (existentePorContacto != null) {
+            s.setClienteCrmId(existentePorContacto.getId());
+            s.setEtapaPipeline(EtapaPipeline.CONTRATADO);
+            s.setEstado(EstadoSolicitud.CERRADO);
+            solicitudRepository.save(s);
+
+            ActividadCrm actVinculo = new ActividadCrm();
+            actVinculo.setClienteCrm(existentePorContacto);
+            actVinculo.setSolicitudId(s.getId());
+            actVinculo.setTipo(TipoActividadCrm.CAMBIO_ESTADO);
+            actVinculo.setTitulo("Nueva solicitud vinculada a cliente existente");
+            actVinculo.setDescripcion(
+                    "Se vinculó una nueva solicitud contratada a este cliente ya registrado (mismo "
+                            + "teléfono o correo), en vez de crear un duplicado en el directorio.");
+            actVinculo.setUsuarioNombre("Admin");
+            actividadCrmRepository.save(actVinculo);
+
+            return construirClienteResponse(existentePorContacto);
+        }
+
         ClienteCrm nuevo = new ClienteCrm();
         nuevo.setTipo(request.tipo() != null ? request.tipo() : TipoClienteCrm.PERSONA_NATURAL);
         nuevo.setNombre(s.getNombre());
@@ -459,6 +510,25 @@ public class CrmService {
                 cobrosPendientes,
                 leadsPorEtapa
         );
+    }
+
+    // Usado por convertirProspectoACrm para evitar duplicados: mismo criterio de búsqueda
+    // que ya usan los *Hash (índice ciego, igualdad exacta sobre el valor normalizado).
+    // Teléfono primero (más confiable entre solicitudes del formulario público: el correo a
+    // veces se escribe distinto -- mayúsculas, typos -- pero el celular normalizado rara vez
+    // cambia), correo como respaldo si no hay teléfono o no hubo coincidencia.
+    private ClienteCrm buscarClienteExistentePorContacto(String telefono, String correo) {
+        String telHash = calcularTelefonoHash(telefono);
+        if (telHash != null) {
+            Optional<ClienteCrm> porTelefono = clienteCrmRepository.findByTelefonoHash(telHash);
+            if (porTelefono.isPresent()) return porTelefono.get();
+        }
+        String correoHash = calcularHash(correo);
+        if (correoHash != null) {
+            Optional<ClienteCrm> porCorreo = clienteCrmRepository.findByCorreoHash(correoHash);
+            if (porCorreo.isPresent()) return porCorreo.get();
+        }
+        return null;
     }
 
     private String calcularHash(String valor) {

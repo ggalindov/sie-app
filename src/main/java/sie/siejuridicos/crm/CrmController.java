@@ -16,6 +16,7 @@ import sie.siejuridicos.crm.dto.ActividadCrmResponse;
 import sie.siejuridicos.crm.dto.ActualizarClienteCrmRequest;
 import sie.siejuridicos.crm.dto.CambiarEtapaPipelineRequest;
 import sie.siejuridicos.crm.dto.ClienteCrmDetalleResponse;
+import sie.siejuridicos.crm.dto.ClienteCrmPaginaResponse;
 import sie.siejuridicos.crm.dto.ClienteCrmResponse;
 import sie.siejuridicos.crm.dto.ConvertirProspectoRequest;
 import sie.siejuridicos.crm.dto.CrearActividadCrmRequest;
@@ -71,11 +72,13 @@ public class CrmController {
     // =========================================================================
 
     @GetMapping("/clientes")
-    public ResponseEntity<List<ClienteCrmResponse>> listarClientes(
+    public ResponseEntity<ClienteCrmPaginaResponse> listarClientes(
             @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) EstadoClienteCrm estado,
-            @RequestParam(required = false) TipoClienteCrm tipo) {
-        return ResponseEntity.ok(crmService.listarClientes(busqueda, estado, tipo));
+            @RequestParam(required = false) TipoClienteCrm tipo,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "24") int tamanoPagina) {
+        return ResponseEntity.ok(crmService.listarClientes(busqueda, estado, tipo, pagina, tamanoPagina));
     }
 
     @GetMapping("/clientes/{id}")
