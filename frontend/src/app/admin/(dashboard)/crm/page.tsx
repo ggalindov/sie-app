@@ -541,8 +541,13 @@ export default function CrmAdminPage() {
           {cargandoPipeline && !pipelineItems ? (
             <AdminLoader />
           ) : (
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-3">
+            <div>
+              {/* Cuadrícula que envuelve en filas en vez de una tira horizontal con scroll
+                  lateral -- pedido explícito del usuario ("no así a lo horizontal, que se
+                  vea completo"): con 7 etapas, antes siempre sobraba al menos una columna
+                  fuera de la pantalla. Ahora las columnas se acomodan solas según el ancho
+                  disponible y las 7 quedan visibles de un vistazo, sin scroll lateral. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {ETAPAS_ORDENADAS.map((etapa, idx) => {
                   const itemsEnEtapa = pipelineItems?.filter((p) => p.etapa === etapa.key) || [];
                   const valorTotalEtapa = itemsEnEtapa.reduce((acc, curr) => acc + (curr.valorEstimado || 0), 0);
@@ -562,7 +567,7 @@ export default function CrmAdminPage() {
                         setArrastrandoId(null);
                         setColumnaSobrevolada(null);
                       }}
-                      className={`w-60 shrink-0 flex flex-col rounded-xl border bg-paper-soft p-3 transition-colors ${
+                      className={`flex flex-col rounded-xl border bg-paper-soft p-3 transition-colors ${
                         sobrevolada ? "border-gold bg-gold-pale/25" : "border-line"
                       } ${vacia && !sobrevolada ? "opacity-70" : ""}`}
                     >
@@ -580,8 +585,11 @@ export default function CrmAdminPage() {
                         </p>
                       )}
 
-                      {/* Tarjetas del Kanban */}
-                      <div className="mt-3 flex-1 space-y-2.5 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+                      {/* Tarjetas del Kanban: alto fijo moderado (no atado al viewport como
+                          antes) -- con varias filas de columnas en pantalla, una sola columna
+                          no debe estirarse casi a pantalla completa. Si una etapa tiene más
+                          tarjetas de las que caben, esta lista interna scrollea sola. */}
+                      <div className="mt-3 flex-1 space-y-2.5 overflow-y-auto max-h-80 pr-1">
                         {vacia ? (
                           <div
                             className={`rounded-lg border border-dashed p-4 text-center text-[11px] transition-colors ${
