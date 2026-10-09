@@ -121,15 +121,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
     // que los hijos flex puedan encogerse por debajo de su alto de contenido -- sin eso el
     // min-height:auto por defecto de un flex item anula el overflow-y-auto interno.
     <div className="flex h-dvh overflow-hidden bg-paper">
-      {/* Sidebar desktop */}
-      <aside className="hidden w-64 min-h-0 shrink-0 flex-col border-r border-line bg-surface lg:flex">
+      {/* Sidebar desktop: semi-oscuro (bg-night, mismo tono fijo que ya usa el footer del
+          sitio público, ver globals.css) -- pedido explícito del usuario, el resto del panel
+          admin se queda en la paleta clara original a propósito (ver CLAUDE.md 5.1/5.8). */}
+      <aside className="hidden w-64 min-h-0 shrink-0 flex-col bg-night lg:flex">
         <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} />
       </aside>
 
       {/* Sidebar móvil */}
       {menuAbierto && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="flex w-72 min-h-0 flex-col border-r border-line bg-surface">
+          <div className="flex w-72 min-h-0 flex-col bg-night">
             <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} />
           </div>
           <button
@@ -178,22 +180,22 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="relative flex h-16 shrink-0 items-center gap-2.5 overflow-hidden border-b border-line bg-surface px-5">
+      <div className="relative flex h-16 shrink-0 items-center gap-2.5 overflow-hidden border-b border-white/10 px-5">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: "radial-gradient(220px circle at 0% 0%, rgba(217,169,37,0.14), transparent 65%)" }}
+          style={{ backgroundImage: "radial-gradient(220px circle at 0% 0%, rgba(217,169,37,0.22), transparent 65%)" }}
         />
-        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-pale/50 ring-1 ring-gold/25">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 ring-1 ring-gold/40">
           <Image src="/marca/logo.png" alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" />
         </span>
-        <span className="relative font-display text-base font-semibold text-ink">Panel</span>
+        <span className="relative font-display text-base font-semibold text-night-ink">Panel</span>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
         {grupos.map((grupo, i) => (
-          <div key={grupo.titulo} className={i > 0 ? "mt-5 border-t border-line pt-4" : ""}>
-            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft/60">
+          <div key={grupo.titulo} className={i > 0 ? "mt-5 border-t border-white/10 pt-4" : ""}>
+            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-night-ink/40">
               {grupo.titulo}
             </p>
             <div className="space-y-1">
@@ -205,7 +207,7 @@ function SidebarContent({
                     key={item.href}
                     href={item.href}
                     className={`group relative flex items-center gap-3 rounded-xl py-2 pl-3 pr-3 text-sm transition-colors ${
-                      activo ? "bg-gold-pale/40 font-medium text-ink" : "text-ink-soft hover:bg-ink/5"
+                      activo ? "bg-gold/12 font-medium text-night-ink" : "text-night-ink/65 hover:bg-white/5 hover:text-night-ink"
                     }`}
                   >
                     {/* barra de acento a la izquierda: más claro que solo un fondo tenue,
@@ -217,7 +219,7 @@ function SidebarContent({
                     />
                     <span
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                        activo ? "bg-gold text-ink-fixed" : "bg-ink/5 text-ink-soft group-hover:bg-ink/10"
+                        activo ? "bg-gold text-ink-fixed" : "bg-white/5 text-night-ink/70 group-hover:bg-white/10"
                       }`}
                     >
                       <Icon weight={activo ? "fill" : "light"} className="h-4 w-4" />
@@ -231,23 +233,23 @@ function SidebarContent({
         ))}
       </nav>
 
-      <div className="border-t border-line p-3">
+      <div className="border-t border-white/10 p-3">
         <Link
           href="/admin/perfil"
           className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-            pathname === "/admin/perfil" ? "bg-gold-pale/50 font-medium text-ink" : "text-ink-soft hover:bg-ink/5"
+            pathname === "/admin/perfil" ? "bg-gold/12 font-medium text-night-ink" : "text-night-ink/65 hover:bg-white/5 hover:text-night-ink"
           }`}
         >
           <UserCircle weight="light" className="h-5 w-5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{sesion.nombre}</span>
         </Link>
-        <p className="mt-1 truncate px-3 text-xs text-ink-soft">
+        <p className="mt-1 truncate px-3 text-xs text-night-ink/45">
           {sesion.rol === "ADMIN_GENERAL" ? "Administrador General" : "Abogado"}
         </p>
         <button
           type="button"
           onClick={onLogout}
-          className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink-soft transition-colors hover:bg-ink/5"
+          className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-night-ink/65 transition-colors hover:bg-white/5 hover:text-night-ink"
         >
           <SignOut weight="light" className="h-5 w-5 shrink-0" />
           Cerrar sesión
