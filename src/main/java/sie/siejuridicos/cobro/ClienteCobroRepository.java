@@ -20,4 +20,10 @@ public interface ClienteCobroRepository extends JpaRepository<ClienteCobro, Long
     List<ClienteCobro> findByTelefonoHashAndActivoTrue(String telefonoHash);
 
     List<ClienteCobro> findByClienteCrmIdAndActivoTrue(Long clienteCrmId);
+
+    // Usada por CrmService.listarClientes para el filtro "Estado de cobro" del directorio:
+    // un solo query que trae todos los cobros activos ya vinculados a un cliente CRM, para
+    // calcular "al día"/"pendiente" en memoria sin disparar una consulta por cliente (evita
+    // el mismo problema de N+1 que ya se corrigió para el resto del directorio).
+    List<ClienteCobro> findByActivoTrueAndClienteCrmIdIsNotNull();
 }

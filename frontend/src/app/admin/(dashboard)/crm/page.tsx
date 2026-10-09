@@ -13,16 +13,13 @@ import {
   CaretRight,
   ChatCircleText,
   Check,
-  CheckCircle,
   CurrencyDollar,
   EnvelopeSimple,
-  Eye,
   FileText,
   Funnel,
   IdentificationCard,
   MagnifyingGlass,
   MapPin,
-  NotePencil,
   PencilSimple,
   Phone,
   Plus,
@@ -109,6 +106,7 @@ export default function CrmAdminPage() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCrm | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoClienteCrm | "TODOS">("TODOS");
+  const [filtroCobro, setFiltroCobro] = useState<"TODOS" | "AL_DIA" | "PENDIENTE">("TODOS");
   const [paginaDirectorio, setPaginaDirectorio] = useState(0);
   const [totalPaginasDirectorio, setTotalPaginasDirectorio] = useState(1);
   const [totalClientesDirectorio, setTotalClientesDirectorio] = useState(0);
@@ -120,6 +118,10 @@ export default function CrmAdminPage() {
 
   // Estado Edición de Cliente (Ficha 360°)
   const [modoEdicionCliente, setModoEdicionCliente] = useState(false);
+  // Sub-secciones de la Ficha 360°: antes todo (casos, cobros, citas, tareas, bitácora)
+  // estaba apilado en un solo scroll largo -- pedido explícito del usuario ("demasiada
+  // información suelta sin orden claro"). Ahora cada bloque vive en su propia sección.
+  const [fichaTabActiva, setFichaTabActiva] = useState<"resumen" | "casos" | "tareas" | "bitacora">("resumen");
   const [editNombre, setEditNombre] = useState("");
   const [editTipo, setEditTipo] = useState<TipoClienteCrm>("PERSONA_NATURAL");
   const [editCedulaNit, setEditCedulaNit] = useState("");
@@ -177,6 +179,7 @@ export default function CrmAdminPage() {
         busqueda: busqueda.trim() || undefined,
         tipo: filtroTipo === "TODOS" ? undefined : filtroTipo,
         estado: filtroEstado === "TODOS" ? undefined : filtroEstado,
+        pagoAlDia: filtroCobro === "TODOS" ? undefined : filtroCobro === "AL_DIA",
         pagina: paginaDirectorio,
       });
       setClientes(data.contenido);
@@ -187,7 +190,7 @@ export default function CrmAdminPage() {
     } finally {
       setCargandoClientes(false);
     }
-  }, [busqueda, filtroTipo, filtroEstado, paginaDirectorio]);
+  }, [busqueda, filtroTipo, filtroEstado, filtroCobro, paginaDirectorio]);
 
   // Debounce de la búsqueda: evita una petición al backend por cada tecla escrita (el
   // directorio ya pasa de 225 clientes, cada tecla disparaba una carga completa).
@@ -200,7 +203,7 @@ export default function CrmAdminPage() {
   // resultado que ahora solo tiene 2 páginas confundiría más que reiniciar la vista.
   useEffect(() => {
     setPaginaDirectorio(0);
-  }, [busqueda, filtroTipo, filtroEstado]);
+  }, [busqueda, filtroTipo, filtroEstado, filtroCobro]);
 
   const cargarDashboard = useCallback(async () => {
     try {
@@ -231,6 +234,7 @@ export default function CrmAdminPage() {
 
   useEffect(() => {
     setModoEdicionCliente(false);
+    setFichaTabActiva("resumen");
     if (clienteSeleccionadoId !== null) {
       cargarFichaCliente(clienteSeleccionadoId);
     } else {
@@ -644,8 +648,8 @@ export default function CrmAdminPage() {
       {tabActiva === "directorio" && (
         <div className="space-y-4">
           {/* Filtros y Buscador */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative flex-1 lg:max-w-sm">
               <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-soft" />
               <input
                 type="text"
@@ -657,6 +661,17 @@ export default function CrmAdminPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Filtro de cobro: pedido explícito del usuario, "ver quién me debe pagos"
+                  sin tener que entrar a la ficha de cada cliente uno por uno. */}
+              <select
+                value={filtroCobro}
+                onChange={(e) => setFiltroCobro(e.target.value as any)}
+                className="rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold"
+              >
+                <option value="TODOS">Cualquier cobro</option>
+                <option value="PENDIENTE">Deben pago</option>
+                <option value="AL_DIA">Al día</option>
+              </select>
               <select
                 value={filtroTipo}
                 onChange={(e) => setFiltroTipo(e.target.value as any)}
@@ -689,76 +704,74 @@ export default function CrmAdminPage() {
               description="No hay clientes que coincidan con los criterios de búsqueda o aún no se han registrado en el CRM."
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clientes.map((c) => (
-                <AdminCard
-                  key={c.id}
-                  className="flex flex-col justify-between transition-shadow hover:shadow-md cursor-pointer"
-                >
-                  <div onClick={() => setClienteSeleccionadoId(c.id)}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-ink truncate">{c.nombre}</p>
-                        </div>
-                        <p className="text-xs text-ink-soft mt-0.5">
+            // Lista densa tipo tabla en vez de tarjetas: con 225+ clientes reales, un grid
+            // de tarjetas grandes se sentía genérico y obligaba a escanear mucho espacio
+            // vacío por cada fila de datos -- pedido explícito del usuario. Cada fila sigue
+            // abriendo la Ficha 360° completa al hacer clic.
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="hidden grid-cols-[2.1fr_1.6fr_0.7fr_0.9fr_1fr] gap-3 border-b border-line bg-paper px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft/70 lg:grid">
+                <span>Cliente</span>
+                <span>Contacto</span>
+                <span className="text-center">Casos</span>
+                <span className="text-center">Cobro</span>
+                <span className="text-center">Estado</span>
+              </div>
+              <div className="divide-y divide-line">
+                {clientes.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setClienteSeleccionadoId(c.id)}
+                    className="grid w-full grid-cols-1 items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-ink/[0.03] lg:grid-cols-[2.1fr_1.6fr_0.7fr_0.9fr_1fr] lg:gap-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.tipo === "EMPRESA" ? "bg-gold" : "bg-ink/25"}`}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-ink">{c.nombre}</p>
+                        <p className="truncate text-[11px] text-ink-soft">
                           {c.cedulaNit ? `Doc: ${c.cedulaNit}` : "Sin documento"}
                           {c.ciudad ? ` · ${c.ciudad}` : ""}
                         </p>
                       </div>
-                      <Badge tone={c.tipo === "EMPRESA" ? "gold" : "neutral"}>
-                        {c.tipo === "EMPRESA" ? "Empresa" : "Persona"}
-                      </Badge>
                     </div>
 
-                    <div className="mt-3 space-y-1 text-xs text-ink-soft">
+                    <div className="min-w-0 space-y-0.5 text-xs text-ink-soft">
                       {c.correo && (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <EnvelopeSimple className="h-3.5 w-3.5 shrink-0 text-ink" />
-                          <span className="truncate">{c.correo}</span>
-                        </div>
+                        <p className="flex items-center gap-1 truncate">
+                          <EnvelopeSimple className="h-3 w-3 shrink-0" />
+                          {c.correo}
+                        </p>
                       )}
                       {c.telefono && (
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-ink" />
-                          <span>{c.telefono}</span>
-                        </div>
+                        <p className="flex items-center gap-1">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          {c.telefono}
+                        </p>
                       )}
+                      {!c.correo && !c.telefono && <p className="italic text-ink-soft/60">Sin contacto</p>}
                     </div>
 
-                    {/* Resumen de Casos y Cobros */}
-                    <div className="mt-4 pt-3 border-t border-line/60 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex items-center gap-1 text-ink-soft">
-                          <Briefcase className="h-3.5 w-3.5 text-gold-deep" />
-                          <strong>{c.totalCasos}</strong> casos
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-ink-soft">
-                          <CurrencyDollar className="h-3.5 w-3.5 text-emerald-600" />
-                          <strong>{c.totalCobros}</strong> cobros
-                        </span>
-                      </div>
-                      <Badge tone={c.pagoAlDia ? "success" : "warning"}>
-                        {c.pagoAlDia ? "Al día" : "Cobro pend."}
+                    <div className="flex items-center gap-1 text-xs text-ink-soft lg:justify-center">
+                      <Briefcase className="h-3.5 w-3.5 shrink-0 text-gold-deep" />
+                      <span className="font-mono">{c.totalCasos}</span>
+                    </div>
+
+                    <div className="lg:flex lg:justify-center">
+                      <Badge tone={c.pagoAlDia ? "success" : "warning"}>{c.pagoAlDia ? "Al día" : "Debe"}</Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 lg:justify-center">
+                      <Badge tone={c.estado === "INACTIVO" ? "danger" : c.estado === "ACTIVO" ? "neutral" : "gold"}>
+                        {c.estado}
                       </Badge>
+                      <CaretRight className="h-4 w-4 shrink-0 text-ink-soft/50 lg:hidden" weight="bold" />
                     </div>
-                  </div>
-
-                  <div className="mt-4 pt-2 border-t border-line flex items-center justify-between">
-                    <span className="text-[11px] text-ink-soft">
-                      Alta: {formatearFecha(c.fechaCreacion)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setClienteSeleccionadoId(c.id)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-gold-deep hover:text-ink transition-colors"
-                    >
-                      <Eye weight="bold" className="h-3.5 w-3.5" />
-                      Ver Ficha 360°
-                    </button>
-                  </div>
-                </AdminCard>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1069,254 +1082,332 @@ export default function CrmAdminPage() {
                   </div>
                 )}
 
-                {/* Casos Vinculados */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-bold text-ink flex items-center gap-1.5">
-                      <Briefcase weight="bold" className="h-4 w-4 text-gold-deep" />
-                      Expedientes y Casos Vinculados ({clienteDetalle.casos.length})
-                    </h4>
+                {/* Sub-secciones: antes casos, cobros, citas, tareas y bitácora estaban
+                    apilados en un solo scroll largo sin jerarquía -- pedido explícito del
+                    usuario. Cada bloque vive ahora en su propia pestaña dentro de la ficha. */}
+                <div className="flex gap-1 overflow-x-auto border-b border-line">
+                  {(
+                    [
+                      { key: "resumen", label: "Resumen" },
+                      {
+                        key: "casos",
+                        label: `Casos y cobros${
+                          clienteDetalle.casos.length + clienteDetalle.cobros.length > 0
+                            ? ` (${clienteDetalle.casos.length + clienteDetalle.cobros.length})`
+                            : ""
+                        }`,
+                      },
+                      {
+                        key: "tareas",
+                        label: `Tareas${clienteDetalle.tareas.length > 0 ? ` (${clienteDetalle.tareas.length})` : ""}`,
+                      },
+                      {
+                        key: "bitacora",
+                        label: `Bitácora${clienteDetalle.actividades.length > 0 ? ` (${clienteDetalle.actividades.length})` : ""}`,
+                      },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setFichaTabActiva(t.key)}
+                      className={`shrink-0 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+                        fichaTabActiva === t.key
+                          ? "border-gold text-ink"
+                          : "border-transparent text-ink-soft hover:text-ink"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Resumen: panorama en segundos (pedido explícito: "ver quién me debe
+                    pagos" y el estado general sin tener que abrir cada sección) */}
+                {fichaTabActiva === "resumen" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div className="rounded-xl border border-line bg-paper-soft p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Casos</p>
+                        <p className="mt-1 text-xl font-bold text-ink">{clienteDetalle.casos.length}</p>
+                      </div>
+                      <div className="rounded-xl border border-line bg-paper-soft p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Cobro</p>
+                        <p className={`mt-1 text-sm font-bold ${clienteDetalle.cliente.pagoAlDia ? "text-emerald-700" : "text-amber-700"}`}>
+                          {clienteDetalle.cliente.pagoAlDia ? "Al día" : "Pendiente"}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-line bg-paper-soft p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Tareas pend.</p>
+                        <p className="mt-1 text-xl font-bold text-ink">
+                          {clienteDetalle.tareas.filter((t) => !t.completada).length}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-line bg-paper-soft p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Citas</p>
+                        <p className="mt-1 text-xl font-bold text-ink">{clienteDetalle.citas.length}</p>
+                      </div>
+                    </div>
+
+                    {clienteDetalle.cliente.notas && (
+                      <div>
+                        <h4 className="mb-1.5 text-sm font-bold text-ink">Notas internas</h4>
+                        <p className="rounded-lg border border-line bg-paper-soft p-3 text-xs text-ink-soft whitespace-pre-wrap">
+                          {clienteDetalle.cliente.notas}
+                        </p>
+                      </div>
+                    )}
+
+                    {clienteDetalle.citas.length > 0 && (
+                      <div>
+                        <h4 className="mb-1.5 text-sm font-bold text-ink flex items-center gap-1.5">
+                          <CalendarCheck weight="bold" className="h-4 w-4 text-purple-600" />
+                          Próximas citas
+                        </h4>
+                        <div className="space-y-2">
+                          {clienteDetalle.citas.map((cita) => (
+                            <div key={cita.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-ink">{cita.tipoReunion}</p>
+                                <p className="text-ink-soft">{formatearFecha(cita.fechaHora)}</p>
+                              </div>
+                              {cita.linkReunion && (
+                                <a
+                                  href={cita.linkReunion}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs font-semibold text-gold-deep hover:underline"
+                                >
+                                  Unirse a reunión
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {clienteDetalle.casos.length === 0 ? (
-                    <p className="text-xs text-ink-soft italic bg-paper-soft p-3 rounded-lg border border-line">
-                      No hay casos asignados a este cliente aún en la hoja de casos.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {clienteDetalle.casos.map((caso) => (
-                        <div key={caso.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-ink">Radicado: {caso.radicadoId ?? "Sin radicado"}</p>
-                            <p className="text-ink-soft">Fuente: {caso.fuente}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <NotificationBadge size="sm" tone={caso.whatsappEnviado ? "success" : "neutral"} icon={<WhatsappLogo className="h-3 w-3" />}>
-                              {caso.whatsappEnviado ? "WA Enviado" : "WA Pend"}
-                            </NotificationBadge>
-                            <NotificationBadge size="sm" tone={caso.correoEnviado ? "success" : "neutral"} icon={<EnvelopeSimple className="h-3 w-3" />}>
-                              {caso.correoEnviado ? "Correo Enviado" : "Correo Pend"}
-                            </NotificationBadge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                )}
 
-                {/* Cobros y Estado de Facturación */}
-                <div>
-                  <h4 className="text-sm font-bold text-ink flex items-center gap-1.5 mb-2">
-                    <CurrencyDollar weight="bold" className="h-4 w-4 text-emerald-600" />
-                    Cobros y Facturación Mensual ({clienteDetalle.cobros.length})
-                  </h4>
-                  {clienteDetalle.cobros.length === 0 ? (
-                    <p className="text-xs text-ink-soft italic bg-paper-soft p-3 rounded-lg border border-line">
-                      Sin cobros registrados en la hoja de cobros pendientes.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {clienteDetalle.cobros.map((cobro) => (
-                        <div key={cobro.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-ink font-mono text-gold-deep">
-                              {tieneCosto(cobro.honorarios) ? cobro.honorarios : "Caso sin costo"}
-                            </p>
-                            <p className="text-ink-soft">Fila {cobro.numeroFila} · {cobro.tipo}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {tieneCosto(cobro.honorarios) ? (
-                              <Badge tone={cobro.pagoEsteMes ? "success" : "warning"}>
-                                {cobro.pagoEsteMes ? "Pago Aprobado" : "Respuesta de pago pendiente"}
-                              </Badge>
-                            ) : (
-                              <Badge tone="neutral">
-                                Sin cobro asignado
-                              </Badge>
-                            )}
-                            {cobro.respondioMensaje && (
-                              <Badge tone={cobro.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}>
-                                Resp: {cobro.respondioMensaje}
-                              </Badge>
-                            )}
-                          </div>
+                {/* Casos y Cobros */}
+                {fichaTabActiva === "casos" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-sm font-bold text-ink flex items-center gap-1.5 mb-2">
+                        <Briefcase weight="bold" className="h-4 w-4 text-gold-deep" />
+                        Expedientes y Casos Vinculados ({clienteDetalle.casos.length})
+                      </h4>
+                      {clienteDetalle.casos.length === 0 ? (
+                        <p className="text-xs text-ink-soft italic bg-paper-soft p-3 rounded-lg border border-line">
+                          No hay casos asignados a este cliente aún en la hoja de casos.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {clienteDetalle.casos.map((caso) => (
+                            <div key={caso.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-ink">Radicado: {caso.radicadoId ?? "Sin radicado"}</p>
+                                <p className="text-ink-soft">Fuente: {caso.fuente}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <NotificationBadge size="sm" tone={caso.whatsappEnviado ? "success" : "neutral"} icon={<WhatsappLogo className="h-3 w-3" />}>
+                                  {caso.whatsappEnviado ? "WA Enviado" : "WA Pend"}
+                                </NotificationBadge>
+                                <NotificationBadge size="sm" tone={caso.correoEnviado ? "success" : "neutral"} icon={<EnvelopeSimple className="h-3 w-3" />}>
+                                  {caso.correoEnviado ? "Correo Enviado" : "Correo Pend"}
+                                </NotificationBadge>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Citas Agendadas */}
-                {clienteDetalle.citas.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-bold text-ink flex items-center gap-1.5 mb-2">
-                      <CalendarCheck weight="bold" className="h-4 w-4 text-purple-600" />
-                      Citas Agendadas ({clienteDetalle.citas.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {clienteDetalle.citas.map((cita) => (
-                        <div key={cita.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-ink">{cita.tipoReunion}</p>
-                            <p className="text-ink-soft">{formatearFecha(cita.fechaHora)}</p>
-                          </div>
-                          {cita.linkReunion && (
-                            <a
-                              href={cita.linkReunion}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-semibold text-gold-deep hover:underline"
-                            >
-                              Unirse a reunión
-                            </a>
-                          )}
+                    <div>
+                      <h4 className="text-sm font-bold text-ink flex items-center gap-1.5 mb-2">
+                        <CurrencyDollar weight="bold" className="h-4 w-4 text-emerald-600" />
+                        Cobros y Facturación Mensual ({clienteDetalle.cobros.length})
+                      </h4>
+                      {clienteDetalle.cobros.length === 0 ? (
+                        <p className="text-xs text-ink-soft italic bg-paper-soft p-3 rounded-lg border border-line">
+                          Sin cobros registrados en la hoja de cobros pendientes.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {clienteDetalle.cobros.map((cobro) => (
+                            <div key={cobro.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-ink font-mono text-gold-deep">
+                                  {tieneCosto(cobro.honorarios) ? cobro.honorarios : "Caso sin costo"}
+                                </p>
+                                <p className="text-ink-soft">Fila {cobro.numeroFila} · {cobro.tipo}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {tieneCosto(cobro.honorarios) ? (
+                                  <Badge tone={cobro.pagoEsteMes ? "success" : "warning"}>
+                                    {cobro.pagoEsteMes ? "Pago Aprobado" : "Respuesta de pago pendiente"}
+                                  </Badge>
+                                ) : (
+                                  <Badge tone="neutral">
+                                    Sin cobro asignado
+                                  </Badge>
+                                )}
+                                {cobro.respondioMensaje && (
+                                  <Badge tone={cobro.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}>
+                                    Resp: {cobro.respondioMensaje}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
 
                 {/* Tareas Pendientes */}
-                <div>
-                  <h4 className="text-sm font-bold text-ink flex items-center gap-1.5 mb-2">
-                    <CheckCircle weight="bold" className="h-4 w-4 text-ink" />
-                    Tareas y Compromisos ({clienteDetalle.tareas.length})
-                  </h4>
-
-                  {/* Formulario Nueva Tarea */}
-                  <form onSubmit={onGuardarTarea} className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={nuevaTareaTitulo}
-                      onChange={(e) => setNuevaTareaTitulo(e.target.value)}
-                      placeholder="Nueva tarea jurídica (ej: Radicar memorial, Solicitar poder)..."
-                      className="flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
-                    />
-                    <select
-                      value={nuevaTareaPrioridad}
-                      onChange={(e) => setNuevaTareaPrioridad(e.target.value as PrioridadTareaCrm)}
-                      className="rounded-lg border border-line bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none"
-                    >
-                      <option value="BAJA">Baja</option>
-                      <option value="MEDIA">Media</option>
-                      <option value="ALTA">Alta</option>
-                      <option value="URGENTE">Urgente</option>
-                    </select>
-                    <button
-                      type="submit"
-                      disabled={guardandoTarea}
-                      className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-ink-fixed hover:bg-gold-deep hover:text-white transition-colors"
-                    >
-                      Asignar
-                    </button>
-                  </form>
-
-                  <div className="space-y-1.5">
-                    {clienteDetalle.tareas.map((tarea) => (
-                      <div
-                        key={tarea.id}
-                        className={`rounded-lg border p-2.5 text-xs flex items-center justify-between transition-colors ${
-                          tarea.completada ? "bg-paper-soft/40 border-line/40 text-ink-soft" : "bg-paper border-line"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={tarea.completada}
-                            onChange={() => onToggleTarea(tarea.id, tarea.completada)}
-                            className="h-4 w-4 rounded border-line text-gold focus:ring-gold"
-                          />
-                          <span className={tarea.completada ? "line-through text-ink-soft" : "font-medium text-ink"}>
-                            {tarea.titulo}
-                          </span>
-                        </div>
-                        <Badge
-                          tone={
-                            tarea.prioridad === "ALTA"
-                              ? "danger"
-                              : tarea.prioridad === "MEDIA"
-                                ? "warning"
-                                : "neutral"
-                          }
-                        >
-                          {tarea.prioridad}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Bitácora de Actividades y Notas */}
-                <div>
-                  <h4 className="text-sm font-bold text-ink flex items-center gap-1.5 mb-2">
-                    <NotePencil weight="bold" className="h-4 w-4 text-gold-deep" />
-                    Bitácora de Seguimiento Legal
-                  </h4>
-
-                  {/* Formulario Nueva Actividad */}
-                  <form onSubmit={onGuardarActividad} className="rounded-xl border border-line bg-paper-soft p-3 mb-4 space-y-2">
-                    <div className="flex gap-2">
-                      <select
-                        value={nuevaActividadTipo}
-                        onChange={(e) => setNuevaActividadTipo(e.target.value as TipoActividadCrm)}
-                        className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none"
-                      >
-                        <option value="NOTA_INTERNA">Nota interna</option>
-                        <option value="LLAMADA">Llamada telefónica</option>
-                        <option value="WHATSAPP">WhatsApp</option>
-                        <option value="CORREO">Correo electrónico</option>
-                        <option value="REUNION">Reunión con cliente</option>
-                      </select>
+                {fichaTabActiva === "tareas" && (
+                  <div>
+                    {/* Formulario Nueva Tarea */}
+                    <form onSubmit={onGuardarTarea} className="flex gap-2 mb-3">
                       <input
                         type="text"
-                        value={nuevaActividadTitulo}
-                        onChange={(e) => setNuevaActividadTitulo(e.target.value)}
-                        placeholder="Título o resumen del contacto..."
+                        value={nuevaTareaTitulo}
+                        onChange={(e) => setNuevaTareaTitulo(e.target.value)}
+                        placeholder="Nueva tarea jurídica (ej: Radicar memorial, Solicitar poder)..."
                         className="flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
                       />
-                    </div>
-                    <textarea
-                      rows={2}
-                      value={nuevaActividadDesc}
-                      onChange={(e) => setNuevaActividadDesc(e.target.value)}
-                      placeholder="Detalles relevantes de la conversación, acuerdos, peticiones del cliente..."
-                      className="w-full rounded-lg border border-line bg-paper p-2 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
-                    />
-                    <div className="flex justify-end">
+                      <select
+                        value={nuevaTareaPrioridad}
+                        onChange={(e) => setNuevaTareaPrioridad(e.target.value as PrioridadTareaCrm)}
+                        className="rounded-lg border border-line bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none"
+                      >
+                        <option value="BAJA">Baja</option>
+                        <option value="MEDIA">Media</option>
+                        <option value="ALTA">Alta</option>
+                        <option value="URGENTE">Urgente</option>
+                      </select>
                       <button
                         type="submit"
-                        disabled={guardandoActividad}
-                        className="rounded-lg bg-ink text-paper px-3 py-1.5 text-xs font-semibold hover:bg-ink/90 transition-colors"
+                        disabled={guardandoTarea}
+                        className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-ink-fixed hover:bg-gold-deep hover:text-white transition-colors"
                       >
-                        Registrar en Bitácora
+                        Asignar
                       </button>
-                    </div>
-                  </form>
+                    </form>
 
-                  {/* Timeline de Actividades */}
-                  <div className="relative pl-4 border-l-2 border-line space-y-4">
-                    {clienteDetalle.actividades.length === 0 ? (
-                      <p className="text-xs text-ink-soft italic">No hay actividades registradas en la bitácora.</p>
+                    {clienteDetalle.tareas.length === 0 ? (
+                      <p className="text-xs text-ink-soft italic bg-paper-soft p-3 rounded-lg border border-line">
+                        Sin tareas asignadas a este cliente.
+                      </p>
                     ) : (
-                      clienteDetalle.actividades.map((act) => (
-                        <div key={act.id} className="relative">
-                          <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-gold ring-4 ring-paper" />
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-bold text-ink">{act.titulo}</p>
-                            <span className="text-[10px] text-ink-soft">{formatearFecha(act.fechaActividad)}</span>
+                      <div className="space-y-1.5">
+                        {clienteDetalle.tareas.map((tarea) => (
+                          <div
+                            key={tarea.id}
+                            className={`rounded-lg border p-2.5 text-xs flex items-center justify-between transition-colors ${
+                              tarea.completada ? "bg-paper-soft/40 border-line/40 text-ink-soft" : "bg-paper border-line"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={tarea.completada}
+                                onChange={() => onToggleTarea(tarea.id, tarea.completada)}
+                                className="h-4 w-4 rounded border-line text-gold focus:ring-gold"
+                              />
+                              <span className={tarea.completada ? "line-through text-ink-soft" : "font-medium text-ink"}>
+                                {tarea.titulo}
+                              </span>
+                            </div>
+                            <Badge
+                              tone={
+                                tarea.prioridad === "ALTA"
+                                  ? "danger"
+                                  : tarea.prioridad === "MEDIA"
+                                    ? "warning"
+                                    : "neutral"
+                              }
+                            >
+                              {tarea.prioridad}
+                            </Badge>
                           </div>
-                          {act.descripcion && (
-                            <p className="mt-1 text-xs text-ink-soft bg-paper border border-line/60 p-2 rounded-lg">
-                              {act.descripcion}
-                            </p>
-                          )}
-                          <p className="mt-0.5 text-[10px] text-ink-soft">
-                            Registrado por {act.usuarioNombre ?? "Firma SIE"}
-                          </p>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
+
+                {/* Bitácora de Actividades y Notas */}
+                {fichaTabActiva === "bitacora" && (
+                  <div>
+                    {/* Formulario Nueva Actividad */}
+                    <form onSubmit={onGuardarActividad} className="rounded-xl border border-line bg-paper-soft p-3 mb-4 space-y-2">
+                      <div className="flex gap-2">
+                        <select
+                          value={nuevaActividadTipo}
+                          onChange={(e) => setNuevaActividadTipo(e.target.value as TipoActividadCrm)}
+                          className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none"
+                        >
+                          <option value="NOTA_INTERNA">Nota interna</option>
+                          <option value="LLAMADA">Llamada telefónica</option>
+                          <option value="WHATSAPP">WhatsApp</option>
+                          <option value="CORREO">Correo electrónico</option>
+                          <option value="REUNION">Reunión con cliente</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={nuevaActividadTitulo}
+                          onChange={(e) => setNuevaActividadTitulo(e.target.value)}
+                          placeholder="Título o resumen del contacto..."
+                          className="flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
+                        />
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={nuevaActividadDesc}
+                        onChange={(e) => setNuevaActividadDesc(e.target.value)}
+                        placeholder="Detalles relevantes de la conversación, acuerdos, peticiones del cliente..."
+                        className="w-full rounded-lg border border-line bg-paper p-2 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={guardandoActividad}
+                          className="rounded-lg bg-ink text-paper px-3 py-1.5 text-xs font-semibold hover:bg-ink/90 transition-colors"
+                        >
+                          Registrar en Bitácora
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Timeline de Actividades */}
+                    <div className="relative pl-4 border-l-2 border-line space-y-4">
+                      {clienteDetalle.actividades.length === 0 ? (
+                        <p className="text-xs text-ink-soft italic">No hay actividades registradas en la bitácora.</p>
+                      ) : (
+                        clienteDetalle.actividades.map((act) => (
+                          <div key={act.id} className="relative">
+                            <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-gold ring-4 ring-paper" />
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold text-ink">{act.titulo}</p>
+                              <span className="text-[10px] text-ink-soft">{formatearFecha(act.fechaActividad)}</span>
+                            </div>
+                            {act.descripcion && (
+                              <p className="mt-1 text-xs text-ink-soft bg-paper border border-line/60 p-2 rounded-lg">
+                                {act.descripcion}
+                              </p>
+                            )}
+                            <p className="mt-0.5 text-[10px] text-ink-soft">
+                              Registrado por {act.usuarioNombre ?? "Firma SIE"}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

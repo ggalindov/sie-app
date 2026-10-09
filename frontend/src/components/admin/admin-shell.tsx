@@ -121,17 +121,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
     // que los hijos flex puedan encogerse por debajo de su alto de contenido -- sin eso el
     // min-height:auto por defecto de un flex item anula el overflow-y-auto interno.
     <div className="flex h-dvh overflow-hidden bg-paper">
-      {/* Sidebar desktop: semi-oscuro (bg-night, mismo tono fijo que ya usa el footer del
-          sitio público, ver globals.css) -- pedido explícito del usuario, el resto del panel
-          admin se queda en la paleta clara original a propósito (ver CLAUDE.md 5.1/5.8). */}
-      <aside className="hidden w-64 min-h-0 shrink-0 flex-col bg-night lg:flex">
+      {/* Sidebar desktop: semi-oscuro con degradado sutil (de un carbón cálido a un negro
+          casi puro) en vez de un bg-night plano -- pedido explícito del usuario tras ver el
+          primer intento ("horrible, algo más elegante"): un color sólido liso se veía plano
+          y barato, el degradado le da profundidad real. El filo dorado tenue a la derecha
+          (shadow inset) remata el borde en vez de dejarlo cortado en seco contra el panel
+          claro. El resto del panel admin se queda en la paleta clara original a propósito
+          (ver CLAUDE.md 5.1/5.8). */}
+      <aside className="hidden w-64 min-h-0 shrink-0 flex-col bg-gradient-to-b from-[#1e1a12] via-[#15120d] to-[#0a0907] shadow-[inset_-1px_0_0_rgba(217,169,37,0.1)] lg:flex">
         <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} />
       </aside>
 
       {/* Sidebar móvil */}
       {menuAbierto && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="flex w-72 min-h-0 flex-col bg-night">
+          <div className="flex w-72 min-h-0 flex-col bg-gradient-to-b from-[#1e1a12] via-[#15120d] to-[#0a0907] shadow-[inset_-1px_0_0_rgba(217,169,37,0.1)]">
             <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} />
           </div>
           <button
@@ -192,7 +196,7 @@ function SidebarContent({
         <span className="relative font-display text-base font-semibold text-night-ink">Panel</span>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
+      <nav className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 py-5">
         {grupos.map((grupo, i) => (
           <div key={grupo.titulo} className={i > 0 ? "mt-5 border-t border-white/10 pt-4" : ""}>
             <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-night-ink/40">

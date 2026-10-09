@@ -76,9 +76,10 @@ public class CrmController {
             @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) EstadoClienteCrm estado,
             @RequestParam(required = false) TipoClienteCrm tipo,
+            @RequestParam(required = false) Boolean pagoAlDia,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "24") int tamanoPagina) {
-        return ResponseEntity.ok(crmService.listarClientes(busqueda, estado, tipo, pagina, tamanoPagina));
+        return ResponseEntity.ok(crmService.listarClientes(busqueda, estado, tipo, pagoAlDia, pagina, tamanoPagina));
     }
 
     @GetMapping("/clientes/{id}")

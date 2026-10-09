@@ -777,6 +777,7 @@ export function listarClientesCrm(opciones?: {
   busqueda?: string;
   estado?: EstadoClienteCrm;
   tipo?: TipoClienteCrm;
+  pagoAlDia?: boolean;
   pagina?: number;
   tamanoPagina?: number;
 }): Promise<ClienteCrmPagina> {
@@ -784,6 +785,7 @@ export function listarClientesCrm(opciones?: {
   if (opciones?.busqueda) parametros.set("busqueda", opciones.busqueda);
   if (opciones?.estado) parametros.set("estado", opciones.estado);
   if (opciones?.tipo) parametros.set("tipo", opciones.tipo);
+  if (opciones?.pagoAlDia !== undefined) parametros.set("pagoAlDia", String(opciones.pagoAlDia));
   parametros.set("pagina", String(opciones?.pagina ?? 0));
   parametros.set("tamanoPagina", String(opciones?.tamanoPagina ?? 24));
   return pedido<ClienteCrmPagina>(`/api/admin/crm/clientes?${parametros.toString()}`);

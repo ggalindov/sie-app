@@ -78,7 +78,7 @@ public class CrmService {
 
     @Transactional(readOnly = true)
     public ClienteCrmPaginaResponse listarClientes(String busqueda, EstadoClienteCrm estado, TipoClienteCrm tipo,
-                                                     int pagina, int tamanoPagina) {
+                                                     Boolean pagoAlDia, int pagina, int tamanoPagina) {
         List<ClienteCrm> base = (estado != null)
                 ? clienteCrmRepository.findByEstadoOrderByNombreAsc(estado)
                 : clienteCrmRepository.findAllByOrderByFechaCreacionDesc();
@@ -103,6 +103,24 @@ public class CrmService {
                             || (c.getEtiqueta() != null && c.getEtiqueta().toLowerCase(Locale.ROOT).contains(q));
                 })
                 .toList();
+
+        // Filtro "Estado de cobro" (pedido explícito del usuario: "ver quién me debe pagos"
+        // sin tener que abrir la ficha de cada cliente, uno por uno). Un solo query bulk
+        // (findByActivoTrueAndClienteCrmIdIsNotNull), no una consulta por cliente -- mismo
+        // criterio "al día" que construirClienteResponse (todos sus cobros con
+        // pagoEsteMes=true; sin cobros vinculados también cuenta como al día).
+        if (pagoAlDia != null) {
+            Map<Long, List<ClienteCobro>> cobrosPorCliente = clienteCobroRepository
+                    .findByActivoTrueAndClienteCrmIdIsNotNull().stream()
+                    .collect(Collectors.groupingBy(ClienteCobro::getClienteCrmId));
+            filtrados = filtrados.stream()
+                    .filter(c -> {
+                        boolean alDia = cobrosPorCliente.getOrDefault(c.getId(), List.of()).stream()
+                                .allMatch(cob -> Boolean.TRUE.equals(cob.getPagoEsteMes()));
+                        return alDia == pagoAlDia;
+                    })
+                    .toList();
+        }
 
         int tam = Math.max(1, Math.min(tamanoPagina, 100));
         int totalPaginas = Math.max(1, (int) Math.ceil(filtrados.size() / (double) tam));
