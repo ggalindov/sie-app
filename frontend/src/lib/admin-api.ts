@@ -689,6 +689,8 @@ export type CasoVinculado = {
   radicadoId: string | null;
   fuente: string;
   numeroCaso: string | null;
+  nombreCliente: string;
+  notasInternas: string | null;
   correoEnviado: boolean;
   whatsappEnviado: boolean;
 };

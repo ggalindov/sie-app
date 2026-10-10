@@ -13,6 +13,7 @@ import {
   CaretRight,
   ChatCircleText,
   Check,
+  CheckSquare,
   CurrencyDollar,
   DotsSixVertical,
   EnvelopeSimple,
@@ -41,6 +42,7 @@ import {
   cambiarEtapaPipeline,
   convertirProspectoACrm,
   obtenerDashboardCrm,
+  contarTareasPendientesPorCaso,
   ApiError,
   type ClienteCrm,
   type ClienteCrmDetalle,
@@ -61,6 +63,7 @@ import {
 } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
 import { estadoDeCobro, tieneCostoCobro } from "@/lib/cobro-estado";
+import { TareasDeCasoModal, type CasoParaTareas } from "@/components/admin/tareas-de-caso-modal";
 
 // Etiquetas renombradas (pedido explícito del usuario): el lenguaje original ("Contratado /
 // Ganado", "En Valoración") leía como un CRM de ventas genérico, no como algo pensado para
@@ -132,6 +135,11 @@ export default function CrmAdminPage() {
   // Estado Detalle / Ficha 360
   const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | null>(null);
   const [clienteDetalle, setClienteDetalle] = useState<ClienteCrmDetalle | null>(null);
+  // Pedido explícito del usuario: "ahi es donde se asginara las tareas por cada persona" --
+  // desde la ficha 360 de un cliente se puede abrir el registro de tareas de cualquiera de
+  // sus casos, igual que ya existe en /admin/casos.
+  const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<CasoParaTareas | null>(null);
+  const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   // Estado Edición de Cliente (Ficha 360°)
@@ -237,11 +245,21 @@ export default function CrmAdminPage() {
     }
   }, []);
 
+  const cargarConteoTareas = useCallback(() => {
+    contarTareasPendientesPorCaso()
+      .then(setTareasPendientesPorCaso)
+      .catch(() => {
+        // Silencioso a propósito: el badge de tareas es un dato secundario de la ficha, no
+        // debe interrumpir con un toast de error la carga principal del CRM.
+      });
+  }, []);
+
   useEffect(() => {
     cargarPipeline();
     cargarClientes();
     cargarDashboard();
-  }, [cargarPipeline, cargarClientes, cargarDashboard]);
+    cargarConteoTareas();
+  }, [cargarPipeline, cargarClientes, cargarDashboard, cargarConteoTareas]);
 
   useEffect(() => {
     setModoEdicionCliente(false);
@@ -1183,19 +1201,44 @@ export default function CrmAdminPage() {
                       ) : (
                         <div className="space-y-2">
                           {clienteDetalle.casos.map((caso) => (
-                            <div key={caso.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
-                              <div>
-                                <p className="font-semibold text-ink">Radicado: {caso.radicadoId ?? "Sin radicado"}</p>
-                                <p className="text-ink-soft">Fuente: {caso.fuente}</p>
+                            <div key={caso.id} className="rounded-lg border border-line p-3 text-xs bg-paper">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-ink">Radicado: {caso.radicadoId ?? "Sin radicado"}</p>
+                                  <p className="text-ink-soft">Fuente: {caso.fuente}</p>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                  <NotificationBadge size="sm" tone={caso.whatsappEnviado ? "success" : "neutral"} icon={<WhatsappLogo className="h-3 w-3" />}>
+                                    {caso.whatsappEnviado ? "WA Enviado" : "WA Pend"}
+                                  </NotificationBadge>
+                                  <NotificationBadge size="sm" tone={caso.correoEnviado ? "success" : "neutral"} icon={<EnvelopeSimple className="h-3 w-3" />}>
+                                    {caso.correoEnviado ? "Correo Enviado" : "Correo Pend"}
+                                  </NotificationBadge>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                <NotificationBadge size="sm" tone={caso.whatsappEnviado ? "success" : "neutral"} icon={<WhatsappLogo className="h-3 w-3" />}>
-                                  {caso.whatsappEnviado ? "WA Enviado" : "WA Pend"}
-                                </NotificationBadge>
-                                <NotificationBadge size="sm" tone={caso.correoEnviado ? "success" : "neutral"} icon={<EnvelopeSimple className="h-3 w-3" />}>
-                                  {caso.correoEnviado ? "Correo Enviado" : "Correo Pend"}
-                                </NotificationBadge>
-                              </div>
+
+                              {/* Descripción completa del caso (pedido explícito del usuario:
+                                  "pon la descripcion del caso completa dentro de cada perfil
+                                  del CRM") -- las notas internas tal cual quedaron en el caso,
+                                  nunca visibles para el cliente. */}
+                              {caso.notasInternas && (
+                                <p className="mt-2 rounded-lg border border-line/60 bg-paper-soft p-2 text-ink-soft whitespace-pre-wrap">
+                                  {caso.notasInternas}
+                                </p>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCasoConTareasAbierto({ id: caso.id, nombreCliente: caso.nombreCliente, radicadoId: caso.radicadoId })
+                                }
+                                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ink/5 py-1 pl-1.5 pr-3 font-medium text-ink-soft transition-colors hover:bg-ink/10"
+                              >
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/10">
+                                  <CheckSquare weight="bold" className="h-3 w-3" />
+                                </span>
+                                {tareasPendientesPorCaso[caso.id] ? `${tareasPendientesPorCaso[caso.id]} tarea(s) pendiente(s)` : "Tareas"}
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1386,6 +1429,12 @@ export default function CrmAdminPage() {
           </div>
         </div>
       )}
+
+      <TareasDeCasoModal
+        caso={casoConTareasAbierto}
+        onClose={() => setCasoConTareasAbierto(null)}
+        onCambioPendientes={cargarConteoTareas}
+      />
     </div>
   );
 }

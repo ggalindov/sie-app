@@ -159,6 +159,10 @@ public class CrmService {
                         cas.getRadicadoId(),
                         cas.getFuente() != null ? cas.getFuente().getNombreVisible() : "General",
                         cas.getNumeroCaso(),
+                        // Mismo criterio que CasoAdminResponse.desde(): el nombre de la hoja si
+                        // existe, si no el del Cliente compartido.
+                        cas.getNombreEnHoja() != null ? cas.getNombreEnHoja() : cas.getCliente().getNombre(),
+                        cas.getNotasInternas(),
                         cas.isCorreoEnviado(),
                         cas.isWhatsappEnviado()
                 ))

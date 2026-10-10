@@ -16,6 +16,11 @@ public record ClienteCrmDetalleResponse(
             String radicadoId,
             String fuente,
             String numeroCaso,
+            // Pedido explícito del usuario: "pon la descripcion del caso completa dentro de
+            // cada perfil del CRM" -- nombreCliente para dar contexto al abrir "Tareas" de este
+            // caso (mismo campo que ya usa Casos), notasInternas es la descripción completa.
+            String nombreCliente,
+            String notasInternas,
             boolean correoEnviado,
             boolean whatsappEnviado
     ) {}

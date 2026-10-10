@@ -87,7 +87,7 @@ public class WhatsAppService {
             @Value("${app.whatsapp.header-image-url:https://siejuridicos.com/marca/logo.png}") String urlImagenCabecera,
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
             @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
-            @Value("${app.whatsapp.plantilla-blog-nombre:aviso_nuevo_blog}") String nombrePlantillaBlog,
+            @Value("${app.whatsapp.plantilla-blog-nombre:reporte_blog_publicado}") String nombrePlantillaBlog,
             @Value("${app.firma.sitio-web}") String sitioWeb,
             @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.accessToken = accessToken;
@@ -403,9 +403,13 @@ public class WhatsAppService {
 
     private boolean enviarAvisoBlogDirecto(String titulo, String url) {
         try {
-            String texto = "🔔 *Recordatorio SIE Jurídicos*: Se acaba de publicar un nuevo artículo en el blog.\n\n"
-                    + "📰 *" + titulo + "*\n\n"
-                    + "Léelo aquí: " + url;
+            // Pedido explícito del usuario: solo un reporte factual de que se publicó algo
+            // nuevo, sin lenguaje de recordatorio/llamado a la acción ("no olvides..."), que es
+            // justo lo que hizo que Meta reclasificara la primera versión de la plantilla como
+            // MARKETING en vez de UTILITY.
+            String texto = "Reporte del sistema: nuevo artículo publicado en el blog de SIE Jurídicos.\n\n"
+                    + "Título: " + titulo + "\n\n"
+                    + "Enlace: " + url;
             String cuerpo = """
                     {
                       "messaging_product": "whatsapp",

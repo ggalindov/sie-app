@@ -9,7 +9,6 @@ import {
   completarTarea,
   eliminarTarea,
   ApiError,
-  type CasoAdmin,
   type Tarea,
   type PrioridadTarea,
 } from "@/lib/admin-api";
@@ -38,16 +37,26 @@ function estaVencida(iso: string | null): boolean {
   return new Date(iso).getTime() < Date.now();
 }
 
+// Solo los campos que este modal realmente necesita -- cualquier objeto con forma de caso
+// (CasoAdmin en /admin/casos, o un CasoVinculado del detalle de un cliente en el CRM) sirve
+// sin conversión, en vez de exigir el tipo completo de una sola pantalla.
+export type CasoParaTareas = {
+  id: number;
+  nombreCliente: string;
+  radicadoId: string | null;
+};
+
 // Registro completo de tareas de UN caso puntual (pedido explícito del usuario: "deja un
-// registro de tareas por caso"), abierto desde la tarjeta de ese caso en /admin/casos. A
-// diferencia de /admin/tareas (que solo muestra pendientes, de uno o todos los casos), aquí se
+// registro de tareas por caso"), abierto desde la tarjeta de ese caso en /admin/casos, o desde
+// la ficha 360 de un cliente en el CRM ("ahi es donde se asginara las tareas por cada persona").
+// A diferencia de /admin/tareas (que solo muestra pendientes, de uno o todos los casos), aquí se
 // ve el historial completo -- pendientes y completadas -- de este caso en particular.
 export function TareasDeCasoModal({
   caso,
   onClose,
   onCambioPendientes,
 }: {
-  caso: CasoAdmin | null;
+  caso: CasoParaTareas | null;
   onClose: () => void;
   // Avisa al listado de Casos que el conteo de pendientes de este caso pudo haber cambiado,
   // para refrescar el badge sin recargar la página completa.
