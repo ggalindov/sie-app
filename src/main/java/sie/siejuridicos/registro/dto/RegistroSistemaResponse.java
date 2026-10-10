@@ -1,5 +1,6 @@
 package sie.siejuridicos.registro.dto;
 
+import sie.siejuridicos.registro.CategoriaRegistroSistema;
 import sie.siejuridicos.registro.RegistroSistema;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 
@@ -9,6 +10,8 @@ public record RegistroSistemaResponse(
         Long id,
         TipoRegistroSistema tipo,
         String tipoVisible,
+        CategoriaRegistroSistema categoria,
+        String categoriaVisible,
         String descripcion,
         String detalle,
         boolean exitoso,
@@ -19,6 +22,8 @@ public record RegistroSistemaResponse(
                 registro.getId(),
                 registro.getTipo(),
                 registro.getTipo().getNombreVisible(),
+                registro.getTipo().getCategoria(),
+                registro.getTipo().getCategoria().getNombreVisible(),
                 registro.getDescripcion(),
                 registro.getDetalle(),
                 registro.isExitoso(),

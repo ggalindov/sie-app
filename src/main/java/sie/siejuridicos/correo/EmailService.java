@@ -15,6 +15,9 @@ import org.springframework.stereotype.Service;
 import sie.siejuridicos.articulo.Articulo;
 import sie.siejuridicos.articulo.TipoContenido;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
+import sie.siejuridicos.registro.CanalEnvio;
+import sie.siejuridicos.registro.RegistroEnvioService;
+import sie.siejuridicos.registro.TipoEnvio;
 import sie.siejuridicos.solicitud.Solicitud;
 import sie.siejuridicos.solicitud.TipoReunion;
 import sie.siejuridicos.usuario.UsuarioInterno;
@@ -68,8 +71,10 @@ public class EmailService {
     private final Resource logoResource;
     private final Resource selloResource;
     private final boolean bloqueoTotalClientes;
+    private final RegistroEnvioService registroEnvioService;
 
     public EmailService(JavaMailSender mailSender,
+                         RegistroEnvioService registroEnvioService,
                          @Value("${app.correo.remitente}") String remitente,
                          @Value("${app.correo.admin}") String correoAdmin,
                          @Value("${app.correo.gerencia}") String correoGerencia,
@@ -81,6 +86,7 @@ public class EmailService {
                          @Value("${app.firma.ciudad:}") String ciudad,
                          @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.mailSender = mailSender;
+        this.registroEnvioService = registroEnvioService;
         this.remitente = remitente;
         this.correoAdmin = correoAdmin;
         this.correoGerencia = correoGerencia;
@@ -135,7 +141,9 @@ public class EmailService {
                         nombreFirma, sitioWeb, sitioWeb,
                         firmaCierre()
                 );
-        enviarHtml(solicitud.getCorreo(), "Hemos recibido tu solicitud - " + nombreFirma, cuerpo);
+        boolean exito = enviarHtml(solicitud.getCorreo(), "Hemos recibido tu solicitud - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.SOLICITUD_CONFIRMACION,
+                solicitud.getNombre(), solicitud.getCorreo(), "Confirmación de solicitud recibida", exito);
     }
 
     @Async
@@ -156,7 +164,9 @@ public class EmailService {
                 solicitud.getTelefono() == null ? "(no proporcionado)" : escaparHtml(solicitud.getTelefono()),
                 escaparHtml(solicitud.getMensaje())
         );
-        enviarHtml(correoAdmin, "Nueva solicitud: " + solicitud.getNombre(), cuerpo);
+        boolean exito = enviarHtml(correoAdmin, "Nueva solicitud: " + solicitud.getNombre(), cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.NOTIFICACION_INTERNA,
+                null, correoAdmin, "Nueva solicitud recibida", exito);
     }
 
     // Respuesta manual que un abogado/admin manda desde el "buzón" de una solicitud en el
@@ -204,7 +214,10 @@ public class EmailService {
                 firmaCierreGerencia(),
                 notaFirmadaAMano
         );
-        return enviarHtml(solicitud.getCorreo(), correoGerencia, asunto, cuerpo, false);
+        boolean exito = enviarHtml(solicitud.getCorreo(), correoGerencia, asunto, cuerpo, false);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.SOLICITUD_RESPUESTA,
+                solicitud.getNombre(), solicitud.getCorreo(), asunto, exito);
+        return exito;
     }
 
     // true solo si de verdad hay algo que mostrar para el tipo de reunión guardado: una
@@ -257,7 +270,10 @@ public class EmailService {
                 whatsappUrl.isBlank() ? "" : " o escribiéndonos por WhatsApp",
                 firmaCierre()
         );
-        enviarHtml(solicitud.getCorreo(), "Confirmación de tu reunión - " + nombreFirma, cuerpo);
+        boolean exito = enviarHtml(solicitud.getCorreo(), "Confirmación de tu reunión - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.CONFIRMACION_CITA,
+                solicitud.getNombre(), solicitud.getCorreo(),
+                "Reunión el " + solicitud.getFechaCita().format(FORMATO_FECHA_CITA), exito);
     }
 
     @Async
@@ -294,7 +310,9 @@ public class EmailService {
                                         solicitud.getLinkReunion(), COLOR_DORADO, escaparHtml(solicitud.getLinkReunion()))
                                 : escaparHtml(solicitud.getLugarReunion())
         );
-        enviarHtml(correoAdmin, "Nueva reunión agendada: " + solicitud.getNombre(), cuerpo);
+        boolean exito = enviarHtml(correoAdmin, "Nueva reunión agendada: " + solicitud.getNombre(), cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.NOTIFICACION_INTERNA,
+                null, correoAdmin, "Nueva reunión agendada con " + solicitud.getNombre(), exito);
     }
 
     @Async
@@ -314,7 +332,9 @@ public class EmailService {
                 botonWhatsapp(),
                 firmaCierre()
         );
-        enviarHtml(solicitud.getCorreo(), "Recordatorio: tu reunión es en una hora - " + nombreFirma, cuerpo);
+        boolean exito = enviarHtml(solicitud.getCorreo(), "Recordatorio: tu reunión es en una hora - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.RECORDATORIO_CITA,
+                solicitud.getNombre(), solicitud.getCorreo(), "Recordatorio de reunión en una hora", exito);
     }
 
     // Boletín automático (ver ArticuloService.notificarPublicacion): se dispara de inmediato
@@ -357,7 +377,9 @@ public class EmailService {
                     %s
                     %s
                     """.formatted(escaparHtml(suscriptor.getNombre()), nombreFirma, listado, firmaCierre());
-            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
+            boolean exito = enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
+            registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.PUBLICACION_BLOG,
+                    suscriptor.getNombre(), suscriptor.getCorreo(), asunto, exito);
         }
     }
 
@@ -389,7 +411,9 @@ public class EmailService {
                 urlArticulo, COLOR_DORADO,
                 firmaCierre()
         );
-        enviarHtml(correoAvisoRedes, "Nueva publicación para subir a redes: " + publicado.getTitulo(), cuerpo);
+        boolean exito = enviarHtml(correoAvisoRedes, "Nueva publicación para subir a redes: " + publicado.getTitulo(), cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.AVISO_REDES_SOCIALES,
+                null, correoAvisoRedes, publicado.getTitulo(), exito);
     }
 
     // Se dispara solo cuando la fila de suscriptores_marketing es realmente nueva (ver
@@ -416,7 +440,9 @@ public class EmailService {
                 nombreFirma, sitioWeb, COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
-        enviarHtml(correo, "Bienvenido al boletín de " + nombreFirma, cuerpo, true);
+        boolean exito = enviarHtml(correo, "Bienvenido al boletín de " + nombreFirma, cuerpo, true);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BIENVENIDA_BOLETIN,
+                nombre, correo, "Bienvenida al boletín", exito);
     }
 
     // Boletín mensual con resumen de cambios normativos (compuesto por el admin desde el
@@ -435,7 +461,9 @@ public class EmailService {
                     suscrito a las novedades de %s. Si deseas dejar de recibirlo, escríbenos y con gusto te
                     damos de baja.</p>
                     """.formatted(escaparHtml(suscriptor.getNombre()), cuerpoHtml, COLOR_PIE_TEXTO_TENUE, nombreFirma);
-            enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
+            boolean exito = enviarHtml(suscriptor.getCorreo(), asunto, cuerpo, true);
+            registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN,
+                    suscriptor.getNombre(), suscriptor.getCorreo(), asunto, exito);
         }
     }
 
@@ -500,7 +528,10 @@ public class EmailService {
                 sitioWeb, COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
-        return enviarHtml(correo, "Tu número de radicado para consultar tu caso - " + nombreFirma, cuerpo, false);
+        boolean exito = enviarHtml(correo, "Tu número de radicado para consultar tu caso - " + nombreFirma, cuerpo, false);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.CODIGO_CASO,
+                nombreCliente, correo, "Radicado " + radicadoId, exito);
+        return exito;
     }
 
     // Reporte semanal de caso (pedido explícito del usuario: "1 vez a la semana un reporte
@@ -541,7 +572,10 @@ public class EmailService {
                 sitioWeb, COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
-        return enviarHtml(correo, "Reporte semanal de tu caso - " + nombreFirma, cuerpo, false);
+        boolean exito = enviarHtml(correo, "Reporte semanal de tu caso - " + nombreFirma, cuerpo, false);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.REPORTE_CASO,
+                nombreCliente, correo, "Radicado " + radicadoId, exito);
+        return exito;
     }
 
     // Recordatorio mensual de cobro (ver cobro.CobroService.enviarRecordatorios(), disparado
@@ -584,7 +618,10 @@ public class EmailService {
                 whatsappUrl.isBlank() ? "" : " o escribiéndonos por WhatsApp",
                 firmaCierre()
         );
-        return enviarHtml(correo, "Recordatorio de pago pendiente - " + nombreFirma, cuerpo, false);
+        boolean exito = enviarHtml(correo, "Recordatorio de pago pendiente - " + nombreFirma, cuerpo, false);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.RECORDATORIO_COBRO,
+                nombreCliente, correo, honorariosTexto, exito);
+        return exito;
     }
 
     private String firmaCierre() {
@@ -701,8 +738,8 @@ public class EmailService {
                 .replace("{{CID_SELLO}}", CID_SELLO);
     }
 
-    private void enviarHtml(String destinatario, String asunto, String cuerpoHtml) {
-        enviarHtml(destinatario, asunto, cuerpoHtml, false);
+    private boolean enviarHtml(String destinatario, String asunto, String cuerpoHtml) {
+        return enviarHtml(destinatario, asunto, cuerpoHtml, false);
     }
 
     // Bug real encontrado con datos reales: varias celdas de correo en las hojas de la firma

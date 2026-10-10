@@ -878,17 +878,27 @@ export type TipoRegistroSistema =
   | "REPORTE_SEMANAL_CASOS"
   | "SINCRONIZACION_COBROS"
   | "ENVIO_RECORDATORIOS_COBROS"
+  | "REINICIO_MENSUAL_COBROS"
   | "RECORDATORIO_CITA"
   | "BOLETIN_ENVIADO"
   | "INICIO_SESION"
   | "USUARIO_CREADO"
   | "USUARIO_ACTIVO_CAMBIADO"
-  | "CONSULTA_ESTADO_CASO";
+  | "CONSULTA_ESTADO_CASO"
+  | "GESTION_CRM"
+  | "GESTION_TAREAS";
+
+// Agrupador de alto nivel de TipoRegistroSistema (ver CategoriaRegistroSistema en el
+// backend) -- pedido explícito del usuario: "pon categorias para que sea mas intuitivo de
+// entender".
+export type CategoriaRegistroSistema = "COMUNICACIONES" | "SINCRONIZACION" | "SEGURIDAD" | "GESTION_INTERNA";
 
 export type RegistroSistemaItem = {
   id: number;
   tipo: TipoRegistroSistema;
   tipoVisible: string;
+  categoria: CategoriaRegistroSistema;
+  categoriaVisible: string;
   descripcion: string;
   detalle: string | null;
   exitoso: boolean;
@@ -913,6 +923,63 @@ export function listarRegistroSistema(opciones: {
   parametros.set("pagina", String(opciones.pagina ?? 0));
   parametros.set("tamano", String(opciones.tamano ?? 30));
   return pedido<PaginaRegistroSistema>(`/api/admin/registro-sistema?${parametros.toString()}`);
+}
+
+// ---------- Registro de envíos (correos y WhatsApp salientes, con destinatario) ----------
+// Pedido explícito del usuario: "pon tambien un registro de correos y whatsapp que salen del
+// sistema y para quien salen" -- a diferencia del registro del sistema de arriba, cada fila
+// acá sí trae el destinatario real (nombre + correo/teléfono), por eso solo ADMIN_GENERAL
+// puede verlo (ver RegistroEnvioAdminController en el backend).
+
+export type CanalEnvio = "EMAIL" | "WHATSAPP";
+
+export type TipoEnvio =
+  | "CODIGO_CASO"
+  | "REPORTE_CASO"
+  | "RECORDATORIO_COBRO"
+  | "CONFIRMACION_CITA"
+  | "RECORDATORIO_CITA"
+  | "SOLICITUD_CONFIRMACION"
+  | "SOLICITUD_RESPUESTA"
+  | "NOTIFICACION_INTERNA"
+  | "PUBLICACION_BLOG"
+  | "AVISO_REDES_SOCIALES"
+  | "BOLETIN"
+  | "BIENVENIDA_BOLETIN";
+
+export type RegistroEnvioItem = {
+  id: number;
+  canal: CanalEnvio;
+  canalVisible: string;
+  tipo: TipoEnvio;
+  tipoVisible: string;
+  destinatarioNombre: string | null;
+  destinatarioContacto: string;
+  resumen: string;
+  exitoso: boolean;
+  fechaHora: string;
+};
+
+export type PaginaRegistroEnvios = {
+  content: RegistroEnvioItem[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export function listarRegistroEnvios(opciones: {
+  canal?: CanalEnvio;
+  tipo?: TipoEnvio;
+  pagina?: number;
+  tamano?: number;
+}): Promise<PaginaRegistroEnvios> {
+  const parametros = new URLSearchParams();
+  if (opciones.canal) parametros.set("canal", opciones.canal);
+  if (opciones.tipo) parametros.set("tipo", opciones.tipo);
+  parametros.set("pagina", String(opciones.pagina ?? 0));
+  parametros.set("tamano", String(opciones.tamano ?? 30));
+  return pedido<PaginaRegistroEnvios>(`/api/admin/registro-envios?${parametros.toString()}`);
 }
 
 // ---------- Tareas (por caso o por persona del CRM, con responsable real asignado) ----------

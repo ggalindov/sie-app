@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import sie.siejuridicos.registro.CanalEnvio;
+import sie.siejuridicos.registro.RegistroEnvioService;
+import sie.siejuridicos.registro.TipoEnvio;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -74,8 +77,10 @@ public class WhatsAppService {
     // EmailService.enviarAvisoRedesSociales -- mismo destinatario conceptual, canal distinto).
     private final String numeroAvisoBlog;
     private final boolean configurado;
+    private final RegistroEnvioService registroEnvioService;
 
     public WhatsAppService(
+            RegistroEnvioService registroEnvioService,
             @Value("${app.whatsapp.access-token:}") String accessToken,
             @Value("${app.whatsapp.phone-number-id:}") String phoneNumberId,
             @Value("${app.whatsapp.plantilla-nombre:notificacion_radicado}") String nombrePlantilla,
@@ -90,6 +95,7 @@ public class WhatsAppService {
             @Value("${app.whatsapp.plantilla-blog-nombre:reporte_blog_publicado}") String nombrePlantillaBlog,
             @Value("${app.firma.sitio-web}") String sitioWeb,
             @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
+        this.registroEnvioService = registroEnvioService;
         this.accessToken = accessToken;
         this.phoneNumberId = phoneNumberId;
         this.nombrePlantilla = nombrePlantilla;
@@ -176,6 +182,7 @@ public class WhatsAppService {
                     + "colombiano reconocible.");
             return false;
         }
+        boolean exito;
         try {
             String cuerpo = construirCuerpoPlantilla(celular, nombreCliente, radicadoId);
             HttpRequest solicitud = HttpRequest.newBuilder()
@@ -189,14 +196,18 @@ public class WhatsAppService {
             if (respuesta.statusCode() >= 300) {
                 log.warn("Meta respondió {} al enviar la notificación de WhatsApp del radicado {}: {}",
                         respuesta.statusCode(), radicadoId, respuesta.body());
-                return false;
+                exito = false;
+            } else {
+                exito = true;
             }
-            return true;
         } catch (Exception ex) {
             log.warn("No se pudo enviar la notificación de WhatsApp del radicado {}: {}",
                     radicadoId, ex.getMessage());
-            return false;
+            exito = false;
         }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.CODIGO_CASO,
+                nombreCliente, celular, "Radicado " + radicadoId, exito);
+        return exito;
     }
 
     // Reporte semanal de caso (ver CasoService.enviarReporteSemanal) -- mismas 3 variables
@@ -217,6 +228,7 @@ public class WhatsAppService {
                     + "es un celular colombiano reconocible.");
             return false;
         }
+        boolean exito;
         try {
             String cuerpo = construirCuerpoPlantillaReporteSemanal(celular, nombreCliente, radicadoId);
             HttpRequest solicitud = HttpRequest.newBuilder()
@@ -230,13 +242,17 @@ public class WhatsAppService {
             if (respuesta.statusCode() >= 300) {
                 log.warn("Meta respondió {} al enviar el reporte semanal de caso por WhatsApp: {}",
                         respuesta.statusCode(), respuesta.body());
-                return false;
+                exito = false;
+            } else {
+                exito = true;
             }
-            return true;
         } catch (Exception ex) {
             log.warn("No se pudo enviar el reporte semanal de caso por WhatsApp: {}", ex.getMessage());
-            return false;
+            exito = false;
         }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.REPORTE_CASO,
+                nombreCliente, celular, "Radicado " + radicadoId, exito);
+        return exito;
     }
 
     private String construirCuerpoPlantillaReporteSemanal(String celular, String nombreCliente, String radicadoId) {
@@ -304,6 +320,7 @@ public class WhatsAppService {
                     + "es un celular colombiano reconocible.");
             return false;
         }
+        boolean exito;
         try {
             String cuerpo = construirCuerpoPlantillaCobro(celular, nombreCliente, honorariosTexto);
             HttpRequest solicitud = HttpRequest.newBuilder()
@@ -317,13 +334,17 @@ public class WhatsAppService {
             if (respuesta.statusCode() >= 300) {
                 log.warn("Meta respondió {} al enviar el recordatorio de cobro por WhatsApp: {}",
                         respuesta.statusCode(), respuesta.body());
-                return false;
+                exito = false;
+            } else {
+                exito = true;
             }
-            return true;
         } catch (Exception ex) {
             log.warn("No se pudo enviar el recordatorio de cobro por WhatsApp: {}", ex.getMessage());
-            return false;
+            exito = false;
         }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.RECORDATORIO_COBRO,
+                nombreCliente, celular, honorariosTexto, exito);
+        return exito;
     }
 
     // Aviso interno (no al cliente): apenas llega una solicitud nueva del formulario público,
@@ -337,6 +358,7 @@ public class WhatsAppService {
         if (!configurado || numeroAdminNotificaciones == null) {
             return;
         }
+        boolean exito;
         try {
             String cuerpo = construirCuerpoPlantillaSolicitud(nombreCliente, correoCliente, telefonoCliente, mensaje);
             HttpRequest solicitud = HttpRequest.newBuilder()
@@ -350,10 +372,16 @@ public class WhatsAppService {
             if (respuesta.statusCode() >= 300) {
                 log.warn("Meta respondió {} al enviar el aviso de nueva solicitud por WhatsApp: {}",
                         respuesta.statusCode(), respuesta.body());
+                exito = false;
+            } else {
+                exito = true;
             }
         } catch (Exception ex) {
             log.warn("No se pudo enviar el aviso de nueva solicitud por WhatsApp: {}", ex.getMessage());
+            exito = false;
         }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.NOTIFICACION_INTERNA,
+                null, numeroAdminNotificaciones, "Nueva solicitud de " + nombreCliente, exito);
     }
 
     // Aviso a quien sube el contenido a redes sociales de que se publicó un blog/noticia
@@ -395,10 +423,13 @@ public class WhatsAppService {
         }
 
         // Si la plantilla no está activa o falló, recurrir al recordatorio directo de texto
-        if (!enviadoPorPlantilla) {
+        boolean exito = enviadoPorPlantilla;
+        if (!exito) {
             log.info("Intentando envío alternativo de recordatorio de blog a {}...", numeroAvisoBlog);
-            enviarAvisoBlogDirecto(titulo, url);
+            exito = enviarAvisoBlogDirecto(titulo, url);
         }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.AVISO_REDES_SOCIALES,
+                null, numeroAvisoBlog, titulo, exito);
     }
 
     private boolean enviarAvisoBlogDirecto(String titulo, String url) {
@@ -541,8 +572,9 @@ public class WhatsAppService {
                     + "es un celular colombiano reconocible.");
             return;
         }
+        boolean exito;
+        String fechaTexto = fechaHora.format(FORMATO_FECHA_CITA);
         try {
-            String fechaTexto = fechaHora.format(FORMATO_FECHA_CITA);
             String cuerpo = construirCuerpoPlantillaCita(celular, nombreCliente, fechaTexto, detalleAcceso);
             HttpRequest solicitud = HttpRequest.newBuilder()
                     .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
@@ -555,10 +587,16 @@ public class WhatsAppService {
             if (respuesta.statusCode() >= 300) {
                 log.warn("Meta respondió {} al enviar la confirmación de reunión por WhatsApp: {}",
                         respuesta.statusCode(), respuesta.body());
+                exito = false;
+            } else {
+                exito = true;
             }
         } catch (Exception ex) {
             log.warn("No se pudo enviar la confirmación de reunión por WhatsApp: {}", ex.getMessage());
+            exito = false;
         }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.CONFIRMACION_CITA,
+                nombreCliente, celular, "Reunión el " + fechaTexto, exito);
     }
 
     private String construirCuerpoPlantillaCita(String celular, String nombreCliente, String fechaTexto, String detalleAcceso) {
