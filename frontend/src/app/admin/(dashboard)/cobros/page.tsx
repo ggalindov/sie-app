@@ -25,7 +25,6 @@ import {
   cambiarRespuestaCobro,
   ApiError,
   type ClienteCobro,
-  type TipoClienteCobro,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
@@ -35,12 +34,6 @@ import { cn } from "@/lib/utils";
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 }
-
-const TIPOS_FILTRO: { valor: TipoClienteCobro | "TODOS"; label: string }[] = [
-  { valor: "TODOS", label: "Todos" },
-  { valor: "EMPRESA", label: "Empresas" },
-  { valor: "PERSONA_NATURAL", label: "Personas naturales" },
-];
 
 // Pedido explícito del usuario: separar con claridad a los clientes "primordiales" (los que
 // sí tienen una tarifa monetaria) de los que no, y entre esos, distinguir sin ambigüedad entre
@@ -106,7 +99,6 @@ export default function CobrosAdminPage() {
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
   const [enviandoPrueba, setEnviandoPrueba] = useState(false);
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
-  const [filtroTipo, setFiltroTipo] = useState<TipoClienteCobro | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
 
   const cargar = useCallback(() => {
@@ -148,12 +140,7 @@ export default function CobrosAdminPage() {
   }
 
 
-  const clientesFiltrados =
-    clientes?.filter(
-      (c) =>
-        (filtroTipo === "TODOS" || c.tipo === filtroTipo) &&
-        cumpleFiltroEstado(c, filtroEstado),
-    ) ?? null;
+  const clientesFiltrados = clientes?.filter((c) => cumpleFiltroEstado(c, filtroEstado)) ?? null;
 
   // Resumen de cobro (pedido explícito del usuario: "cuando una persona acepta el pago se
   // indique y esto lo veamos reflejado de mejor manera") -- un vistazo con cuánto ya se
@@ -373,27 +360,11 @@ export default function CobrosAdminPage() {
 
       {clientes !== null && clientes.length > 0 && (
         <>
+          {/* Filtro unificado por estado de cobro y respuesta a la notificación -- pedido
+              explícito del usuario: quitar el filtro por tipo (Empresas/Personas naturales,
+              poco relevante para el día a día) y dejar los filtros organizados alrededor de
+              lo que de verdad importa: a quién le falta cobrar. */}
           <div className="mt-6 flex flex-wrap gap-2">
-            {TIPOS_FILTRO.map((t) => {
-              const cantidad = t.valor === "TODOS" ? clientes.length : clientes.filter((c) => c.tipo === t.valor).length;
-              if (t.valor !== "TODOS" && cantidad === 0) return null;
-              return (
-                <button
-                  key={t.valor}
-                  type="button"
-                  onClick={() => setFiltroTipo(t.valor)}
-                  className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                    filtroTipo === t.valor ? "bg-ink text-paper" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
-                  }`}
-                >
-                  {t.label} <span className="opacity-70">({cantidad})</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Filtro unificado por estado de cobro y respuesta a la notificación */}
-          <div className="mt-2 flex flex-wrap gap-2">
             {ESTADOS_FILTRO.map((e) => {
               const cantidad =
                 e.valor === "TODOS"
