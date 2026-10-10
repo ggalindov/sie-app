@@ -23,7 +23,8 @@ public enum TipoRegistroSistema {
     // mismos le enviamos por correo para que lo use en esta consulta pública (mismo criterio
     // ya usado en HojaCalculoService al decidir qué es seguro loguear).
     CONSULTA_ESTADO_CASO("Consulta de estado de caso"),
-    GESTION_CRM("Gestión CRM");
+    GESTION_CRM("Gestión CRM"),
+    GESTION_TAREAS("Gestión de tareas");
 
     private final String nombreVisible;
 

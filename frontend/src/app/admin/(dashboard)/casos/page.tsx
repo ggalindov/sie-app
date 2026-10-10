@@ -3,19 +3,21 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { ArrowsClockwise, Bell, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, CheckSquare, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   listarCasos,
   crearCaso,
   sincronizarCasos,
   enviarCorreosPendientesCasos,
   enviarReporteSemanalCasos,
+  contarTareasPendientesPorCaso,
   ApiError,
   type CasoAdmin,
   type FuenteCaso,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
+import { TareasDeCasoModal } from "@/components/admin/tareas-de-caso-modal";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -38,6 +40,8 @@ export default function CasosAdminPage() {
   const [enviandoPendientes, setEnviandoPendientes] = useState(false);
   const [enviandoReporteSemanal, setEnviandoReporteSemanal] = useState(false);
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
+  const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<CasoAdmin | null>(null);
+  const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});
 
   const cargar = useCallback(() => {
     listarCasos()
@@ -45,9 +49,19 @@ export default function CasosAdminPage() {
       .catch(() => toast.error("No se pudieron cargar los casos."));
   }, []);
 
+  const cargarConteoTareas = useCallback(() => {
+    contarTareasPendientesPorCaso()
+      .then(setTareasPendientesPorCaso)
+      .catch(() => {
+        // Silencioso a propósito: el badge de tareas es un dato secundario, no debe
+        // interrumpir con un toast de error la carga principal de la página de Casos.
+      });
+  }, []);
+
   useEffect(() => {
     cargar();
-  }, [cargar]);
+    cargarConteoTareas();
+  }, [cargar, cargarConteoTareas]);
 
   const casosFiltrados = casos?.filter((c) => filtroFuente === "TODOS" || c.fuente === filtroFuente) ?? null;
 
@@ -307,6 +321,20 @@ export default function CasosAdminPage() {
                     Sin radicado aún
                   </NotificationBadge>
                 )}
+
+                {/* Registro de tareas por caso (pedido explícito del usuario), con el
+                    conteo de pendientes como badge para ver de un vistazo qué caso necesita
+                    atención sin tener que abrir cada uno. */}
+                <button
+                  type="button"
+                  onClick={() => setCasoConTareasAbierto(c)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 py-1 pl-1.5 pr-3 text-xs font-medium text-ink-soft transition-colors hover:bg-ink/10"
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/10">
+                    <CheckSquare weight="bold" className="h-3 w-3" />
+                  </span>
+                  {tareasPendientesPorCaso[c.id] ? `${tareasPendientesPorCaso[c.id]} tarea(s) pendiente(s)` : "Tareas"}
+                </button>
               </div>
             </AdminCard>
           ))}
@@ -320,6 +348,12 @@ export default function CasosAdminPage() {
           setCasos((prev) => (prev ? [nuevo, ...prev] : [nuevo]));
           setModalAbierto(false);
         }}
+      />
+
+      <TareasDeCasoModal
+        caso={casoConTareasAbierto}
+        onClose={() => setCasoConTareasAbierto(null)}
+        onCambioPendientes={cargarConteoTareas}
       />
     </div>
   );

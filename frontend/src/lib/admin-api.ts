@@ -938,3 +938,87 @@ export function listarRegistroSistema(opciones: {
   parametros.set("tamano", String(opciones.tamano ?? 30));
   return pedido<PaginaRegistroSistema>(`/api/admin/registro-sistema?${parametros.toString()}`);
 }
+
+// ---------- Tareas por caso (con responsable asignado) ----------
+// Distinto del módulo de tareas del CRM (crearTareaCrm/completarTareaCrm, ligado a un
+// ClienteCrm en general con el nombre del responsable en texto libre): esto vive dentro de un
+// Caso puntual y el responsable es un usuario interno real -- pedido explícito del usuario,
+// "deja un registro de tareas por caso y con responsabilidad [...] esta habilidad la podra
+// tener tanto admin como cualquiera de los abogados".
+
+export type PrioridadTarea = "BAJA" | "MEDIA" | "ALTA";
+
+export type Tarea = {
+  id: number;
+  casoId: number;
+  casoEtiqueta: string;
+  clienteNombre: string;
+  titulo: string;
+  descripcion: string | null;
+  fechaVencimiento: string | null;
+  prioridad: PrioridadTarea;
+  completada: boolean;
+  usuarioAsignadoId: number;
+  usuarioAsignadoNombre: string;
+  usuarioCreadorId: number;
+  usuarioCreadorNombre: string;
+  fechaCreacion: string;
+  fechaCompletada: string | null;
+};
+
+export function listarTareasPorCaso(casoId: number): Promise<Tarea[]> {
+  return pedido<Tarea[]>(`/api/admin/casos/${casoId}/tareas`);
+}
+
+export function crearTarea(
+  casoId: number,
+  datos: {
+    titulo: string;
+    descripcion?: string;
+    fechaVencimiento?: string;
+    prioridad?: PrioridadTarea;
+    usuarioAsignadoId: number;
+  },
+): Promise<Tarea> {
+  return pedido<Tarea>(`/api/admin/casos/${casoId}/tareas`, {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+// Página "Tareas" del sidebar: tareas pendientes propias, o de toda la firma si el usuario
+// autenticado es ADMIN_GENERAL (ver TareaService.listarPendientes en el backend).
+export function listarTareasPendientes(): Promise<Tarea[]> {
+  return pedido<Tarea[]>("/api/admin/tareas");
+}
+
+// Badge "N tareas pendientes" en el listado de Casos -- un solo query bulk, no uno por caso.
+export function contarTareasPendientesPorCaso(): Promise<Record<string, number>> {
+  return pedido<Record<string, number>>("/api/admin/tareas/conteo-por-caso");
+}
+
+export function actualizarTarea(
+  id: number,
+  datos: {
+    titulo: string;
+    descripcion?: string;
+    fechaVencimiento?: string;
+    prioridad?: PrioridadTarea;
+    usuarioAsignadoId?: number;
+  },
+): Promise<Tarea> {
+  return pedido<Tarea>(`/api/admin/tareas/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(datos),
+  });
+}
+
+export function completarTarea(id: number, completada: boolean): Promise<Tarea> {
+  return pedido<Tarea>(`/api/admin/tareas/${id}/completar?completada=${completada}`, {
+    method: "PATCH",
+  });
+}
+
+export function eliminarTarea(id: number): Promise<void> {
+  return pedido<void>(`/api/admin/tareas/${id}`, { method: "DELETE" });
+}
