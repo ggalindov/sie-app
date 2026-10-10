@@ -640,17 +640,6 @@ export function enviarRecordatorioPrueba(): Promise<ResumenEnvioRecordatorioPrue
   return pedido<ResumenEnvioRecordatorioPrueba>("/api/admin/cobros/enviar-recordatorio-prueba", { method: "POST" });
 }
 
-export function cambiarRespuestaCobro(
-  id: number,
-  respuesta: string | null,
-  pagoEsteMes?: boolean,
-): Promise<ClienteCobro> {
-  return pedido<ClienteCobro>(`/api/admin/cobros/${id}/respuesta`, {
-    method: "PATCH",
-    body: JSON.stringify({ respuesta, pagoEsteMes }),
-  });
-}
-
 export function simularRespuestaCobro(
   telefono: string,
   respuesta: string,

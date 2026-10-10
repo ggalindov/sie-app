@@ -65,6 +65,7 @@ import {
   AdminLoader,
 } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
+import { estadoDeCobro, tieneCostoCobro } from "@/lib/cobro-estado";
 
 // Etiquetas renombradas (pedido explícito del usuario): el lenguaje original ("Contratado /
 // Ganado", "En Valoración") leía como un CRM de ventas genérico, no como algo pensado para
@@ -99,11 +100,6 @@ function formatearMoneda(val: number | null) {
 function formatearFecha(iso: string | null) {
   if (!iso) return "Sin fecha";
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function tieneCosto(honorarios: string | null | undefined): boolean {
-  if (!honorarios) return false;
-  return /[1-9]/.test(honorarios);
 }
 
 function iniciales(nombre: string): string {
@@ -1303,32 +1299,30 @@ export default function CrmAdminPage() {
                         </p>
                       ) : (
                         <div className="space-y-2">
-                          {clienteDetalle.cobros.map((cobro) => (
-                            <div key={cobro.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
-                              <div>
-                                <p className="font-semibold text-ink font-mono text-gold-deep">
-                                  {tieneCosto(cobro.honorarios) ? cobro.honorarios : "Caso sin costo"}
-                                </p>
-                                <p className="text-ink-soft">Fila {cobro.numeroFila} · {cobro.tipo}</p>
+                          {clienteDetalle.cobros.map((cobro) => {
+                            // Misma clasificación que /admin/cobros (ver lib/cobro-estado.ts):
+                            // antes esto era binario (pagoEsteMes ? "Aprobado" : "Pendiente") y
+                            // mezclaba "nunca respondió" con "respondió que no" bajo la misma
+                            // etiqueta -- bug real encontrado en esta auditoría ("que realmente
+                            // se vean reflejados como son").
+                            const estado = estadoDeCobro(cobro);
+                            return (
+                              <div key={cobro.id} className="rounded-lg border border-line p-3 text-xs bg-paper flex items-center justify-between">
+                                <div>
+                                  <p className="font-semibold text-ink font-mono text-gold-deep">
+                                    {tieneCostoCobro(cobro.honorarios) ? cobro.honorarios : "Caso sin costo"}
+                                  </p>
+                                  <p className="text-ink-soft">Fila {cobro.numeroFila} · {cobro.tipo}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {estado === "SIN_COSTO" && <Badge tone="neutral">Sin cobro asignado</Badge>}
+                                  {estado === "APROBADO" && <Badge tone="success">Pago confirmado</Badge>}
+                                  {estado === "NO_PAGO" && <Badge tone="danger">Dijo que no pagaba</Badge>}
+                                  {estado === "PENDIENTE" && <Badge tone="warning">Sin respuesta aún</Badge>}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                {tieneCosto(cobro.honorarios) ? (
-                                  <Badge tone={cobro.pagoEsteMes ? "success" : "warning"}>
-                                    {cobro.pagoEsteMes ? "Pago Aprobado" : "Respuesta de pago pendiente"}
-                                  </Badge>
-                                ) : (
-                                  <Badge tone="neutral">
-                                    Sin cobro asignado
-                                  </Badge>
-                                )}
-                                {cobro.respondioMensaje && (
-                                  <Badge tone={cobro.respondioMensaje.toLowerCase().startsWith("s") ? "success" : "danger"}>
-                                    Resp: {cobro.respondioMensaje}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

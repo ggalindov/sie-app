@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   ArrowsClockwise,
   ChatCircleText,
-  Check,
   CheckCircle,
   DeviceMobile,
   EnvelopeSimple,
@@ -22,7 +21,6 @@ import {
   sincronizarCobros,
   enviarRecordatoriosCobros,
   enviarRecordatorioPrueba,
-  cambiarRespuestaCobro,
   ApiError,
   type ClienteCobro,
 } from "@/lib/admin-api";
@@ -30,6 +28,7 @@ import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, Empt
 import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { estadoDeCobro, tieneCostoCobro, type EstadoCobro } from "@/lib/cobro-estado";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -41,8 +40,9 @@ function formatearFecha(iso: string) {
 // así que un cliente que había respondido explícitamente que NO pagaba se mostraba igual que uno
 // que ni siquiera había recibido el recordatorio todavía -- mismo filtro, dos situaciones muy
 // distintas. Ahora son 4 estados mutuamente excluyentes (SIN_COSTO no compite con los otros 3,
-// que a su vez nunca se solapan entre sí).
-type EstadoCobroFiltro = "TODOS" | "PENDIENTE" | "NO_PAGO" | "APROBADO" | "SIN_COSTO";
+// que a su vez nunca se solapan entre sí) -- ver lib/cobro-estado.ts, clasificación compartida
+// con la ficha 360 del CRM.
+type EstadoCobroFiltro = "TODOS" | EstadoCobro;
 
 const ESTADOS_FILTRO: { valor: EstadoCobroFiltro; label: string; siempreVisible?: boolean }[] = [
   { valor: "TODOS", label: "Todos", siempreVisible: true },
@@ -52,14 +52,9 @@ const ESTADOS_FILTRO: { valor: EstadoCobroFiltro; label: string; siempreVisible?
   { valor: "SIN_COSTO", label: "Sin costo" },
 ];
 
-function tieneCosto(honorarios: string | null) {
-  if (!honorarios) return false;
-  return /[1-9]/.test(honorarios);
-}
-
 // "$ 1.750.905" -> 1750905, para sumar y mostrar totales en el resumen -- nunca se usa para
-// decidir nada de negocio (esa regla sigue siendo tieneCosto()/el backend), solo para el total
-// en pantalla.
+// decidir nada de negocio (esa regla sigue siendo tieneCostoCobro()/el backend), solo para el
+// total en pantalla.
 function honorariosNumero(honorarios: string | null): number {
   if (!honorarios) return 0;
   const soloDigitos = honorarios.replace(/[^0-9]/g, "");
@@ -70,18 +65,8 @@ function formatearPesos(valor: number): string {
   return `$ ${valor.toLocaleString("es-CO")}`;
 }
 
-// Estado real y único de cada cliente -- la base de los 4 filtros y del acento de color de
-// cada tarjeta, para que "qué le falta a este cliente" se lea de un vistazo sin tener que
-// combinar varias insignias sueltas en la cabeza.
-function estadoDe(c: ClienteCobro): EstadoCobroFiltro {
-  if (!tieneCosto(c.honorarios)) return "SIN_COSTO";
-  if (c.pagoEsteMes) return "APROBADO";
-  if (c.respondioMensaje?.trim().toUpperCase() === "NO") return "NO_PAGO";
-  return "PENDIENTE";
-}
-
 function cumpleFiltroEstado(c: ClienteCobro, filtro: EstadoCobroFiltro): boolean {
-  return filtro === "TODOS" || estadoDe(c) === filtro;
+  return filtro === "TODOS" || estadoDeCobro(c) === filtro;
 }
 
 const ACENTO_ESTADO: Record<EstadoCobroFiltro, string> = {
@@ -98,7 +83,6 @@ export default function CobrosAdminPage() {
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
   const [enviandoPrueba, setEnviandoPrueba] = useState(false);
-  const [actualizandoId, setActualizandoId] = useState<number | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
 
   const cargar = useCallback(() => {
@@ -120,26 +104,6 @@ export default function CobrosAdminPage() {
     );
   }
 
-  async function onCambiarRespuesta(id: number, respondio: string | null, pago: boolean) {
-    setActualizandoId(id);
-    try {
-      const act = await cambiarRespuestaCobro(id, respondio, pago);
-      setClientes((prev) => (prev ? prev.map((c) => (c.id === id ? act : c)) : null));
-      toast.success(
-        pago
-          ? "Respuesta actualizada: Pago Aprobado (SÍ)"
-          : respondio
-            ? "Respuesta actualizada: Rechazado (NO)"
-            : "Estado restablecido a pendiente",
-      );
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error al actualizar respuesta");
-    } finally {
-      setActualizandoId(null);
-    }
-  }
-
-
   const clientesFiltrados = clientes?.filter((c) => cumpleFiltroEstado(c, filtroEstado)) ?? null;
 
   // Resumen de cobro (pedido explícito del usuario: "cuando una persona acepta el pago se
@@ -148,7 +112,7 @@ export default function CobrosAdminPage() {
   const resumen = clientes?.reduce(
     (acc, c) => {
       const monto = honorariosNumero(c.honorarios);
-      const estado = estadoDe(c);
+      const estado = estadoDeCobro(c);
       if (estado === "APROBADO") {
         acc.aprobado.cantidad += 1;
         acc.aprobado.total += monto;
@@ -400,7 +364,7 @@ export default function CobrosAdminPage() {
       ) : (
         <div className="mt-6 space-y-3">
           {clientesFiltrados?.map((c) => {
-            const estado = estadoDe(c);
+            const estado = estadoDeCobro(c);
             const conCosto = estado !== "SIN_COSTO";
             return (
               <AdminCard
@@ -461,89 +425,41 @@ export default function CobrosAdminPage() {
                   )}
 
                   {conCosto && (
-                    <>
-                      {/* Secundario: qué canales ya se notificaron -- deliberadamente más
-                          pequeño/discreto que el estado principal de arriba. */}
-                      <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
-                        {c.correo ? (
-                          <NotificationBadge
-                            size="sm"
-                            tone={c.correoEnviado ? "success" : "neutral"}
-                            icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
-                          >
-                            {c.correoEnviado ? "Correo enviado" : "Correo pend."}
-                          </NotificationBadge>
-                        ) : (
-                          <NotificationBadge size="sm" tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
-                            Sin correo
-                          </NotificationBadge>
-                        )}
+                    // Secundario: qué canales ya se notificaron -- deliberadamente más pequeño/
+                    // discreto que el estado principal de arriba. Pedido explícito del usuario:
+                    // "el sistema debe ser netamente automático en un 100%" -- el estado de pago
+                    // ya NO tiene ningún control manual, se fija únicamente por la respuesta real
+                    // del cliente al botón Sí/No de WhatsApp (ver WhatsAppWebhookController ->
+                    // CobroService.registrarRespuesta()).
+                    <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+                      {c.correo ? (
+                        <NotificationBadge
+                          size="sm"
+                          tone={c.correoEnviado ? "success" : "neutral"}
+                          icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}
+                        >
+                          {c.correoEnviado ? "Correo enviado" : "Correo pend."}
+                        </NotificationBadge>
+                      ) : (
+                        <NotificationBadge size="sm" tone="neutral" icon={<EnvelopeSimple weight="bold" className="h-3.5 w-3.5" />}>
+                          Sin correo
+                        </NotificationBadge>
+                      )}
 
-                        {c.telefono ? (
-                          <NotificationBadge
-                            size="sm"
-                            tone={c.whatsappEnviado ? "success" : "neutral"}
-                            icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
-                          >
-                            {c.whatsappEnviado ? "WA enviado" : "WA pend."}
-                          </NotificationBadge>
-                        ) : (
-                          <NotificationBadge size="sm" tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>
-                            Sin tel
-                          </NotificationBadge>
-                        )}
-                      </div>
-
-                      {/* Ajuste manual: un solo control de 3 posiciones en vez de 3 botones
-                          sueltos con estilos distintos + un link de "Limpiar" aparte -- pedido
-                          explícito del usuario ("arregla como se ve porque está muy confuso"). */}
-                      <div className="flex flex-col items-start gap-1 lg:items-end">
-                        <span className="text-[10px] font-medium uppercase tracking-wider text-ink-soft/70">
-                          Ajuste manual
-                        </span>
-                        <div className="inline-flex items-center gap-0.5 rounded-full bg-ink/5 p-1">
-                          <button
-                            type="button"
-                            disabled={actualizandoId === c.id}
-                            onClick={() => onCambiarRespuesta(c.id, null, false)}
-                            title="Restablecer a sin respuesta"
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
-                              estado === "PENDIENTE" ? "bg-amber-500 text-white shadow-xs" : "text-ink-soft hover:bg-ink/10",
-                            )}
-                          >
-                            <HourglassMedium className="h-3 w-3" weight="bold" />
-                            Pendiente
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actualizandoId === c.id}
-                            onClick={() => onCambiarRespuesta(c.id, "SI", true)}
-                            title="Marcar como pago confirmado (SÍ)"
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
-                              estado === "APROBADO" ? "bg-emerald-600 text-white shadow-xs" : "text-ink-soft hover:bg-ink/10",
-                            )}
-                          >
-                            <Check className="h-3 w-3" weight="bold" />
-                            Pagó
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actualizandoId === c.id}
-                            onClick={() => onCambiarRespuesta(c.id, "NO", false)}
-                            title="Marcar como no pago (NO)"
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
-                              estado === "NO_PAGO" ? "bg-rose-600 text-white shadow-xs" : "text-ink-soft hover:bg-ink/10",
-                            )}
-                          >
-                            <X className="h-3 w-3" weight="bold" />
-                            No pagó
-                          </button>
-                        </div>
-                      </div>
-                    </>
+                      {c.telefono ? (
+                        <NotificationBadge
+                          size="sm"
+                          tone={c.whatsappEnviado ? "success" : "neutral"}
+                          icon={<WhatsappLogo weight="bold" className="h-3.5 w-3.5" />}
+                        >
+                          {c.whatsappEnviado ? "WA enviado" : "WA pend."}
+                        </NotificationBadge>
+                      ) : (
+                        <NotificationBadge size="sm" tone="neutral" icon={<PhoneSlash weight="bold" className="h-3.5 w-3.5" />}>
+                          Sin tel
+                        </NotificationBadge>
+                      )}
+                    </div>
                   )}
                 </div>
               </AdminCard>

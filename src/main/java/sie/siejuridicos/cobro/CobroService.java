@@ -522,43 +522,6 @@ public class CobroService {
         return actualizados;
     }
 
-    // Actualización manual directa desde el panel de administración
-    @Transactional
-    public ClienteCobroResponse actualizarRespuestaManual(Long id, String respuesta, Boolean pagoEsteMes) {
-        ClienteCobro cliente = clienteCobroRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Cliente de cobro no encontrado con ID: " + id));
-
-        cliente.setRespondioMensaje(respuesta);
-        if (pagoEsteMes != null) {
-            cliente.setPagoEsteMes(pagoEsteMes);
-        } else if ("Sí".equalsIgnoreCase(respuesta) || "Si".equalsIgnoreCase(respuesta)) {
-            cliente.setPagoEsteMes(true);
-        } else if ("No".equalsIgnoreCase(respuesta)) {
-            cliente.setPagoEsteMes(false);
-        }
-        cliente.setMesRespuesta(YearMonth.now().toString());
-
-        clienteCobroRepository.save(cliente);
-
-        if (respuesta != null && !respuesta.isBlank()) {
-            try {
-                hojaCobrosService.marcarRespuesta(cliente.getTipo(), cliente.getNumeroFila(), respuesta);
-            } catch (Exception ex) {
-                log.warn("Cobros: no se pudo actualizar manualmente la fila {} en Google Sheets: {}",
-                        cliente.getNumeroFila(), ex.getMessage());
-            }
-        }
-
-        registroSistemaService.registrar(
-                TipoRegistroSistema.SINCRONIZACION_COBROS,
-                "Respuesta de cobro actualizada manualmente para '%s': respondio='%s', pago=%s"
-                        .formatted(cliente.getNombre(), cliente.getRespondioMensaje(), cliente.getPagoEsteMes()),
-                null,
-                true);
-
-        return ClienteCobroResponse.desde(cliente);
-    }
-
     // Reinicio mensual (bug real corregido en esta auditoría, pedido explícito del usuario: "no
     // se está limpiando esos check antes de que se acabe el mes"): limpia pagoEsteMes y
     // respondioMensaje de cualquier cliente activo cuya respuesta sea de un mes distinto al
