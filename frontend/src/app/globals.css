@@ -768,13 +768,21 @@ html[data-theme="light"] .site-theme .section-seam::after {
 
 /* max-width/height ya los pone el preflight de Tailwind, pero se repite explícito aquí a
    propósito (belt-and-suspenders para este contenedor puntual) + el trato visual propio
-   del sitio: esquinas redondeadas, nunca una imagen pegada directo al texto sin espacio. */
+   del sitio: esquinas redondeadas, nunca una imagen pegada directo al texto sin espacio.
+   Pedido explícito del usuario: "las imagenes se vean mucho mejor" -- antes era un <img>
+   plano sin ningún peso visual propio; ahora lleva la misma sombra elevada + filo dorado
+   tenue que ya usan el hero del artículo y el video embebido (ver blog/[slug]/page.tsx),
+   para que toda imagen dentro del cuerpo del texto se sienta "enmarcada" a propósito en
+   vez de pegada sin más. */
 .contenido-articulo img {
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 2em auto;
-  border-radius: 1.25rem;
+  margin: 2.5em auto;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.35);
+  outline: 1px solid color-mix(in srgb, var(--color-gold) 18%, transparent);
+  outline-offset: -1px;
 }
 
 .contenido-articulo pre {
