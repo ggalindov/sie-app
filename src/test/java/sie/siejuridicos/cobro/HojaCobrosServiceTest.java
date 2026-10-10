@@ -84,6 +84,32 @@ class HojaCobrosServiceTest {
                 .update(eq(SPREADSHEET_ID), eq("'PERSONAS NATURALES'!H3:I3"), any(ValueRange.class));
     }
 
+    // Reinicio mensual: limpiarPagoMensual() debe desmarcar el check (columna H -> false) y
+    // vaciar la respuesta (columna I -> "") de la fila correcta, igual de preciso que
+    // marcarRespuesta() -- si confundiera la fila, borraría el pago confirmado de OTRO cliente.
+    @Test
+    void limpiarPagoMensualDesmarcaElCheckYVaciaLaRespuestaSoloEnLaFilaCorrecta() throws IOException {
+        Sheets sheets = mock(Sheets.class, RETURNS_DEEP_STUBS);
+        ValueRange columnaA = new ValueRange().setValues(List.of(
+                List.of("5"), List.of("12"), List.of("20")
+        ));
+        when(sheets.spreadsheets().values()
+                .get(eq(SPREADSHEET_ID), eq("EMPRESAS!A6:A"))
+                .setValueRenderOption("FORMATTED_VALUE")
+                .execute())
+                .thenReturn(columnaA);
+
+        HojaCobrosService servicio = new HojaCobrosService(SPREADSHEET_ID, sheets);
+        servicio.limpiarPagoMensual(TipoClienteCobro.EMPRESA, "12");
+
+        verify(sheets.spreadsheets().values())
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H7:I7"), any(ValueRange.class));
+        verify(sheets.spreadsheets().values(), never())
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H6:I6"), any(ValueRange.class));
+        verify(sheets.spreadsheets().values(), never())
+                .update(eq(SPREADSHEET_ID), eq("EMPRESAS!H8:I8"), any(ValueRange.class));
+    }
+
     // Si la fila ya no existe en la hoja (se borró, o el número no coincide con nada), no debe
     // escribirse absolutamente nada -- nunca "a ciegas" en una fila cualquiera.
     @Test

@@ -165,11 +165,13 @@ public class CobroService {
         }
         if (fila.pagoEsteMes() != null && !Objects.equals(fila.pagoEsteMes(), cliente.getPagoEsteMes())) {
             cliente.setPagoEsteMes(fila.pagoEsteMes());
+            cliente.setMesRespuesta(YearMonth.now().toString());
             cambio = true;
         }
         if (fila.respondioMensaje() != null && !fila.respondioMensaje().isBlank()
                 && !Objects.equals(fila.respondioMensaje(), cliente.getRespondioMensaje())) {
             cliente.setRespondioMensaje(fila.respondioMensaje());
+            cliente.setMesRespuesta(YearMonth.now().toString());
             cambio = true;
         }
         cliente.setActivo(true);
@@ -192,6 +194,13 @@ public class CobroService {
     // realmente tuvo éxito (con un reintento corto ante un fallo transitorio), y cada cliente
     // se guarda en su propia transacción corta apenas se conoce su resultado.
     public ResumenEnvioRecordatoriosCobros enviarRecordatorios() {
+        // Red de seguridad (pedido explícito del usuario: "quede perfecto"): el reinicio mensual
+        // también corre por su cuenta el día 1 (ver ReinicioMensualCobrosScheduler), pero si esa
+        // corrida se perdiera por cualquier motivo, este envío -- que corre los días 3 a 5 -- jamás
+        // debe decidir "ya pagó, lo salto" con el pagoEsteMes de un mes anterior. reiniciarEstadoMensual()
+        // es barata e idempotente (solo toca filas con mesRespuesta distinto al mes actual).
+        reiniciarEstadoMensual();
+
         List<ClienteCobro> activos = clienteCobroRepository.findByActivoTrueOrderByNombreAsc();
         YearMonth mesActual = YearMonth.now();
         int correosEnviados = 0;
@@ -440,6 +449,7 @@ public class CobroService {
             } else if (esNo) {
                 cliente.setPagoEsteMes(false);
             }
+            cliente.setMesRespuesta(YearMonth.now().toString());
             clienteCobroRepository.save(cliente);
             actualizados.add(ClienteCobroResponse.desde(cliente));
 
@@ -479,6 +489,7 @@ public class CobroService {
         } else if ("No".equalsIgnoreCase(respuesta)) {
             cliente.setPagoEsteMes(false);
         }
+        cliente.setMesRespuesta(YearMonth.now().toString());
 
         clienteCobroRepository.save(cliente);
 
@@ -499,5 +510,50 @@ public class CobroService {
                 true);
 
         return ClienteCobroResponse.desde(cliente);
+    }
+
+    // Reinicio mensual (bug real corregido en esta auditoría, pedido explícito del usuario: "no
+    // se está limpiando esos check antes de que se acabe el mes"): limpia pagoEsteMes y
+    // respondioMensaje de cualquier cliente activo cuya respuesta sea de un mes distinto al
+    // actual, tanto en esta base de datos como en el Google Sheets (columna H/I), para que el
+    // check que el equipo haya olvidado desmarcar en la hoja no vuelva a colarse como "ya pagó"
+    // en la siguiente sincronización. Corre automáticamente el día 1 de cada mes (ver
+    // ReinicioMensualCobrosScheduler) y, como red de seguridad, otra vez al arrancar
+    // enviarRecordatorios() -- es barata e idempotente: solo toca filas con mesRespuesta distinto
+    // al mes actual, así que una fila ya reiniciada (mesRespuesta null) nunca vuelve a tocarse.
+    @Transactional
+    public int reiniciarEstadoMensual() {
+        String mesActual = YearMonth.now().toString();
+        List<ClienteCobro> activos = clienteCobroRepository.findByActivoTrueOrderByNombreAsc();
+        int reiniciados = 0;
+
+        for (ClienteCobro cliente : activos) {
+            if (cliente.getMesRespuesta() == null || cliente.getMesRespuesta().equals(mesActual)) {
+                continue;
+            }
+            cliente.setPagoEsteMes(null);
+            cliente.setRespondioMensaje(null);
+            cliente.setMesRespuesta(null);
+            clienteCobroRepository.save(cliente);
+            reiniciados++;
+
+            // Intento seguro hacia Google Sheets: NUNCA hace rollback de la BD local si la hoja falla.
+            try {
+                hojaCobrosService.limpiarPagoMensual(cliente.getTipo(), cliente.getNumeroFila());
+            } catch (Exception ex) {
+                log.warn("Cobros: no se pudo limpiar el pago mensual en Google Sheets para fila {}: {}",
+                        cliente.getNumeroFila(), ex.getMessage());
+            }
+        }
+
+        if (reiniciados > 0) {
+            registroSistemaService.registrar(
+                    TipoRegistroSistema.REINICIO_MENSUAL_COBROS,
+                    "%d cliente(s) con respuesta de un mes anterior reiniciado(s) a pendiente"
+                            .formatted(reiniciados),
+                    true);
+        }
+
+        return reiniciados;
     }
 }

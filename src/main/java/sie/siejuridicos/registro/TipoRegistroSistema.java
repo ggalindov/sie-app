@@ -9,6 +9,7 @@ public enum TipoRegistroSistema {
     REPORTE_SEMANAL_CASOS("Reporte semanal de casos"),
     SINCRONIZACION_COBROS("Sincronización de cobros"),
     ENVIO_RECORDATORIOS_COBROS("Envío de recordatorios de cobro"),
+    REINICIO_MENSUAL_COBROS("Reinicio mensual de cobros"),
     RECORDATORIO_CITA("Recordatorio de cita"),
     BOLETIN_ENVIADO("Boletín enviado"),
     // Pedido explícito del usuario: además de los procesos automáticos/masivos de arriba, el

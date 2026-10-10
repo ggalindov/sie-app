@@ -12,10 +12,13 @@ import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -273,5 +276,74 @@ class CobroServiceTest {
 
         assertEquals(0, resumen.correosEnviados());
         assertEquals(0, resumen.whatsappEnviados());
+    }
+
+    // Auditoría de bug real (pedido explícito del usuario): "no se está limpiando esos check
+    // antes de que se acabe el mes para que no se bugee la información". Un cliente que pagó
+    // (o dijo que no) en un mes anterior debe quedar en blanco al reiniciar -- en nuestra base
+    // de datos Y en el Google Sheets, para que el check que el equipo olvidó desmarcar en la
+    // hoja no vuelva a colarse como "ya pagó" en la próxima sincronización.
+    @Test
+    void reiniciarEstadoMensualLimpiaClientesConRespuestaDeUnMesAnterior() {
+        ClienteCobro pagoMesPasado = clienteDe("1", "Pagó El Mes Pasado S.A.S.", "correo@pasado.com", null, "$ 500.000");
+        pagoMesPasado.setPagoEsteMes(true);
+        pagoMesPasado.setRespondioMensaje("Sí");
+        pagoMesPasado.setMesRespuesta(YearMonth.now().minusMonths(1).toString());
+
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(pagoMesPasado));
+
+        int reiniciados = crearServicio().reiniciarEstadoMensual();
+
+        assertEquals(1, reiniciados);
+        assertNull(pagoMesPasado.getPagoEsteMes());
+        assertNull(pagoMesPasado.getRespondioMensaje());
+        assertNull(pagoMesPasado.getMesRespuesta());
+        verify(clienteCobroRepository, times(1)).save(pagoMesPasado);
+        verify(hojaCobrosService, times(1)).limpiarPagoMensual(TipoClienteCobro.EMPRESA, "1");
+        verify(registroSistemaService, times(1))
+                .registrar(eq(sie.siejuridicos.registro.TipoRegistroSistema.REINICIO_MENSUAL_COBROS), anyString(), eq(true));
+    }
+
+    // No debe tocar -- ni en la base de datos ni en la hoja -- a un cliente cuya respuesta ya es
+    // de este mismo mes, ni a uno que nunca ha respondido (mesRespuesta null).
+    @Test
+    void reiniciarEstadoMensualNoTocaClientesDelMesActualNiSinRespuesta() {
+        ClienteCobro pagoEsteMesCliente = clienteDe("1", "Pagó Este Mes S.A.S.", "correo@actual.com", null, "$ 500.000");
+        pagoEsteMesCliente.setPagoEsteMes(true);
+        pagoEsteMesCliente.setRespondioMensaje("Sí");
+        pagoEsteMesCliente.setMesRespuesta(YearMonth.now().toString());
+
+        ClienteCobro sinResponder = clienteDe("2", "Nunca Respondió Ltda.", "correo@sinresponder.com", null, "$ 500.000");
+
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc())
+                .thenReturn(List.of(pagoEsteMesCliente, sinResponder));
+
+        int reiniciados = crearServicio().reiniciarEstadoMensual();
+
+        assertEquals(0, reiniciados);
+        assertEquals(Boolean.TRUE, pagoEsteMesCliente.getPagoEsteMes());
+        verify(clienteCobroRepository, never()).save(any(ClienteCobro.class));
+        verify(hojaCobrosService, never()).limpiarPagoMensual(any(), anyString());
+        verify(registroSistemaService, never())
+                .registrar(eq(sie.siejuridicos.registro.TipoRegistroSistema.REINICIO_MENSUAL_COBROS), anyString(), eq(true));
+    }
+
+    // El escenario exacto que reportó el usuario como bugeado: un cliente marcado pagoEsteMes=true
+    // el mes pasado se saltaba el recordatorio de este mes indefinidamente porque nada limpiaba
+    // ese check. Confirma que enviarRecordatorios() se autocorrige y SÍ le envía el recordatorio.
+    @Test
+    void unClienteConPagoDeUnMesAnteriorSiRecibeElRecordatorioDeEsteMes() {
+        ClienteCobro pagoMesPasado = clienteDe("1", "Pagó El Mes Pasado S.A.S.", "correo@pasado.com", null, "$ 500.000");
+        pagoMesPasado.setPagoEsteMes(true);
+        pagoMesPasado.setRespondioMensaje("Sí");
+        pagoMesPasado.setMesRespuesta(YearMonth.now().minusMonths(1).toString());
+
+        when(clienteCobroRepository.findByActivoTrueOrderByNombreAsc()).thenReturn(List.of(pagoMesPasado));
+        when(emailService.enviarTirillaCobroSincrono(anyString(), anyString(), anyString())).thenReturn(true);
+
+        crearServicio().enviarRecordatorios();
+
+        verify(emailService, times(1))
+                .enviarTirillaCobroSincrono("Pagó El Mes Pasado S.A.S.", "correo@pasado.com", "$ 500.000");
     }
 }

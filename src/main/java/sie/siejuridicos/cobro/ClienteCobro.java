@@ -87,6 +87,16 @@ public class ClienteCobro {
     @Column(name = "respondio_mensaje", length = 20)
     private String respondioMensaje;
 
+    // Mes (formato "2026-10", ver YearMonth.toString()) en el que se fijó por última vez
+    // pagoEsteMes/respondioMensaje, sin importar el origen (webhook, ajuste manual del panel, o
+    // sincronización desde la hoja). CobroService.reiniciarEstadoMensual() compara esto contra
+    // el mes actual para saber qué filas quedaron con la respuesta de un mes anterior y hay que
+    // limpiar -- bug real corregido en esta auditoría: antes nada limpiaba estos dos campos al
+    // cambiar de mes, así que un cliente que pagó en septiembre seguía viéndose "Pago aprobado"
+    // (y se seguía saltando el recordatorio) en octubre.
+    @Column(name = "mes_respuesta", length = 7)
+    private String mesRespuesta;
+
     // Cuándo se le envió por última vez el recordatorio mensual (correo + WhatsApp): evita
     // que el mismo cliente reciba dos recordatorios en el mismo mes si el botón manual del
     // panel se usa además del envío automático del día 1 (ver CobroService.enviarRecordatorios()).
@@ -195,6 +205,14 @@ public class ClienteCobro {
 
     public void setRespondioMensaje(String respondioMensaje) {
         this.respondioMensaje = respondioMensaje;
+    }
+
+    public String getMesRespuesta() {
+        return mesRespuesta;
+    }
+
+    public void setMesRespuesta(String mesRespuesta) {
+        this.mesRespuesta = mesRespuesta;
     }
 
     public LocalDateTime getFechaUltimoRecordatorio() {

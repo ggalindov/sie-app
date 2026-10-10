@@ -1,0 +1,12 @@
+-- Corrige un bug real: pago_este_mes y respondio_mensaje (ClienteCobro) nunca se limpiaban al
+-- cambiar de mes -- un cliente que pagó en septiembre seguía mostrando "Pago aprobado" en
+-- octubre (y el envío de recordatorios lo seguía saltando, ver CobroService.enviarRecordatorios),
+-- aunque todavía no hubiera pagado nada ese mes nuevo.
+--
+-- mes_respuesta guarda el mes (formato "YYYY-MM", ver YearMonth.toString()) en el que se fijó
+-- por última vez pago_este_mes/respondio_mensaje, sin importar el origen (webhook de WhatsApp,
+-- ajuste manual del panel, o sincronización desde el Google Sheets). CobroService.reiniciarEstadoMensual()
+-- usa esta columna para saber qué filas quedaron con la respuesta de un mes anterior y limpiarlas
+-- -- tanto en esta tabla como en el Google Sheets (columna H/I), para que un check que el equipo
+-- olvidó desmarcar en la hoja no vuelva a colarse en la siguiente sincronización.
+ALTER TABLE clientes_cobro ADD COLUMN mes_respuesta VARCHAR(7);

@@ -36,9 +36,10 @@ import java.util.List;
 // las hojas de Casos sigue siendo físicamente incapaz de escribir nada -- su token de OAuth
 // ni siquiera tiene ese permiso.
 //
-// Única escritura que hace: marcar la columna "RESPONDIO MENSAJE" (I) cuando el cliente
-// contesta el botón de sí/no del recordatorio de WhatsApp (ver
-// CobroService.registrarRespuesta()). Nunca toca ninguna otra columna.
+// Dos escrituras: marcar la columna "RESPONDIO MENSAJE" (I, y "PAGO ESTE MES" en H si la
+// respuesta es Sí) cuando el cliente contesta el botón de sí/no del recordatorio de WhatsApp
+// (ver CobroService.registrarRespuesta()), y limpiar esas mismas dos columnas en el reinicio
+// mensual (ver CobroService.reiniciarEstadoMensual()). Nunca toca ninguna otra columna.
 @Service
 public class HojaCobrosService {
 
@@ -196,32 +197,7 @@ public class HojaCobrosService {
                 .findFirst()
                 .orElseThrow();
         try {
-            // FORMATTED_VALUE, no UNFORMATTED_VALUE -- bug real encontrado en esta auditoría: si
-            // la columna "NO." está tipada como número en la hoja (no texto), UNFORMATTED_VALUE
-            // la devuelve como un Double vía Gson (Object -> "12.0"), mientras que numeroFila se
-            // capturó en leerPestana() con FORMATTED_VALUE (siempre texto, "12"). La comparación
-            // de abajo (valor.equals(numeroFila)) nunca habría coincidido, y CADA respuesta de un
-            // cliente por WhatsApp habría fallado en silencio a escribirse en la hoja (quedaba
-            // solo en nuestra base de datos, nunca reflejada donde el equipo la revisa). Usar el
-            // mismo modo de renderizado en ambos lados garantiza el mismo formato de texto sin
-            // importar cómo esté tipada la columna.
-            ValueRange columnaA = sheets.spreadsheets().values()
-                    .get(spreadsheetId, pestana.pestana() + "!A" + pestana.primeraFilaDatos() + ":A")
-                    .setValueRenderOption("FORMATTED_VALUE")
-                    .execute();
-            List<List<Object>> filas = columnaA.getValues();
-            if (filas == null) {
-                log.warn("No se encontró la fila para registrar la respuesta de cobro (hoja vacía).");
-                return;
-            }
-            int filaFisica = -1;
-            for (int i = 0; i < filas.size(); i++) {
-                String valor = valorEn(filas.get(i), 0);
-                if (valor.equals(numeroFila)) {
-                    filaFisica = pestana.primeraFilaDatos() + i;
-                    break;
-                }
-            }
+            int filaFisica = buscarFilaFisica(pestana, numeroFila);
             if (filaFisica == -1) {
                 log.warn("No se encontró en la hoja la fila del cobro para registrar la respuesta "
                         + "(puede haber sido eliminada).");
@@ -245,6 +221,65 @@ public class HojaCobrosService {
         } catch (IOException | RuntimeException ex) {
             log.error("Falló al escribir la respuesta de cobro en la hoja: {}", ex.getMessage(), ex);
         }
+    }
+
+    // Reinicio mensual (ver CobroService.reiniciarEstadoMensual()): desmarca el check de la
+    // columna H (PAGO ESTE MES) y vacía la columna I (RESPONDIO MENSAJE) de la fila. Sin esto,
+    // el check que el equipo olvida desmarcar manualmente en la hoja al cerrar el mes volvería a
+    // colarse como "ya pagó" en la próxima sincronización, deshaciendo el reinicio hecho en
+    // nuestra base de datos.
+    public void limpiarPagoMensual(TipoClienteCobro tipo, String numeroFila) {
+        if (sheets == null) {
+            log.warn("No se pudo limpiar el pago mensual: Google Sheets de cobros no configurado.");
+            return;
+        }
+        ConfiguracionPestana pestana = PESTANAS.stream()
+                .filter(p -> p.tipo() == tipo)
+                .findFirst()
+                .orElseThrow();
+        try {
+            int filaFisica = buscarFilaFisica(pestana, numeroFila);
+            if (filaFisica == -1) {
+                log.warn("No se encontró en la hoja la fila del cobro para limpiar el pago mensual "
+                        + "(puede haber sido eliminada).");
+                return;
+            }
+            ValueRange cuerpo = new ValueRange().setValues(List.of(List.of(false, "")));
+            sheets.spreadsheets().values()
+                    .update(spreadsheetId, pestana.pestana() + "!H" + filaFisica + ":I" + filaFisica, cuerpo)
+                    .setValueInputOption("USER_ENTERED")
+                    .execute();
+        } catch (IOException | RuntimeException ex) {
+            log.error("Falló al limpiar el pago mensual de cobro en la hoja: {}", ex.getMessage(), ex);
+        }
+    }
+
+    // Vuelve a ubicar la fila por su número de la columna A justo antes de escribir (no reutiliza
+    // un índice guardado de una sincronización anterior): si alguien insertó o borró filas arriba
+    // en la hoja desde entonces, un índice viejo escribiría en la celda equivocada.
+    private int buscarFilaFisica(ConfiguracionPestana pestana, String numeroFila) throws IOException {
+        // FORMATTED_VALUE, no UNFORMATTED_VALUE -- bug real encontrado en esta auditoría: si la
+        // columna "NO." está tipada como número en la hoja (no texto), UNFORMATTED_VALUE la
+        // devuelve como un Double vía Gson (Object -> "12.0"), mientras que numeroFila se capturó
+        // en leerPestana() con FORMATTED_VALUE (siempre texto, "12"). La comparación de abajo
+        // (valor.equals(numeroFila)) nunca habría coincidido, y cada escritura a esa fila habría
+        // fallado en silencio. Usar el mismo modo de renderizado en ambos lados garantiza el
+        // mismo formato de texto sin importar cómo esté tipada la columna.
+        ValueRange columnaA = sheets.spreadsheets().values()
+                .get(spreadsheetId, pestana.pestana() + "!A" + pestana.primeraFilaDatos() + ":A")
+                .setValueRenderOption("FORMATTED_VALUE")
+                .execute();
+        List<List<Object>> filas = columnaA.getValues();
+        if (filas == null) {
+            return -1;
+        }
+        for (int i = 0; i < filas.size(); i++) {
+            String valor = valorEn(filas.get(i), 0);
+            if (valor.equals(numeroFila)) {
+                return pestana.primeraFilaDatos() + i;
+            }
+        }
+        return -1;
     }
 
     private static String valorEn(List<Object> fila, int indice) {
