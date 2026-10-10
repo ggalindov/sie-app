@@ -68,18 +68,45 @@ export default function LoginPage() {
     // pero esta pantalla de entrada es la única que un visitante cualquiera puede
     // encontrarse sin pasar por el candado del nav -- pedido explícito: que se sienta
     // continua con el sitio público (que ahora abre en oscuro por defecto) en vez de
-    // un salto brusco a blanco. Degradado animado en vez de un color plano, como en
-    // el resto del sitio.
-    <div
-      className="gradient-animate relative flex min-h-screen items-center justify-center overflow-hidden bg-night px-6 py-16"
-      style={{
-        backgroundImage:
-          "radial-gradient(120% 100% at 15% 0%, rgba(217,169,37,0.16), transparent 55%), radial-gradient(120% 100% at 85% 100%, rgba(63,91,68,0.14), transparent 55%)",
-      }}
-    >
+    // un salto brusco a blanco.
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-night px-6 py-16">
+      {/* Capa 1: fotografía de fondo a baja opacidad (pedido explícito del usuario) -- una
+          biblioteca, coherente con el oficio sin ser literal (no un mazo de juez ni una
+          balanza genérica). object-cover + fill cubre cualquier proporción de pantalla. */}
+      <Image
+        src="/admin/login-fondo.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 object-cover opacity-[0.16]"
+      />
+      {/* Capa 2: viñeta oscura sobre la foto -- nunca se diseña contraste de texto "a ojo"
+          sobre una fotografía real: esto garantiza que la tarjeta y el texto sean legibles
+          sin importar qué tan clara u oscura salga esa zona puntual de la imagen. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "radial-gradient(130% 90% at 50% 8%, transparent 0%, rgba(20,19,15,0.55) 55%, rgba(20,19,15,0.94) 100%)",
+        }}
+      />
+      {/* Capa 3: el mismo degradado animado dorado/verde de siempre, ahora encima de la foto */}
+      <div
+        aria-hidden="true"
+        className="gradient-animate absolute inset-0"
+        style={{
+          backgroundImage:
+            "radial-gradient(120% 100% at 15% 0%, rgba(217,169,37,0.16), transparent 55%), radial-gradient(120% 100% at 85% 100%, rgba(63,91,68,0.14), transparent 55%)",
+        }}
+      />
+
+      {/* Centrado horizontal (pedido explícito del usuario, "el volver del login dejalo en la
+          mitad"): antes quedaba pegado a la esquina superior izquierda. */}
       <Link
         href="/"
-        className="absolute left-6 top-6 z-10 flex items-center gap-2 text-sm text-night-ink/60 transition-colors hover:text-night-ink"
+        className="absolute left-1/2 top-6 z-10 flex -translate-x-1/2 items-center gap-2 text-sm text-night-ink/60 transition-colors hover:text-night-ink"
       >
         <ArrowLeft className="h-4 w-4" weight="bold" />
         Volver al inicio
@@ -89,12 +116,19 @@ export default function LoginPage() {
         initial={{ opacity: 0, y: 26, scale: 0.965 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.65, ease: EASE }}
-        className="relative w-full max-w-sm"
+        className="relative z-10 w-full max-w-sm"
       >
         {/* Halo dorado detrás de la tarjeta, como el resplandor de un gafete bajo luz --
             estático a propósito (no pulsa): la tarjeta ya trae suficiente movimiento propio
             con la entrada escalonada, sumarle un resplandor animado de fondo la saturaría. */}
-        <div aria-hidden="true" className="pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] bg-gold/[0.08] blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] bg-gold/[0.1] blur-3xl" />
+
+        {/* Pedido explícito del usuario: "hazla mas bonita y unica" -- un par de filetes en L
+            en las esquinas opuestas, como el corte de un sello o un documento certificado,
+            para que la tarjeta no sea un panel de vidrio genérico más. Decorativos puros
+            (aria-hidden), por fuera del propio panel para no interferir con su contenido. */}
+        <span aria-hidden="true" className="pointer-events-none absolute -left-3 -top-3 h-9 w-9 border-l-2 border-t-2 border-gold/50" />
+        <span aria-hidden="true" className="pointer-events-none absolute -bottom-3 -right-3 h-9 w-9 border-b-2 border-r-2 border-gold/50" />
 
         {/* La "tarjetera": panel de vidrio esmerilado con el mismo filo dorado que ya usa
             .card-edged en el resto del sistema (sello de documento legal), pensado como un
@@ -109,16 +143,34 @@ export default function LoginPage() {
           />
 
           <motion.div custom={0} initial="oculto" animate="visible" variants={bloqueVariants} className="flex flex-col items-center">
-            <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-gold/30">
-              <span aria-hidden="true" className="absolute inset-0 rounded-full bg-gold/10 blur-md" />
-              <Image src="/marca/logo.png" alt="SIE Jurídicos" width={34} height={34} className="relative h-[34px] w-[34px] object-contain" />
+            {/* Medallón del logo: anillo en degradado cónico (dorado -> transparente ->
+                dorado) en vez de un ring sólido plano -- da la sensación de una moneda/sello
+                grabado, no un simple círculo de borde. Estático, mismo criterio que el halo
+                de arriba. */}
+            <span
+              className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full p-[1.5px]"
+              style={{ backgroundImage: "conic-gradient(from 0deg, var(--color-gold-pale), transparent 35%, transparent 65%, var(--color-gold))" }}
+            >
+              <span className="flex h-full w-full items-center justify-center rounded-full bg-night">
+                <span aria-hidden="true" className="absolute inset-0 rounded-full bg-gold/15 blur-lg" />
+                <Image src="/marca/logo.png" alt="SIE Jurídicos" width={34} height={34} className="relative h-[34px] w-[34px] object-contain" />
+              </span>
             </span>
             <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.22em] text-gold-pale/80">Acceso exclusivo</p>
             <h1 className="mt-1.5 font-display text-2xl text-night-ink">Panel administrativo</h1>
             <p className="mt-1 text-sm text-night-ink/50">SIE Jurídicos</p>
           </motion.div>
 
-          <form onSubmit={onSubmit} className="mt-9 space-y-4">
+          {/* Separador ornamental: filete dorado con un rombo centrado, en vez de un simple
+              margen en blanco entre el encabezado y el formulario -- el mismo tipo de
+              flourish que llevaría un certificado o un documento membretado. */}
+          <div className="mt-7 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-gold/25" />
+            <span className="h-1.5 w-1.5 rotate-45 bg-gold/40" />
+            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-gold/25" />
+          </div>
+
+          <form onSubmit={onSubmit} className="mt-7 space-y-4">
             <motion.div custom={1} initial="oculto" animate="visible" variants={bloqueVariants} className="space-y-2">
               <label htmlFor="correo" className="text-sm font-medium text-night-ink/70">
                 Correo

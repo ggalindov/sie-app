@@ -72,10 +72,16 @@ export default async function ArticuloPage({
           columnas"), SOLO en escritorio -- en móvil es exactamente el mismo mx-auto max-w-3xl
           de antes, sin ningún cambio. lg:items-start evita que el riel lateral se estire para
           igualar el alto del artículo (se queda "sticky" a su propio contenido, ver
-          ArticuloSidebar). */}
-      <div className="mx-auto max-w-3xl px-6 lg:max-w-6xl lg:px-8">
+          ArticuloSidebar). Contenedor ampliado a max-w-7xl (antes 6xl) para darle más aire a
+          la imagen, que ahora ocupa todo el ancho de su columna en vez de acotarse al ancho
+          de lectura del texto (pedido explícito: "la imagen mas GRANDE"). */}
+      <div className="mx-auto max-w-3xl px-6 lg:max-w-7xl lg:px-8">
         <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-16 lg:items-start">
-          <article className="min-w-0 lg:max-w-[42rem]">
+          {/* Sin max-width propio: breadcrumb/título/meta (dentro de ArticuloCabecera) y el
+              cuerpo del texto (.contenido-articulo) cada uno pide su propio ancho de lectura
+              cómodo (~42rem) por separado -- la imagen y el video, que SÍ quieren ser grandes,
+              quedan libres para ocupar el ancho completo de la columna. */}
+          <article className="min-w-0">
             <ArticuloCabecera
               categoria={articulo.categoria.nombre}
               titulo={articulo.titulo}
@@ -110,10 +116,12 @@ export default async function ArticuloPage({
               </div>
             )}
 
-            <div
-              className="contenido-articulo mt-10 text-ink md:mt-12"
-              dangerouslySetInnerHTML={{ __html: articulo.contenido }}
-            />
+            <div className="lg:max-w-[42rem]">
+              <div
+                className="contenido-articulo mt-10 text-ink md:mt-12"
+                dangerouslySetInnerHTML={{ __html: articulo.contenido }}
+              />
+            </div>
           </article>
 
           <ArticuloSidebar

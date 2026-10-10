@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
-import { List, X, WhatsappLogo, Lock } from "@phosphor-icons/react";
+import { List, X, WhatsappLogo, Lock, FacebookLogo, InstagramLogo, LinkedinLogo } from "@phosphor-icons/react";
 import { navLinks, siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
 import { NavItemConPanel } from "@/components/nav-dropdown";
@@ -69,6 +69,43 @@ export function SiteNav() {
         style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder, "--nav-ink": esInicio ? navInkScroll : 100 } as CSSProperties}
         className="nav-bar fixed inset-x-0 top-0 z-40 backdrop-blur-xl"
       >
+        {/* Franja de redes sociales (pedido explícito del usuario), adaptada al lenguaje
+            propio del sitio en vez de copiar el estilo de la referencia: mismo crossfade de
+            color que ya usan el candado de acceso interno y el resto del nav
+            (nav-text-crossfade), para que los íconos sigan siendo legibles tanto sobre el
+            video del Hero como sobre el fondo claro/oscuro del resto de páginas. Oculta en
+            móvil a propósito -- ya viven en el footer y en el menú de pantalla completa, aquí
+            serían un renglón más para tocar con el dedo sin aportar nada nuevo. */}
+        <div className="mx-auto hidden max-w-7xl items-center justify-end gap-3 border-b border-ink/5 px-6 py-2 md:flex md:px-10">
+          <a
+            href={siteConfig.redes.facebook}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Facebook de SIE Jurídicos"
+            className="nav-text-crossfade opacity-50 transition-opacity hover:opacity-100"
+          >
+            <FacebookLogo weight="fill" className="h-4 w-4" />
+          </a>
+          <a
+            href={siteConfig.redes.instagram}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Instagram de SIE Jurídicos"
+            className="nav-text-crossfade opacity-50 transition-opacity hover:opacity-100"
+          >
+            <InstagramLogo weight="fill" className="h-4 w-4" />
+          </a>
+          <a
+            href={siteConfig.redes.linkedin}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="LinkedIn de SIE Jurídicos"
+            className="nav-text-crossfade opacity-50 transition-opacity hover:opacity-100"
+          >
+            <LinkedinLogo weight="fill" className="h-4 w-4" />
+          </a>
+        </div>
+
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link
             href="/"
