@@ -9,6 +9,7 @@ import {
   DeviceMobile,
   EnvelopeSimple,
   HourglassMedium,
+  MagnifyingGlass,
   PhoneSlash,
   Prohibit,
   Spinner,
@@ -84,6 +85,7 @@ export default function CobrosAdminPage() {
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
   const [enviandoPrueba, setEnviandoPrueba] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
+  const [busqueda, setBusqueda] = useState("");
 
   const cargar = useCallback(() => {
     listarCobros()
@@ -104,7 +106,23 @@ export default function CobrosAdminPage() {
     );
   }
 
-  const clientesFiltrados = clientes?.filter((c) => cumpleFiltroEstado(c, filtroEstado)) ?? null;
+  // Buscador 100% local (pedido explícito del usuario: "super rapido") -- filtra el array ya
+  // cargado en memoria, sin ningún viaje al servidor, así que responde en cada tecla sin
+  // ningún retraso perceptible.
+  const busquedaNormalizada = busqueda.trim().toLowerCase();
+  const clientesFiltrados =
+    clientes
+      ?.filter((c) => cumpleFiltroEstado(c, filtroEstado))
+      .filter((c) => {
+        if (!busquedaNormalizada) return true;
+        return (
+          c.nombre.toLowerCase().includes(busquedaNormalizada) ||
+          (c.correo?.toLowerCase().includes(busquedaNormalizada) ?? false) ||
+          (c.telefono?.toLowerCase().includes(busquedaNormalizada) ?? false) ||
+          (c.cedulaNit?.toLowerCase().includes(busquedaNormalizada) ?? false) ||
+          c.numeroFila.toLowerCase().includes(busquedaNormalizada)
+        );
+      }) ?? null;
 
   // Resumen de cobro (pedido explícito del usuario: "cuando una persona acepta el pago se
   // indique y esto lo veamos reflejado de mejor manera") -- un vistazo con cuánto ya se
@@ -324,11 +342,22 @@ export default function CobrosAdminPage() {
 
       {clientes !== null && clientes.length > 0 && (
         <>
+          <div className="relative mt-6">
+            <MagnifyingGlass weight="bold" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre, correo, teléfono, cédula/NIT o número..."
+              className="w-full rounded-full border border-line bg-surface py-2.5 pl-11 pr-4 text-sm text-ink placeholder:text-ink-soft focus:border-gold-deep focus:outline-none"
+            />
+          </div>
+
           {/* Filtro unificado por estado de cobro y respuesta a la notificación -- pedido
               explícito del usuario: quitar el filtro por tipo (Empresas/Personas naturales,
               poco relevante para el día a día) y dejar los filtros organizados alrededor de
               lo que de verdad importa: a quién le falta cobrar. */}
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {ESTADOS_FILTRO.map((e) => {
               const cantidad =
                 e.valor === "TODOS"
@@ -361,6 +390,8 @@ export default function CobrosAdminPage() {
           title="Aún no hay clientes registrados"
           description='Usa "Actualizar desde la hoja" para traer todos los clientes activos del Google Sheets de cobros.'
         />
+      ) : clientesFiltrados?.length === 0 ? (
+        <EmptyState title="Sin resultados" description="Ningún cliente coincide con la búsqueda o el filtro actual." />
       ) : (
         <div className="mt-6 space-y-3">
           {clientesFiltrados?.map((c) => {

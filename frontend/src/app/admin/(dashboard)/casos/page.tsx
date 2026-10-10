@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { ArrowsClockwise, Bell, CheckSquare, EnvelopeSimple, HourglassMedium, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, CheckSquare, EnvelopeSimple, HourglassMedium, MagnifyingGlass, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   listarCasos,
   crearCaso,
@@ -40,6 +40,7 @@ export default function CasosAdminPage() {
   const [enviandoPendientes, setEnviandoPendientes] = useState(false);
   const [enviandoReporteSemanal, setEnviandoReporteSemanal] = useState(false);
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
+  const [busqueda, setBusqueda] = useState("");
   const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<ObjetivoTareas | null>(null);
   const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});
 
@@ -63,7 +64,23 @@ export default function CasosAdminPage() {
     cargarConteoTareas();
   }, [cargar, cargarConteoTareas]);
 
-  const casosFiltrados = casos?.filter((c) => filtroFuente === "TODOS" || c.fuente === filtroFuente) ?? null;
+  // Buscador 100% local (pedido explícito del usuario: "super rapido") -- filtra el array ya
+  // cargado en memoria, sin ningún viaje al servidor, así que responde en cada tecla sin
+  // ningún retraso perceptible. Busca por cliente, contacto, radicado y número de caso a la vez.
+  const busquedaNormalizada = busqueda.trim().toLowerCase();
+  const casosFiltrados =
+    casos
+      ?.filter((c) => filtroFuente === "TODOS" || c.fuente === filtroFuente)
+      .filter((c) => {
+        if (!busquedaNormalizada) return true;
+        return (
+          c.nombreCliente.toLowerCase().includes(busquedaNormalizada) ||
+          (c.correoCliente?.toLowerCase().includes(busquedaNormalizada) ?? false) ||
+          (c.telefonoCliente?.toLowerCase().includes(busquedaNormalizada) ?? false) ||
+          (c.radicadoId?.toLowerCase().includes(busquedaNormalizada) ?? false) ||
+          (c.numeroCaso?.toLowerCase().includes(busquedaNormalizada) ?? false)
+        );
+      }) ?? null;
 
   async function onSincronizar() {
     setSincronizando(true);
@@ -216,7 +233,20 @@ export default function CasosAdminPage() {
       />
 
       {casos !== null && casos.length > 0 && (
-        <div className="mt-6 flex flex-wrap gap-2">
+        <div className="relative mt-6">
+          <MagnifyingGlass weight="bold" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por cliente, correo, teléfono, radicado o número de caso..."
+            className="w-full rounded-full border border-line bg-surface py-2.5 pl-11 pr-4 text-sm text-ink placeholder:text-ink-soft focus:border-gold-deep focus:outline-none"
+          />
+        </div>
+      )}
+
+      {casos !== null && casos.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
           {FUENTES_FILTRO.map((f) => {
             const cantidad = f.valor === "TODOS" ? casos.length : casos.filter((c) => c.fuente === f.valor).length;
             if (f.valor !== "TODOS" && cantidad === 0) return null;
@@ -243,6 +273,8 @@ export default function CasosAdminPage() {
           title="Aún no hay casos registrados"
           description='Usa "Actualizar desde la hoja" para traer todos los casos existentes de las hojas de la firma.'
         />
+      ) : casosFiltrados?.length === 0 ? (
+        <EmptyState title="Sin resultados" description="Ningún caso coincide con la búsqueda o el filtro actual." />
       ) : (
         <div className="mt-6 space-y-3">
           {casosFiltrados?.map((c) => (
