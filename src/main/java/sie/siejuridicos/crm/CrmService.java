@@ -6,10 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.caso.Caso;
 import sie.siejuridicos.caso.CasoRepository;
+import sie.siejuridicos.caso.FuenteCaso;
 import sie.siejuridicos.cobro.ClienteCobro;
 import sie.siejuridicos.cobro.ClienteCobroRepository;
 import sie.siejuridicos.cobro.CobroService;
 import sie.siejuridicos.common.cifrado.CifradoService;
+import sie.siejuridicos.common.exception.HojaCalculoNoDisponibleException;
 import sie.siejuridicos.crm.dto.ActividadCrmResponse;
 import sie.siejuridicos.crm.dto.ActualizarClienteCrmRequest;
 import sie.siejuridicos.crm.dto.CambiarEtapaPipelineRequest;
@@ -21,6 +23,8 @@ import sie.siejuridicos.crm.dto.CrearActividadCrmRequest;
 import sie.siejuridicos.crm.dto.CrearClienteCrmRequest;
 import sie.siejuridicos.crm.dto.CrmDashboardResponse;
 import sie.siejuridicos.crm.dto.ItemPipelineResponse;
+import sie.siejuridicos.hojacalculo.HojaCalculoService;
+import sie.siejuridicos.hojacalculo.dto.FilaCasoHoja;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.solicitud.EstadoSolicitud;
@@ -50,6 +54,7 @@ public class CrmService {
     private final ClienteCobroRepository clienteCobroRepository;
     private final CifradoService cifradoService;
     private final RegistroSistemaService registroSistemaService;
+    private final HojaCalculoService hojaCalculoService;
 
     public CrmService(ClienteCrmRepository clienteCrmRepository,
                       ActividadCrmRepository actividadCrmRepository,
@@ -57,7 +62,8 @@ public class CrmService {
                       CasoRepository casoRepository,
                       ClienteCobroRepository clienteCobroRepository,
                       CifradoService cifradoService,
-                      RegistroSistemaService registroSistemaService) {
+                      RegistroSistemaService registroSistemaService,
+                      HojaCalculoService hojaCalculoService) {
         this.clienteCrmRepository = clienteCrmRepository;
         this.actividadCrmRepository = actividadCrmRepository;
         this.solicitudRepository = solicitudRepository;
@@ -65,6 +71,7 @@ public class CrmService {
         this.clienteCobroRepository = clienteCobroRepository;
         this.cifradoService = cifradoService;
         this.registroSistemaService = registroSistemaService;
+        this.hojaCalculoService = hojaCalculoService;
     }
 
     // =========================================================================
@@ -149,18 +156,27 @@ public class CrmService {
         // Expedientes judiciales asociados
         List<Caso> casosEntidad = casoRepository.findByClienteClienteCrmId(c.getId());
         List<ClienteCrmDetalleResponse.CasoVinculadoDto> casos = casosEntidad.stream()
-                .map(cas -> new ClienteCrmDetalleResponse.CasoVinculadoDto(
-                        cas.getId(),
-                        cas.getRadicadoId(),
-                        cas.getFuente() != null ? cas.getFuente().getNombreVisible() : "General",
-                        cas.getNumeroCaso(),
-                        // Mismo criterio que CasoAdminResponse.desde(): el nombre de la hoja si
-                        // existe, si no el del Cliente compartido.
-                        cas.getNombreEnHoja() != null ? cas.getNombreEnHoja() : cas.getCliente().getNombre(),
-                        cas.getNotasInternas(),
-                        cas.isCorreoEnviado(),
-                        cas.isWhatsappEnviado()
-                ))
+                .map(cas -> {
+                    FilaCasoHoja estadoReal = buscarEstadoRealDelCaso(cas);
+                    return new ClienteCrmDetalleResponse.CasoVinculadoDto(
+                            cas.getId(),
+                            cas.getRadicadoId(),
+                            cas.getFuente() != null ? cas.getFuente().getNombreVisible() : "General",
+                            cas.getNumeroCaso(),
+                            // Mismo criterio que CasoAdminResponse.desde(): el nombre de la hoja si
+                            // existe, si no el del Cliente compartido.
+                            cas.getNombreEnHoja() != null ? cas.getNombreEnHoja() : cas.getCliente().getNombre(),
+                            cas.getNotasInternas(),
+                            cas.isCorreoEnviado(),
+                            cas.isWhatsappEnviado(),
+                            estadoReal != null ? estadoReal.despachoJudicial() : null,
+                            estadoReal != null ? estadoReal.informacionCaso() : null,
+                            estadoReal != null ? estadoReal.tipoCaso() : null,
+                            estadoReal != null ? estadoReal.ultimaDecision() : null,
+                            estadoReal != null ? estadoReal.estado() : null,
+                            estadoReal != null ? estadoReal.fechaActualizacion() : null
+                    );
+                })
                 .toList();
 
         // Cobros mensuales asociados
@@ -198,6 +214,26 @@ public class CrmService {
                 .toList();
 
         return new ClienteCrmDetalleResponse(resumen, casos, cobros, citas, actividades);
+    }
+
+    // Estado real del caso, leído EN VIVO del Google Sheets de la firma (mismo mecanismo que
+    // CasoService.consultar(), la consulta pública por radicado) -- pedido explícito del
+    // usuario: "que dentro del CRM tenga la informacion y ultimo reporte del caso [...] junto
+    // al asunto en si del caso". Nunca lanza excepción hacia arriba: un caso MANUAL, sin
+    // radicado todavía, o un fallo real de la hoja (red, cuota) simplemente deja esos campos en
+    // null en vez de tumbar la carga completa de la ficha del cliente.
+    private FilaCasoHoja buscarEstadoRealDelCaso(Caso caso) {
+        if (caso.getFuente() == null || caso.getFuente() == FuenteCaso.MANUAL
+                || caso.getRadicadoId() == null || caso.getRadicadoId().isBlank()) {
+            return null;
+        }
+        try {
+            return hojaCalculoService.buscarPorRadicado(caso.getFuente(), caso.getRadicadoId()).orElse(null);
+        } catch (HojaCalculoNoDisponibleException ex) {
+            log.warn("No se pudo leer el estado en vivo del caso {} (radicado {}) para la ficha del CRM: {}",
+                    caso.getId(), caso.getRadicadoId(), ex.getMessage());
+            return null;
+        }
     }
 
     @Transactional

@@ -683,6 +683,9 @@ export type ClienteCrm = {
   pagoAlDia: boolean;
 };
 
+// despachoJudicial..fechaActualizacionReporte: estado real del caso leído en vivo del Google
+// Sheets de la firma (mismo dato que la consulta pública por radicado) -- todos pueden venir
+// null si el caso es MANUAL, no tiene radicado todavía, o la hoja no tiene cargada esa fila.
 export type CasoVinculado = {
   id: number;
   radicadoId: string | null;
@@ -692,6 +695,12 @@ export type CasoVinculado = {
   notasInternas: string | null;
   correoEnviado: boolean;
   whatsappEnviado: boolean;
+  despachoJudicial: string | null;
+  asuntoCaso: string | null;
+  tipoCaso: string | null;
+  ultimoReporte: string | null;
+  estadoJudicial: string | null;
+  fechaActualizacionReporte: string | null;
 };
 
 export type CobroVinculado = {

@@ -13,18 +13,32 @@ public record ClienteCrmDetalleResponse(
         List<CitaVinculadaDto> citas,
         List<ActividadCrmResponse> actividades
 ) {
+    // Pedido explícito del usuario: "que dentro del CRM tenga la informacion y ultimo
+    // reporte del caso, comentarios y demas, junto al asunto en si del caso". Los últimos
+    // cinco campos son el estado real del caso, leído EN VIVO del Google Sheets de la firma
+    // (mismo dato que ve un cliente en la consulta pública por radicado, ver
+    // CasoConsultaResponse/HojaCalculoService) -- nunca se guardan localmente, así que pueden
+    // venir todos en null si el caso todavía no tiene radicado, es de fuente MANUAL, o la hoja
+    // no tiene cargada esa fila todavía (no es un error, ver CrmService.obtenerDetalle()).
     public record CasoVinculadoDto(
             Long id,
             String radicadoId,
             String fuente,
             String numeroCaso,
-            // Pedido explícito del usuario: "pon la descripcion del caso completa dentro de
-            // cada perfil del CRM" -- nombreCliente para dar contexto al abrir "Tareas" de este
-            // caso (mismo campo que ya usa Casos), notasInternas es la descripción completa.
+            // nombreCliente da contexto al abrir "Tareas" de este caso (mismo campo que ya usa
+            // Casos), notasInternas es la descripción/comentario interno completo del caso.
             String nombreCliente,
             String notasInternas,
             boolean correoEnviado,
-            boolean whatsappEnviado
+            boolean whatsappEnviado,
+            String despachoJudicial,
+            // El "asunto" del caso: de qué se trata (partes, tipo de proceso).
+            String asuntoCaso,
+            String tipoCaso,
+            // El último reporte/decisión registrado en la hoja de la firma.
+            String ultimoReporte,
+            String estadoJudicial,
+            String fechaActualizacionReporte
     ) {}
 
     public record CobroVinculadoDto(

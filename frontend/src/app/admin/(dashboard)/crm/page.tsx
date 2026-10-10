@@ -1232,12 +1232,60 @@ export default function CrmAdminPage() {
                                 </div>
                               </div>
 
-                              {/* Descripción completa del caso (pedido explícito del usuario:
-                                  "pon la descripcion del caso completa dentro de cada perfil
-                                  del CRM") -- las notas internas tal cual quedaron en el caso,
-                                  nunca visibles para el cliente. */}
+                              {/* Estado real del proceso, leído en vivo del Google Sheets de la
+                                  firma (pedido explícito del usuario: "que dentro del CRM tenga
+                                  la informacion y ultimo reporte del caso [...] junto al asunto
+                                  en si del caso") -- mismo dato que ve el cliente en la consulta
+                                  pública por radicado. Se omite por completo si el caso es
+                                  MANUAL, no tiene radicado todavía, o la hoja no trae esa fila. */}
+                              {(caso.asuntoCaso || caso.tipoCaso || caso.despachoJudicial || caso.estadoJudicial || caso.ultimoReporte) && (
+                                <div className="mt-2 space-y-1 rounded-lg border border-line/60 bg-paper-soft p-2">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-soft/70">
+                                    Estado del proceso (en vivo)
+                                  </p>
+                                  {caso.asuntoCaso && (
+                                    <p>
+                                      <span className="font-semibold text-ink">Asunto: </span>
+                                      <span className="text-ink-soft">{caso.asuntoCaso}</span>
+                                    </p>
+                                  )}
+                                  {caso.tipoCaso && (
+                                    <p>
+                                      <span className="font-semibold text-ink">Tipo: </span>
+                                      <span className="text-ink-soft">{caso.tipoCaso}</span>
+                                    </p>
+                                  )}
+                                  {caso.despachoJudicial && (
+                                    <p>
+                                      <span className="font-semibold text-ink">Despacho: </span>
+                                      <span className="text-ink-soft">{caso.despachoJudicial}</span>
+                                    </p>
+                                  )}
+                                  {caso.estadoJudicial && (
+                                    <p>
+                                      <span className="font-semibold text-ink">Estado: </span>
+                                      <span className="text-ink-soft">{caso.estadoJudicial}</span>
+                                    </p>
+                                  )}
+                                  {caso.ultimoReporte && (
+                                    <p>
+                                      <span className="font-semibold text-ink">Último reporte: </span>
+                                      <span className="text-ink-soft">{caso.ultimoReporte}</span>
+                                    </p>
+                                  )}
+                                  {caso.fechaActualizacionReporte && (
+                                    <p className="text-[10px] text-ink-soft/70">Actualizado: {caso.fechaActualizacionReporte}</p>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Descripción/comentario interno completo del caso (pedido
+                                  explícito del usuario: "pon la descripcion del caso completa
+                                  dentro de cada perfil del CRM") -- texto escrito a mano por el
+                                  equipo, nunca visible para el cliente. */}
                               {caso.notasInternas && (
                                 <p className="mt-2 rounded-lg border border-line/60 bg-paper-soft p-2 text-ink-soft whitespace-pre-wrap">
+                                  <span className="font-semibold text-ink">Comentarios internos: </span>
                                   {caso.notasInternas}
                                 </p>
                               )}
