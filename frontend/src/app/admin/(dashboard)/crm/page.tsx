@@ -40,9 +40,6 @@ import {
   obtenerPipelineCrm,
   cambiarEtapaPipeline,
   convertirProspectoACrm,
-  registrarActividadCrm,
-  crearTareaCrm,
-  completarTareaCrm,
   obtenerDashboardCrm,
   ApiError,
   type ClienteCrm,
@@ -52,8 +49,6 @@ import {
   type TipoClienteCrm,
   type EstadoClienteCrm,
   type EtapaPipeline,
-  type TipoActividadCrm,
-  type PrioridadTareaCrm,
 } from "@/lib/admin-api";
 import {
   AdminPageHeader,
@@ -144,7 +139,12 @@ export default function CrmAdminPage() {
   // Sub-secciones de la Ficha 360°: antes todo (casos, cobros, citas, tareas, bitácora)
   // estaba apilado en un solo scroll largo -- pedido explícito del usuario ("demasiada
   // información suelta sin orden claro"). Ahora cada bloque vive en su propia sección.
-  const [fichaTabActiva, setFichaTabActiva] = useState<"resumen" | "casos" | "tareas" | "bitacora">("resumen");
+  // Pedido explícito del usuario: "quita la bitácora porque es algo innutilizable para
+  // nosotros" -- y la pestaña "Tareas" de aquí (crm.TareaCrm, responsable en texto libre sin
+  // validar) quedó reemplazada por el sistema de tareas por caso con responsable real (ver
+  // /admin/tareas y el botón "Tareas" de cada caso en /admin/casos), así que se retira también
+  // para no mantener dos sistemas de tareas paralelos e inconsistentes.
+  const [fichaTabActiva, setFichaTabActiva] = useState<"resumen" | "casos">("resumen");
   const [editNombre, setEditNombre] = useState("");
   const [editTipo, setEditTipo] = useState<TipoClienteCrm>("PERSONA_NATURAL");
   const [editCedulaNit, setEditCedulaNit] = useState("");
@@ -155,18 +155,6 @@ export default function CrmAdminPage() {
   const [editNotas, setEditNotas] = useState("");
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [archivando, setArchivando] = useState(false);
-
-  // Estado Formulario Nueva Actividad / Nota
-  const [nuevaActividadTipo, setNuevaActividadTipo] = useState<TipoActividadCrm>("NOTA_INTERNA");
-  const [nuevaActividadTitulo, setNuevaActividadTitulo] = useState("");
-  const [nuevaActividadDesc, setNuevaActividadDesc] = useState("");
-  const [guardandoActividad, setGuardandoActividad] = useState(false);
-
-  // Estado Formulario Nueva Tarea
-  const [nuevaTareaTitulo, setNuevaTareaTitulo] = useState("");
-  const [nuevaTareaPrioridad, setNuevaTareaPrioridad] = useState<PrioridadTareaCrm>("MEDIA");
-  const [nuevaTareaVencimiento, setNuevaTareaVencimiento] = useState("");
-  const [guardandoTarea, setGuardandoTarea] = useState(false);
 
   // Estado Métricas
   const [dashboard, setDashboard] = useState<CrmDashboard | null>(null);
@@ -339,66 +327,6 @@ export default function CrmAdminPage() {
       toast.error(err instanceof ApiError ? err.message : "Error al crear cliente");
     } finally {
       setGuardandoCliente(false);
-    }
-  }
-
-  // Agregar Actividad en Ficha
-  async function onGuardarActividad(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clienteSeleccionadoId || !nuevaActividadTitulo.trim()) {
-      toast.warning("Escribe un título para el registro.");
-      return;
-    }
-    setGuardandoActividad(true);
-    try {
-      await registrarActividadCrm(clienteSeleccionadoId, {
-        tipo: nuevaActividadTipo,
-        titulo: nuevaActividadTitulo.trim(),
-        descripcion: nuevaActividadDesc.trim() || undefined,
-      });
-      toast.success("Actividad registrada en la bitácora");
-      setNuevaActividadTitulo("");
-      setNuevaActividadDesc("");
-      cargarFichaCliente(clienteSeleccionadoId);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error al registrar actividad");
-    } finally {
-      setGuardandoActividad(false);
-    }
-  }
-
-  // Agregar Tarea en Ficha
-  async function onGuardarTarea(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clienteSeleccionadoId || !nuevaTareaTitulo.trim()) {
-      toast.warning("Escribe el título de la tarea.");
-      return;
-    }
-    setGuardandoTarea(true);
-    try {
-      await crearTareaCrm(clienteSeleccionadoId, {
-        titulo: nuevaTareaTitulo.trim(),
-        prioridad: nuevaTareaPrioridad,
-        fechaVencimiento: nuevaTareaVencimiento.trim() || undefined,
-      });
-      toast.success("Tarea asignada con éxito");
-      setNuevaTareaTitulo("");
-      setNuevaTareaVencimiento("");
-      cargarFichaCliente(clienteSeleccionadoId);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error al crear tarea");
-    } finally {
-      setGuardandoTarea(false);
-    }
-  }
-
-  async function onToggleTarea(tareaId: number, estadoActual: boolean) {
-    if (!clienteSeleccionadoId) return;
-    try {
-      await completarTareaCrm(tareaId, !estadoActual);
-      cargarFichaCliente(clienteSeleccionadoId);
-    } catch {
-      toast.error("No se pudo actualizar el estado de la tarea.");
     }
   }
 
@@ -1162,14 +1090,6 @@ export default function CrmAdminPage() {
                             : ""
                         }`,
                       },
-                      {
-                        key: "tareas",
-                        label: `Tareas${clienteDetalle.tareas.length > 0 ? ` (${clienteDetalle.tareas.length})` : ""}`,
-                      },
-                      {
-                        key: "bitacora",
-                        label: `Bitácora${clienteDetalle.actividades.length > 0 ? ` (${clienteDetalle.actividades.length})` : ""}`,
-                      },
                     ] as const
                   ).map((t) => (
                     <button
@@ -1191,7 +1111,7 @@ export default function CrmAdminPage() {
                     pagos" y el estado general sin tener que abrir cada sección) */}
                 {fichaTabActiva === "resumen" && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="rounded-xl border border-line bg-paper-soft p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Casos</p>
                         <p className="mt-1 text-xl font-bold text-ink">{clienteDetalle.casos.length}</p>
@@ -1200,12 +1120,6 @@ export default function CrmAdminPage() {
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Cobro</p>
                         <p className={`mt-1 text-sm font-bold ${clienteDetalle.cliente.pagoAlDia ? "text-emerald-700" : "text-amber-700"}`}>
                           {clienteDetalle.cliente.pagoAlDia ? "Al día" : "Pendiente"}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-line bg-paper-soft p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Tareas pend.</p>
-                        <p className="mt-1 text-xl font-bold text-ink">
-                          {clienteDetalle.tareas.filter((t) => !t.completada).length}
                         </p>
                       </div>
                       <div className="rounded-xl border border-line bg-paper-soft p-3">
@@ -1330,147 +1244,6 @@ export default function CrmAdminPage() {
                 )}
 
                 {/* Tareas Pendientes */}
-                {fichaTabActiva === "tareas" && (
-                  <div>
-                    {/* Formulario Nueva Tarea */}
-                    <form onSubmit={onGuardarTarea} className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={nuevaTareaTitulo}
-                        onChange={(e) => setNuevaTareaTitulo(e.target.value)}
-                        placeholder="Nueva tarea jurídica (ej: Radicar memorial, Solicitar poder)..."
-                        className="flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
-                      />
-                      <select
-                        value={nuevaTareaPrioridad}
-                        onChange={(e) => setNuevaTareaPrioridad(e.target.value as PrioridadTareaCrm)}
-                        className="rounded-lg border border-line bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none"
-                      >
-                        <option value="BAJA">Baja</option>
-                        <option value="MEDIA">Media</option>
-                        <option value="ALTA">Alta</option>
-                        <option value="URGENTE">Urgente</option>
-                      </select>
-                      <button
-                        type="submit"
-                        disabled={guardandoTarea}
-                        className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-ink-fixed hover:bg-gold-deep hover:text-white transition-colors"
-                      >
-                        Asignar
-                      </button>
-                    </form>
-
-                    {clienteDetalle.tareas.length === 0 ? (
-                      <p className="text-xs text-ink-soft italic bg-paper-soft p-3 rounded-lg border border-line">
-                        Sin tareas asignadas a este cliente.
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {clienteDetalle.tareas.map((tarea) => (
-                          <div
-                            key={tarea.id}
-                            className={`rounded-lg border p-2.5 text-xs flex items-center justify-between transition-colors ${
-                              tarea.completada ? "bg-paper-soft/40 border-line/40 text-ink-soft" : "bg-paper border-line"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={tarea.completada}
-                                onChange={() => onToggleTarea(tarea.id, tarea.completada)}
-                                className="h-4 w-4 rounded border-line text-gold focus:ring-gold"
-                              />
-                              <span className={tarea.completada ? "line-through text-ink-soft" : "font-medium text-ink"}>
-                                {tarea.titulo}
-                              </span>
-                            </div>
-                            <Badge
-                              tone={
-                                tarea.prioridad === "ALTA"
-                                  ? "danger"
-                                  : tarea.prioridad === "MEDIA"
-                                    ? "warning"
-                                    : "neutral"
-                              }
-                            >
-                              {tarea.prioridad}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Bitácora de Actividades y Notas */}
-                {fichaTabActiva === "bitacora" && (
-                  <div>
-                    {/* Formulario Nueva Actividad */}
-                    <form onSubmit={onGuardarActividad} className="rounded-xl border border-line bg-paper-soft p-3 mb-4 space-y-2">
-                      <div className="flex gap-2">
-                        <select
-                          value={nuevaActividadTipo}
-                          onChange={(e) => setNuevaActividadTipo(e.target.value as TipoActividadCrm)}
-                          className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-xs text-ink focus:outline-none"
-                        >
-                          <option value="NOTA_INTERNA">Nota interna</option>
-                          <option value="LLAMADA">Llamada telefónica</option>
-                          <option value="WHATSAPP">WhatsApp</option>
-                          <option value="CORREO">Correo electrónico</option>
-                          <option value="REUNION">Reunión con cliente</option>
-                        </select>
-                        <input
-                          type="text"
-                          value={nuevaActividadTitulo}
-                          onChange={(e) => setNuevaActividadTitulo(e.target.value)}
-                          placeholder="Título o resumen del contacto..."
-                          className="flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
-                        />
-                      </div>
-                      <textarea
-                        rows={2}
-                        value={nuevaActividadDesc}
-                        onChange={(e) => setNuevaActividadDesc(e.target.value)}
-                        placeholder="Detalles relevantes de la conversación, acuerdos, peticiones del cliente..."
-                        className="w-full rounded-lg border border-line bg-paper p-2 text-xs text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-gold"
-                      />
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={guardandoActividad}
-                          className="rounded-lg bg-ink text-paper px-3 py-1.5 text-xs font-semibold hover:bg-ink/90 transition-colors"
-                        >
-                          Registrar en Bitácora
-                        </button>
-                      </div>
-                    </form>
-
-                    {/* Timeline de Actividades */}
-                    <div className="relative pl-4 border-l-2 border-line space-y-4">
-                      {clienteDetalle.actividades.length === 0 ? (
-                        <p className="text-xs text-ink-soft italic">No hay actividades registradas en la bitácora.</p>
-                      ) : (
-                        clienteDetalle.actividades.map((act) => (
-                          <div key={act.id} className="relative">
-                            <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-gold ring-4 ring-paper" />
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold text-ink">{act.titulo}</p>
-                              <span className="text-[10px] text-ink-soft">{formatearFecha(act.fechaActividad)}</span>
-                            </div>
-                            {act.descripcion && (
-                              <p className="mt-1 text-xs text-ink-soft bg-paper border border-line/60 p-2 rounded-lg">
-                                {act.descripcion}
-                              </p>
-                            )}
-                            <p className="mt-0.5 text-[10px] text-ink-soft">
-                              Registrado por {act.usuarioNombre ?? "Firma SIE"}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>

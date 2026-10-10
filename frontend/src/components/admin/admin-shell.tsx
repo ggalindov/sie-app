@@ -26,6 +26,7 @@ import {
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
+import { NotificacionesPanel } from "@/components/admin/notificaciones-panel";
 
 type Rol = "ADMIN_GENERAL" | "ABOGADO";
 
@@ -59,7 +60,11 @@ const navGroups: NavGroup[] = [
       { href: "/admin/solicitudes", label: "Solicitudes", icon: Envelope, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/calendario", label: "Calendario", icon: CalendarBlank, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/casos", label: "Casos", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"] },
-      { href: "/admin/tareas", label: "Tareas", icon: CheckSquare, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      // Pedido explícito del usuario: "El Admin si tendra la seccion de la nav de tareas para
+      // que vea todas las tareas del sistema" -- un ABOGADO ya no tiene esta entrada en el
+      // menú, ve sus propias tareas pendientes desde la campanita de notificaciones (ver
+      // NotificacionesPanel), disponible en todos los paneles para ambos roles.
+      { href: "/admin/tareas", label: "Tareas", icon: CheckSquare, roles: ["ADMIN_GENERAL"] },
       { href: "/admin/cobros", label: "Cobros Pendientes", icon: CurrencyCircleDollar, roles: ["ADMIN_GENERAL"] },
     ],
   },
@@ -155,14 +160,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Image src="/marca/logo.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />
             <span className="font-display text-sm font-semibold">Panel</span>
           </div>
-          <button
-            type="button"
-            aria-label="Abrir menú"
-            onClick={() => setMenuAbierto((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-ink"
-          >
-            {menuAbierto ? <X className="h-5 w-5" /> : <List className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificacionesPanel variante="clara" />
+            <button
+              type="button"
+              aria-label="Abrir menú"
+              onClick={() => setMenuAbierto((v) => !v)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-ink"
+            >
+              {menuAbierto ? <X className="h-5 w-5" /> : <List className="h-5 w-5" />}
+            </button>
+          </div>
         </header>
 
         <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-8 sm:px-8 lg:py-10">
@@ -196,6 +204,12 @@ function SidebarContent({
           <Image src="/marca/logo.png" alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" />
         </span>
         <span className="relative font-display text-base font-semibold text-night-ink">Panel</span>
+        {/* Campanita de notificaciones (pedido explícito del usuario, mismo header de la
+            captura que mostró): tareas pendientes y reporte general, disponible para ambos
+            roles en todos los paneles -- ver NotificacionesPanel. */}
+        <span className="relative ml-auto">
+          <NotificacionesPanel />
+        </span>
       </div>
 
       <nav className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 py-5">
