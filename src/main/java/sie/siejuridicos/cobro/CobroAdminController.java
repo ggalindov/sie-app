@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import sie.siejuridicos.cobro.dto.ActualizarRespuestaCobroRequest;
 import sie.siejuridicos.cobro.dto.ClienteCobroResponse;
+import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatorioPrueba;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
 import sie.siejuridicos.cobro.dto.ResumenSincronizacionCobros;
 import sie.siejuridicos.cobro.dto.SimularRespuestaCobroRequest;
@@ -63,6 +64,16 @@ public class CobroAdminController {
             @RequestBody ActualizarRespuestaCobroRequest request) {
         return ResponseEntity.ok(cobroService.actualizarRespuestaManual(
                 id, request.respuesta(), request.pagoEsteMes()));
+    }
+
+    // Botón "Enviar recordatorio de prueba" del panel: dispara un único recordatorio aislado al
+    // número de prueba fijo de la firma (3126029742), sin tocar ni consumir cupo del lote real de
+    // clientes -- ver CobroService.enviarRecordatorioDePrueba(). A diferencia de
+    // /simular-respuesta, SÍ funciona en producción (bloqueoTotalClientes no aplica aquí: el
+    // propio método ya trae su propia comprobación de seguridad contra el número de prueba).
+    @PostMapping("/enviar-recordatorio-prueba")
+    public ResponseEntity<ResumenEnvioRecordatorioPrueba> enviarRecordatorioDePrueba() {
+        return ResponseEntity.ok(cobroService.enviarRecordatorioDePrueba());
     }
 
     // Endpoint de prueba y simulación para verificar en local la respuesta de pago del cliente de test (3126029742)

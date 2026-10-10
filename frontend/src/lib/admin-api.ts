@@ -615,6 +615,13 @@ export type ResumenEnvioRecordatoriosCobros = {
   pendientesPorLimiteDiario: number;
 };
 
+export type ResumenEnvioRecordatorioPrueba = {
+  encontrado: boolean;
+  nombre: string | null;
+  correoEnviado: boolean;
+  whatsappEnviado: boolean;
+};
+
 export function listarCobros(): Promise<ClienteCobro[]> {
   return pedido<ClienteCobro[]>("/api/admin/cobros");
 }
@@ -625,6 +632,12 @@ export function sincronizarCobros(): Promise<ResumenSincronizacionCobros> {
 
 export function enviarRecordatoriosCobros(): Promise<ResumenEnvioRecordatoriosCobros> {
   return pedido<ResumenEnvioRecordatoriosCobros>("/api/admin/cobros/enviar-recordatorios", { method: "POST" });
+}
+
+// Envío aislado de un único recordatorio al número de prueba fijo de la firma (3126029742),
+// sin tocar ni consumir cupo del lote real de clientes -- ver CobroAdminController.
+export function enviarRecordatorioPrueba(): Promise<ResumenEnvioRecordatorioPrueba> {
+  return pedido<ResumenEnvioRecordatorioPrueba>("/api/admin/cobros/enviar-recordatorio-prueba", { method: "POST" });
 }
 
 export function cambiarRespuestaCobro(

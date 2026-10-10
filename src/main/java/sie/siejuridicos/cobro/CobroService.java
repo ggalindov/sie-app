@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.cobro.dto.ClienteCobroResponse;
 import sie.siejuridicos.cobro.dto.FilaCobroHoja;
+import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatorioPrueba;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
 import sie.siejuridicos.cobro.dto.ResumenSincronizacionCobros;
 import sie.siejuridicos.common.cifrado.CifradoService;
@@ -342,6 +343,52 @@ public class CobroService {
 
         return new ResumenEnvioRecordatoriosCobros(correosEnviados, correosFallidos, whatsappEnviados,
                 whatsappFallidos, sinCosto, pendientesPorLimiteDiario);
+    }
+
+    // Número de prueba fijo de la firma (pedido explícito del usuario a lo largo de toda esta
+    // auditoría: "únicamente puedes testear con 3126029742"), usado también por
+    // CobroAdminController.simularRespuesta(). Comparado por los últimos 10 dígitos, igual que
+    // el fallback de registrarRespuesta(), para que coincida sin importar si el teléfono está
+    // guardado con o sin indicativo de país.
+    private static final String TELEFONO_PRUEBA = "3126029742";
+
+    // Envío de un solo recordatorio, totalmente aislado del lote real (ver enviarRecordatorios()):
+    // SIN @Transactional (no guarda nada -- es un disparo de prueba, no debe interferir con la
+    // contabilidad real de "ya se le avisó este mes"), SIN pasar por el cupo diario compartido de
+    // envíos masivos, y con una comprobación de seguridad que rechaza cualquier cliente cuyo
+    // teléfono no sea el número de prueba fijo -- así este método físicamente no puede alcanzar a
+    // un cliente real aunque se le intente pasar un id o teléfono distinto en el futuro.
+    public ResumenEnvioRecordatorioPrueba enviarRecordatorioDePrueba() {
+        ClienteCobro cliente = clienteCobroRepository.findByActivoTrueOrderByNombreAsc().stream()
+                .filter(c -> c.getTelefono() != null && c.getTelefono().replaceAll("[^0-9]", "").endsWith(TELEFONO_PRUEBA))
+                .findFirst()
+                .orElse(null);
+
+        if (cliente == null) {
+            return new ResumenEnvioRecordatorioPrueba(false, null, false, false);
+        }
+
+        String nombre = cliente.getNombre();
+        String honorarios = cliente.getHonorarios();
+        boolean correoEnviado = false;
+        boolean whatsappEnviado = false;
+
+        if (cliente.getCorreo() != null && !cliente.getCorreo().isBlank()) {
+            correoEnviado = enviarConReintento(
+                    () -> emailService.enviarTirillaCobroSincrono(nombre, cliente.getCorreo(), honorarios));
+        }
+        if (cliente.getTelefono() != null && !cliente.getTelefono().isBlank() && whatsAppService.isConfigurado()) {
+            whatsappEnviado = enviarConReintento(
+                    () -> whatsAppService.enviarRecordatorioCobroSincrono(nombre, cliente.getTelefono(), honorarios));
+        }
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.ENVIO_RECORDATORIOS_COBROS,
+                "Envío de PRUEBA disparado manualmente al número de prueba fijo (%s): correo=%s, whatsapp=%s"
+                        .formatted(TELEFONO_PRUEBA, correoEnviado, whatsappEnviado),
+                true);
+
+        return new ResumenEnvioRecordatorioPrueba(true, nombre, correoEnviado, whatsappEnviado);
     }
 
     private boolean enviarConReintento(BooleanSupplier envio) {

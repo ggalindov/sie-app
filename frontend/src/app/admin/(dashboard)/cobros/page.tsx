@@ -13,6 +13,7 @@ import {
   PhoneSlash,
   Prohibit,
   Spinner,
+  TestTube,
   WhatsappLogo,
   X,
 } from "@phosphor-icons/react";
@@ -20,6 +21,7 @@ import {
   listarCobros,
   sincronizarCobros,
   enviarRecordatoriosCobros,
+  enviarRecordatorioPrueba,
   cambiarRespuestaCobro,
   ApiError,
   type ClienteCobro,
@@ -102,6 +104,7 @@ export default function CobrosAdminPage() {
   const [clientes, setClientes] = useState<ClienteCobro[] | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoRecordatorios, setEnviandoRecordatorios] = useState(false);
+  const [enviandoPrueba, setEnviandoPrueba] = useState(false);
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCobro | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
@@ -199,6 +202,28 @@ export default function CobrosAdminPage() {
     }
   }
 
+  // Botón de prueba: dispara un único recordatorio aislado al número de prueba fijo de la
+  // firma (3126029742) -- nunca toca al lote real de clientes, a diferencia del botón de abajo.
+  async function onEnviarRecordatorioPrueba() {
+    setEnviandoPrueba(true);
+    try {
+      const resumen = await enviarRecordatorioPrueba();
+      if (!resumen.encontrado) {
+        toast.error("No se encontró un cliente activo con el número de prueba (3126029742).");
+      } else {
+        toast.success(
+          `Recordatorio de prueba enviado a ${resumen.nombre}: ` +
+            `${resumen.correoEnviado ? "correo OK" : "correo no enviado"}, ` +
+            `${resumen.whatsappEnviado ? "WhatsApp OK" : "WhatsApp no enviado"}.`,
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo enviar el recordatorio de prueba.");
+    } finally {
+      setEnviandoPrueba(false);
+    }
+  }
+
   async function onEnviarRecordatorios() {
     setEnviandoRecordatorios(true);
     toast.info(
@@ -240,6 +265,24 @@ export default function CobrosAdminPage() {
         description="Clientes activos sincronizados automáticamente desde el Google Sheets de cobros de la firma (Empresas y Personas Naturales). Cada día 3 del mes se les recuerda el pago pendiente por correo y WhatsApp, salvo quienes ya pagaron ese mes o tienen honorarios en $0. Si se alcanza el límite diario de 250 mensajes, los restantes se envían automáticamente al día siguiente."
         action={
           <div className="flex flex-wrap items-center gap-2">
+            <AdminButton
+              variant="ghost"
+              onClick={onEnviarRecordatorioPrueba}
+              disabled={enviandoPrueba}
+              title="Envía un único recordatorio aislado al número de prueba (3126029742), sin tocar a ningún cliente real"
+            >
+              {enviandoPrueba ? (
+                <>
+                  <Spinner className="h-4 w-4 animate-spin" weight="bold" />
+                  Enviando prueba...
+                </>
+              ) : (
+                <>
+                  <TestTube className="h-4 w-4" weight="bold" />
+                  Enviar recordatorio de prueba
+                </>
+              )}
+            </AdminButton>
             <AdminButton variant="secondary" onClick={onEnviarRecordatorios} disabled={enviandoRecordatorios}>
               {enviandoRecordatorios ? (
                 <>
