@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.caso.Caso;
 import sie.siejuridicos.caso.CasoRepository;
+import sie.siejuridicos.crm.ClienteCrm;
+import sie.siejuridicos.crm.ClienteCrmRepository;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.tarea.dto.ActualizarTareaRequest;
@@ -29,15 +31,18 @@ public class TareaService {
 
     private final TareaRepository tareaRepository;
     private final CasoRepository casoRepository;
+    private final ClienteCrmRepository clienteCrmRepository;
     private final UsuarioInternoRepository usuarioInternoRepository;
     private final RegistroSistemaService registroSistemaService;
 
     public TareaService(TareaRepository tareaRepository,
                          CasoRepository casoRepository,
+                         ClienteCrmRepository clienteCrmRepository,
                          UsuarioInternoRepository usuarioInternoRepository,
                          RegistroSistemaService registroSistemaService) {
         this.tareaRepository = tareaRepository;
         this.casoRepository = casoRepository;
+        this.clienteCrmRepository = clienteCrmRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.registroSistemaService = registroSistemaService;
     }
@@ -45,6 +50,17 @@ public class TareaService {
     @Transactional(readOnly = true)
     public List<TareaResponse> listarPorCaso(Long casoId) {
         return tareaRepository.findByCasoIdOrderByCompletadaAscFechaVencimientoAsc(casoId).stream()
+                .map(TareaResponse::desde)
+                .toList();
+    }
+
+    // Registro de tareas de una persona del CRM, ligadas directamente a su ficha o a cualquiera
+    // de sus casos (ver TareaRepository.buscarTodasDeLaPersona) -- pedido explícito del usuario:
+    // "arregla desde el directorio de clientes en el CRM ahi es donde se asginara las tareas por
+    // cada persona".
+    @Transactional(readOnly = true)
+    public List<TareaResponse> listarPorClienteCrm(Long clienteCrmId) {
+        return tareaRepository.buscarTodasDeLaPersona(clienteCrmId).stream()
                 .map(TareaResponse::desde)
                 .toList();
     }
@@ -90,6 +106,34 @@ public class TareaService {
                 TipoRegistroSistema.GESTION_TAREAS,
                 "'%s' creó la tarea '%s' en el caso #%d, asignada a '%s'"
                         .formatted(creador.getNombre(), tarea.getTitulo(), caso.getId(), asignado.getNombre()),
+                true);
+
+        return TareaResponse.desde(tarea);
+    }
+
+    // Tarea general ligada directamente a una persona del CRM, sin necesitar un caso judicial
+    // todavía (ver migración V46 y el comentario de clase).
+    @Transactional
+    public TareaResponse crearParaCliente(Long clienteCrmId, CrearTareaRequest request, UsuarioInterno creador) {
+        ClienteCrm cliente = clienteCrmRepository.findById(clienteCrmId)
+                .orElseThrow(() -> new IllegalArgumentException("Cliente CRM no encontrado con ID: " + clienteCrmId));
+        UsuarioInterno asignado = usuarioInternoRepository.findById(request.usuarioAsignadoId())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con ID: " + request.usuarioAsignadoId()));
+
+        Tarea tarea = new Tarea();
+        tarea.setClienteCrm(cliente);
+        tarea.setTitulo(request.titulo());
+        tarea.setDescripcion(request.descripcion());
+        tarea.setFechaVencimiento(request.fechaVencimiento());
+        tarea.setPrioridad(request.prioridad() != null ? request.prioridad() : PrioridadTarea.MEDIA);
+        tarea.setUsuarioAsignado(asignado);
+        tarea.setUsuarioCreador(creador);
+        tareaRepository.save(tarea);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.GESTION_TAREAS,
+                "'%s' creó la tarea '%s' para '%s' (CRM), asignada a '%s'"
+                        .formatted(creador.getNombre(), tarea.getTitulo(), cliente.getNombre(), asignado.getNombre()),
                 true);
 
         return TareaResponse.desde(tarea);

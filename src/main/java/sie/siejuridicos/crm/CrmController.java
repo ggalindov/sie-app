@@ -21,10 +21,8 @@ import sie.siejuridicos.crm.dto.ClienteCrmResponse;
 import sie.siejuridicos.crm.dto.ConvertirProspectoRequest;
 import sie.siejuridicos.crm.dto.CrearActividadCrmRequest;
 import sie.siejuridicos.crm.dto.CrearClienteCrmRequest;
-import sie.siejuridicos.crm.dto.CrearTareaCrmRequest;
 import sie.siejuridicos.crm.dto.CrmDashboardResponse;
 import sie.siejuridicos.crm.dto.ItemPipelineResponse;
-import sie.siejuridicos.crm.dto.TareaCrmResponse;
 
 import java.util.List;
 
@@ -107,7 +105,9 @@ public class CrmController {
     }
 
     // =========================================================================
-    // ACTIVIDADES Y TAREAS
+    // ACTIVIDADES (bitácora, sin UI desde esta auditoría -- ver CLAUDE.md/historial; se deja
+    // el backend intacto porque no genera ningún conflicto de ruta, a diferencia del módulo de
+    // tareas viejo que sí chocaba con tarea.TareaController y por eso se retiró por completo)
     // =========================================================================
 
     @PostMapping("/clientes/{id}/actividades")
@@ -115,19 +115,5 @@ public class CrmController {
             @PathVariable Long id,
             @jakarta.validation.Valid @RequestBody CrearActividadCrmRequest request) {
         return ResponseEntity.ok(crmService.registrarActividad(id, request));
-    }
-
-    @PostMapping("/clientes/{id}/tareas")
-    public ResponseEntity<TareaCrmResponse> crearTarea(
-            @PathVariable Long id,
-            @jakarta.validation.Valid @RequestBody CrearTareaCrmRequest request) {
-        return ResponseEntity.ok(crmService.crearTarea(id, request));
-    }
-
-    @PatchMapping("/tareas/{tareaId}/completar")
-    public ResponseEntity<TareaCrmResponse> completarTarea(
-            @PathVariable Long tareaId,
-            @RequestParam(defaultValue = "true") boolean completada) {
-        return ResponseEntity.ok(crmService.completarTarea(tareaId, completada));
     }
 }

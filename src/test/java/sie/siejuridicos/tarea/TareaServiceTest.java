@@ -7,6 +7,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import sie.siejuridicos.caso.Caso;
 import sie.siejuridicos.caso.CasoRepository;
 import sie.siejuridicos.caso.Cliente;
+import sie.siejuridicos.crm.ClienteCrmRepository;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.tarea.dto.ActualizarTareaRequest;
 import sie.siejuridicos.tarea.dto.CrearTareaRequest;
@@ -40,12 +41,14 @@ class TareaServiceTest {
     @Mock
     private CasoRepository casoRepository;
     @Mock
+    private ClienteCrmRepository clienteCrmRepository;
+    @Mock
     private UsuarioInternoRepository usuarioInternoRepository;
     @Mock
     private RegistroSistemaService registroSistemaService;
 
     private TareaService crearServicio() {
-        return new TareaService(tareaRepository, casoRepository, usuarioInternoRepository, registroSistemaService);
+        return new TareaService(tareaRepository, casoRepository, clienteCrmRepository, usuarioInternoRepository, registroSistemaService);
     }
 
     private static UsuarioInterno usuarioDe(Long id, String nombre, RolUsuario rol) {
@@ -180,5 +183,28 @@ class TareaServiceTest {
         crearServicio().eliminar(9L, admin);
 
         verify(tareaRepository).delete(tarea);
+    }
+
+    // Bug real corregido en esta auditoría (pedido explícito del usuario, tras encontrar que el
+    // 96% del directorio del CRM no tenía ningún caso judicial vinculado): una tarea ahora puede
+    // crearse directamente para una persona del CRM, sin caso.
+    @Test
+    void crearParaClienteLigaLaTareaAlClienteCrmSinNecesitarUnCaso() {
+        UsuarioInterno admin = usuarioDe(1L, "Admin General", RolUsuario.ADMIN_GENERAL);
+        UsuarioInterno abogado = usuarioDe(2L, "Abogado Uno", RolUsuario.ABOGADO);
+        sie.siejuridicos.crm.ClienteCrm cliente = new sie.siejuridicos.crm.ClienteCrm();
+        cliente.setNombre("Prospecto Sin Caso Todavía");
+
+        when(clienteCrmRepository.findById(55L)).thenReturn(Optional.of(cliente));
+        when(usuarioInternoRepository.findById(2L)).thenReturn(Optional.of(abogado));
+
+        CrearTareaRequest request = new CrearTareaRequest("Llamar para primera cita", null, null, null, 2L);
+        TareaResponse resultado = crearServicio().crearParaCliente(55L, request, admin);
+
+        assertEquals("Llamar para primera cita", resultado.titulo());
+        assertNull(resultado.casoId());
+        assertEquals("Prospecto Sin Caso Todavía", resultado.clienteNombre());
+        assertEquals(2L, resultado.usuarioAsignadoId());
+        verify(tareaRepository).save(any(Tarea.class));
     }
 }

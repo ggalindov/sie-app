@@ -17,7 +17,7 @@ import {
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
-import { TareasDeCasoModal } from "@/components/admin/tareas-de-caso-modal";
+import { TareasDeCasoModal, type ObjetivoTareas } from "@/components/admin/tareas-de-caso-modal";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -40,7 +40,7 @@ export default function CasosAdminPage() {
   const [enviandoPendientes, setEnviandoPendientes] = useState(false);
   const [enviandoReporteSemanal, setEnviandoReporteSemanal] = useState(false);
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
-  const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<CasoAdmin | null>(null);
+  const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<ObjetivoTareas | null>(null);
   const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});
 
   const cargar = useCallback(() => {
@@ -327,7 +327,7 @@ export default function CasosAdminPage() {
                     atención sin tener que abrir cada uno. */}
                 <button
                   type="button"
-                  onClick={() => setCasoConTareasAbierto(c)}
+                  onClick={() => setCasoConTareasAbierto({ tipo: "caso", id: c.id, nombreCliente: c.nombreCliente, radicadoId: c.radicadoId })}
                   className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 py-1 pl-1.5 pr-3 text-xs font-medium text-ink-soft transition-colors hover:bg-ink/10"
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/10">
@@ -351,7 +351,7 @@ export default function CasosAdminPage() {
       />
 
       <TareasDeCasoModal
-        caso={casoConTareasAbierto}
+        objetivo={casoConTareasAbierto}
         onClose={() => setCasoConTareasAbierto(null)}
         onCambioPendientes={cargarConteoTareas}
       />

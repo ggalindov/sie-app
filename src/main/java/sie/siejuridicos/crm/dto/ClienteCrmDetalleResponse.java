@@ -3,13 +3,15 @@ package sie.siejuridicos.crm.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// El registro de tareas de un cliente ya no viaja aquí -- ver tarea.TareaController
+// (GET /api/admin/crm/clientes/{id}/tareas), que junta las tareas ligadas directamente a esta
+// persona con las de cualquiera de sus casos en una sola vista.
 public record ClienteCrmDetalleResponse(
         ClienteCrmResponse cliente,
         List<CasoVinculadoDto> casos,
         List<CobroVinculadoDto> cobros,
         List<CitaVinculadaDto> citas,
-        List<ActividadCrmResponse> actividades,
-        List<TareaCrmResponse> tareas
+        List<ActividadCrmResponse> actividades
 ) {
     public record CasoVinculadoDto(
             Long id,

@@ -46,6 +46,22 @@ public class TareaController {
         return ResponseEntity.ok(tareaService.crear(casoId, request, principal.getUsuario()));
     }
 
+    // Registro de tareas de una persona del CRM (pedido explícito del usuario: "arregla desde
+    // el directorio de clientes en el CRM ahi es donde se asginara las tareas por cada
+    // persona"), con o sin caso judicial vinculado todavía.
+    @GetMapping("/crm/clientes/{clienteCrmId}/tareas")
+    public ResponseEntity<List<TareaResponse>> listarPorClienteCrm(@PathVariable Long clienteCrmId) {
+        return ResponseEntity.ok(tareaService.listarPorClienteCrm(clienteCrmId));
+    }
+
+    @PostMapping("/crm/clientes/{clienteCrmId}/tareas")
+    public ResponseEntity<TareaResponse> crearParaCliente(
+            @PathVariable Long clienteCrmId,
+            @Valid @RequestBody CrearTareaRequest request,
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(tareaService.crearParaCliente(clienteCrmId, request, principal.getUsuario()));
+    }
+
     // Página "Tareas" del panel: tareas pendientes del usuario autenticado (o de todos si es
     // ADMIN_GENERAL, ver TareaService.listarPendientes()).
     @GetMapping("/tareas")

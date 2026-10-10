@@ -19,10 +19,8 @@ import sie.siejuridicos.crm.dto.ClienteCrmResponse;
 import sie.siejuridicos.crm.dto.ConvertirProspectoRequest;
 import sie.siejuridicos.crm.dto.CrearActividadCrmRequest;
 import sie.siejuridicos.crm.dto.CrearClienteCrmRequest;
-import sie.siejuridicos.crm.dto.CrearTareaCrmRequest;
 import sie.siejuridicos.crm.dto.CrmDashboardResponse;
 import sie.siejuridicos.crm.dto.ItemPipelineResponse;
-import sie.siejuridicos.crm.dto.TareaCrmResponse;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.solicitud.EstadoSolicitud;
@@ -47,7 +45,6 @@ public class CrmService {
 
     private final ClienteCrmRepository clienteCrmRepository;
     private final ActividadCrmRepository actividadCrmRepository;
-    private final TareaCrmRepository tareaCrmRepository;
     private final SolicitudRepository solicitudRepository;
     private final CasoRepository casoRepository;
     private final ClienteCobroRepository clienteCobroRepository;
@@ -56,7 +53,6 @@ public class CrmService {
 
     public CrmService(ClienteCrmRepository clienteCrmRepository,
                       ActividadCrmRepository actividadCrmRepository,
-                      TareaCrmRepository tareaCrmRepository,
                       SolicitudRepository solicitudRepository,
                       CasoRepository casoRepository,
                       ClienteCobroRepository clienteCobroRepository,
@@ -64,7 +60,6 @@ public class CrmService {
                       RegistroSistemaService registroSistemaService) {
         this.clienteCrmRepository = clienteCrmRepository;
         this.actividadCrmRepository = actividadCrmRepository;
-        this.tareaCrmRepository = tareaCrmRepository;
         this.solicitudRepository = solicitudRepository;
         this.casoRepository = casoRepository;
         this.clienteCobroRepository = clienteCobroRepository;
@@ -202,14 +197,7 @@ public class CrmService {
                 .map(ActividadCrmResponse::desde)
                 .toList();
 
-        // Tareas pendientes o completadas
-        List<TareaCrmResponse> tareas = tareaCrmRepository
-                .findByClienteCrmIdOrderByFechaCreacionDesc(c.getId())
-                .stream()
-                .map(TareaCrmResponse::desde)
-                .toList();
-
-        return new ClienteCrmDetalleResponse(resumen, casos, cobros, citas, actividades, tareas);
+        return new ClienteCrmDetalleResponse(resumen, casos, cobros, citas, actividades);
     }
 
     @Transactional
@@ -454,32 +442,6 @@ public class CrmService {
 
         actividadCrmRepository.save(act);
         return ActividadCrmResponse.desde(act);
-    }
-
-    @Transactional
-    public TareaCrmResponse crearTarea(Long clienteId, CrearTareaCrmRequest request) {
-        ClienteCrm cliente = clienteCrmRepository.findById(clienteId)
-                .orElseThrow(() -> new IllegalArgumentException("Cliente CRM no encontrado: " + clienteId));
-
-        TareaCrm tarea = new TareaCrm();
-        tarea.setClienteCrm(cliente);
-        tarea.setTitulo(request.titulo());
-        tarea.setDescripcion(request.descripcion());
-        tarea.setFechaVencimiento(request.fechaVencimiento());
-        tarea.setPrioridad(request.prioridad() != null ? request.prioridad() : PrioridadTareaCrm.MEDIA);
-        tarea.setUsuarioNombre(request.usuarioNombre() != null ? request.usuarioNombre() : "Admin");
-
-        tareaCrmRepository.save(tarea);
-        return TareaCrmResponse.desde(tarea);
-    }
-
-    @Transactional
-    public TareaCrmResponse completarTarea(Long tareaId, boolean completada) {
-        TareaCrm tarea = tareaCrmRepository.findById(tareaId)
-                .orElseThrow(() -> new IllegalArgumentException("Tarea CRM no encontrada: " + tareaId));
-        tarea.setCompletada(completada);
-        tareaCrmRepository.save(tarea);
-        return TareaCrmResponse.desde(tarea);
     }
 
     // =========================================================================

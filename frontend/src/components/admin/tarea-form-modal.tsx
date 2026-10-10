@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { X } from "@phosphor-icons/react";
 import {
   crearTarea,
+  crearTareaParaCliente,
   actualizarTarea,
   listarResponsables,
   ApiError,
@@ -22,8 +23,9 @@ const PRIORIDADES: { valor: PrioridadTarea; label: string }[] = [
 ];
 
 // Formulario único de crear/editar tarea (ver TareaService en el backend): en modo "crear" se
-// usa dentro de un caso puntual (casoId + casoContexto para el título del modal), en modo
-// "editar" recibe la tarea existente y casoId se ignora (ya viene resuelto en la tarea misma).
+// usa dentro de un caso puntual (casoId) O directamente para una persona del CRM
+// (clienteCrmId, sin necesitar un caso judicial todavía) -- nunca los dos a la vez. En modo
+// "editar" recibe la tarea existente y ambos se ignoran (ya viene resuelto en la tarea misma).
 // El selector de responsable reutiliza /api/admin/solicitudes/responsables (ya existente para
 // asignar corresponsables de una reunión): misma noción de "usuario interno activo que puede
 // quedar a cargo de algo", sin duplicar un segundo endpoint para lo mismo.
@@ -31,6 +33,7 @@ export function TareaFormModal({
   abierto,
   onClose,
   casoId,
+  clienteCrmId,
   casoContexto,
   tarea,
   onGuardada,
@@ -38,6 +41,7 @@ export function TareaFormModal({
   abierto: boolean;
   onClose: () => void;
   casoId?: number;
+  clienteCrmId?: number;
   casoContexto?: string;
   tarea?: Tarea | null;
   onGuardada: (t: Tarea) => void;
@@ -79,7 +83,11 @@ export function TareaFormModal({
 
     setGuardando(true);
     try {
-      const guardada = editando ? await actualizarTarea(tarea!.id, datos) : await crearTarea(casoId!, datos);
+      const guardada = editando
+        ? await actualizarTarea(tarea!.id, datos)
+        : casoId !== undefined
+          ? await crearTarea(casoId, datos)
+          : await crearTareaParaCliente(clienteCrmId!, datos);
       toast.success(editando ? "Tarea actualizada." : "Tarea creada.");
       form.reset();
       onGuardada(guardada);

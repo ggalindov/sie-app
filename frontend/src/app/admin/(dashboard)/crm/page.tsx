@@ -63,7 +63,7 @@ import {
 } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
 import { estadoDeCobro, tieneCostoCobro } from "@/lib/cobro-estado";
-import { TareasDeCasoModal, type CasoParaTareas } from "@/components/admin/tareas-de-caso-modal";
+import { TareasDeCasoModal, type ObjetivoTareas } from "@/components/admin/tareas-de-caso-modal";
 
 // Etiquetas renombradas (pedido explícito del usuario): el lenguaje original ("Contratado /
 // Ganado", "En Valoración") leía como un CRM de ventas genérico, no como algo pensado para
@@ -138,7 +138,7 @@ export default function CrmAdminPage() {
   // Pedido explícito del usuario: "ahi es donde se asginara las tareas por cada persona" --
   // desde la ficha 360 de un cliente se puede abrir el registro de tareas de cualquiera de
   // sus casos, igual que ya existe en /admin/casos.
-  const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<CasoParaTareas | null>(null);
+  const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<ObjetivoTareas | null>(null);
   const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
@@ -904,6 +904,21 @@ export default function CrmAdminPage() {
               <div className="flex items-center gap-1">
                 {clienteDetalle && !modoEdicionCliente && (
                   <>
+                    {/* Pedido explícito del usuario: "arregla desde el directorio de clientes
+                        en el CRM ahi es donde se asginara las tareas por cada persona" -- a
+                        diferencia del botón "Tareas" de cada caso (más abajo, en la pestaña
+                        "Casos y cobros"), este siempre está disponible sin importar si el
+                        cliente ya tiene o no un caso judicial vinculado. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCasoConTareasAbierto({ tipo: "cliente", id: clienteDetalle.cliente.id, nombre: clienteDetalle.cliente.nombre })
+                      }
+                      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-ink/5 hover:text-ink"
+                    >
+                      <CheckSquare weight="bold" className="h-3.5 w-3.5" />
+                      Tareas
+                    </button>
                     <button
                       type="button"
                       onClick={() => setModoEdicionCliente(true)}
@@ -1230,7 +1245,7 @@ export default function CrmAdminPage() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setCasoConTareasAbierto({ id: caso.id, nombreCliente: caso.nombreCliente, radicadoId: caso.radicadoId })
+                                  setCasoConTareasAbierto({ tipo: "caso", id: caso.id, nombreCliente: caso.nombreCliente, radicadoId: caso.radicadoId })
                                 }
                                 className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ink/5 py-1 pl-1.5 pr-3 font-medium text-ink-soft transition-colors hover:bg-ink/10"
                               >
@@ -1431,7 +1446,7 @@ export default function CrmAdminPage() {
       )}
 
       <TareasDeCasoModal
-        caso={casoConTareasAbierto}
+        objetivo={casoConTareasAbierto}
         onClose={() => setCasoConTareasAbierto(null)}
         onCambioPendientes={cargarConteoTareas}
       />

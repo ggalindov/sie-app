@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CalendarBlank, Check, PencilSimple, Plus, Trash, User, X } from "@phosphor-icons/react";
 import {
   listarTareasPorCaso,
+  listarTareasPorClienteCrm,
   completarTarea,
   eliminarTarea,
   ApiError,
@@ -46,20 +47,28 @@ export type CasoParaTareas = {
   radicadoId: string | null;
 };
 
-// Registro completo de tareas de UN caso puntual (pedido explícito del usuario: "deja un
-// registro de tareas por caso"), abierto desde la tarjeta de ese caso en /admin/casos, o desde
-// la ficha 360 de un cliente en el CRM ("ahi es donde se asginara las tareas por cada persona").
-// A diferencia de /admin/tareas (que solo muestra pendientes, de uno o todos los casos), aquí se
-// ve el historial completo -- pendientes y completadas -- de este caso en particular.
+// Objetivo del registro de tareas: un caso puntual, o directamente una persona del directorio
+// del CRM (pedido explícito del usuario: "arregla desde el directorio de clientes en el CRM
+// ahi es donde se asginara las tareas por cada persona") -- la mayoría de los clientes del CRM
+// todavía no tiene ningún caso judicial vinculado, así que esta segunda opción es la única
+// forma de que esos clientes puedan tener tareas en absoluto (ver migración V46).
+export type ObjetivoTareas =
+  | ({ tipo: "caso" } & CasoParaTareas)
+  | { tipo: "cliente"; id: number; nombre: string };
+
+// Registro completo de tareas de UN caso o UNA persona del CRM (pedido explícito del usuario:
+// "deja un registro de tareas por caso"), abierto desde la tarjeta de ese caso en /admin/casos,
+// o desde la ficha 360 de un cliente en el CRM. A diferencia de /admin/tareas (que solo muestra
+// pendientes), aquí se ve el historial completo -- pendientes y completadas.
 export function TareasDeCasoModal({
-  caso,
+  objetivo,
   onClose,
   onCambioPendientes,
 }: {
-  caso: CasoParaTareas | null;
+  objetivo: ObjetivoTareas | null;
   onClose: () => void;
-  // Avisa al listado de Casos que el conteo de pendientes de este caso pudo haber cambiado,
-  // para refrescar el badge sin recargar la página completa.
+  // Avisa al listado de origen que el conteo de pendientes pudo haber cambiado, para refrescar
+  // el badge sin recargar la página completa.
   onCambioPendientes?: () => void;
 }) {
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
@@ -68,11 +77,10 @@ export function TareasDeCasoModal({
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
 
   const cargar = useCallback(() => {
-    if (!caso) return;
-    listarTareasPorCaso(caso.id)
-      .then(setTareas)
-      .catch(() => toast.error("No se pudieron cargar las tareas de este caso."));
-  }, [caso]);
+    if (!objetivo) return;
+    const promesa = objetivo.tipo === "caso" ? listarTareasPorCaso(objetivo.id) : listarTareasPorClienteCrm(objetivo.id);
+    promesa.then(setTareas).catch(() => toast.error("No se pudieron cargar las tareas."));
+  }, [objetivo]);
 
   useEffect(() => {
     setTareas(null);
@@ -112,15 +120,19 @@ export function TareasDeCasoModal({
 
   return (
     <>
-      <Dialog.Root open={caso !== null} onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Root open={objetivo !== null} onOpenChange={(open) => !open && onClose()}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm" />
           <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl ring-1 ring-line">
             <div className="flex items-center justify-between">
               <div>
-                <Dialog.Title className="font-display text-lg text-ink">Tareas del caso</Dialog.Title>
+                <Dialog.Title className="font-display text-lg text-ink">
+                  {objetivo?.tipo === "caso" ? "Tareas del caso" : "Tareas de la persona"}
+                </Dialog.Title>
                 <Dialog.Description className="mt-1 text-sm text-ink-soft">
-                  {caso?.nombreCliente} {caso?.radicadoId && `· ${caso.radicadoId}`}
+                  {objetivo?.tipo === "caso"
+                    ? `${objetivo.nombreCliente}${objetivo.radicadoId ? ` · ${objetivo.radicadoId}` : ""}`
+                    : objetivo?.nombre}
                 </Dialog.Description>
               </div>
               <Dialog.Close className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5">
@@ -136,7 +148,9 @@ export function TareasDeCasoModal({
             {tareas === null ? (
               <p className="mt-6 text-center text-sm text-ink-soft">Cargando...</p>
             ) : tareas.length === 0 ? (
-              <p className="mt-6 text-center text-sm text-ink-soft">Este caso todavía no tiene tareas.</p>
+              <p className="mt-6 text-center text-sm text-ink-soft">
+                {objetivo?.tipo === "caso" ? "Este caso todavía no tiene tareas." : "Esta persona todavía no tiene tareas."}
+              </p>
             ) : (
               <div className="mt-5 space-y-4">
                 {pendientes.length > 0 && (
@@ -175,12 +189,17 @@ export function TareasDeCasoModal({
         </Dialog.Portal>
       </Dialog.Root>
 
-      {caso && (
+      {objetivo && (
         <TareaFormModal
           abierto={formularioAbierto}
           onClose={() => setFormularioAbierto(false)}
-          casoId={caso.id}
-          casoContexto={`${caso.nombreCliente}${caso.radicadoId ? ` · ${caso.radicadoId}` : ""}`}
+          casoId={objetivo.tipo === "caso" ? objetivo.id : undefined}
+          clienteCrmId={objetivo.tipo === "cliente" ? objetivo.id : undefined}
+          casoContexto={
+            objetivo.tipo === "caso"
+              ? `${objetivo.nombreCliente}${objetivo.radicadoId ? ` · ${objetivo.radicadoId}` : ""}`
+              : objetivo.nombre
+          }
           onGuardada={(nueva) => {
             setTareas((prev) => (prev ? [nueva, ...prev] : [nueva]));
             onCambioPendientes?.();

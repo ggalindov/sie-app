@@ -655,7 +655,6 @@ export function simularRespuestaCobro(
 export type TipoClienteCrm = "PERSONA_NATURAL" | "EMPRESA";
 export type EstadoClienteCrm = "PROSPECTO" | "ACTIVO" | "INACTIVO" | "FINALIZADO";
 export type TipoActividadCrm = "LLAMADA" | "WHATSAPP" | "CORREO" | "REUNION" | "NOTA_INTERNA" | "CAMBIO_ESTADO" | "PAGO";
-export type PrioridadTareaCrm = "ALTA" | "MEDIA" | "BAJA";
 export type EtapaPipeline =
   | "NUEVO"
   | "CONTACTADO"
@@ -726,25 +725,13 @@ export type ActividadCrm = {
   fechaCreacion: string;
 };
 
-export type TareaCrm = {
-  id: number;
-  clienteCrmId: number;
-  titulo: string;
-  descripcion: string | null;
-  fechaVencimiento: string | null;
-  completada: boolean;
-  prioridad: PrioridadTareaCrm;
-  usuarioNombre: string | null;
-  fechaCreacion: string;
-};
-
+// El registro de tareas de un cliente ya no viaja en la ficha -- ver listarTareasPorClienteCrm().
 export type ClienteCrmDetalle = {
   cliente: ClienteCrm;
   casos: CasoVinculado[];
   cobros: CobroVinculado[];
   citas: CitaVinculada[];
   actividades: ActividadCrm[];
-  tareas: TareaCrm[];
 };
 
 export type ItemPipeline = {
@@ -867,28 +854,6 @@ export function registrarActividadCrm(
   });
 }
 
-export function crearTareaCrm(
-  clienteId: number,
-  tarea: {
-    titulo: string;
-    descripcion?: string;
-    fechaVencimiento?: string;
-    prioridad?: PrioridadTareaCrm;
-    usuarioNombre?: string;
-  },
-): Promise<TareaCrm> {
-  return pedido<TareaCrm>(`/api/admin/crm/clientes/${clienteId}/tareas`, {
-    method: "POST",
-    body: JSON.stringify(tarea),
-  });
-}
-
-export function completarTareaCrm(tareaId: number, completada: boolean): Promise<TareaCrm> {
-  return pedido<TareaCrm>(`/api/admin/crm/tareas/${tareaId}/completar?completada=${completada}`, {
-    method: "PATCH",
-  });
-}
-
 export function obtenerDashboardCrm(): Promise<CrmDashboard> {
   return pedido<CrmDashboard>("/api/admin/crm/dashboard");
 }
@@ -941,18 +906,23 @@ export function listarRegistroSistema(opciones: {
   return pedido<PaginaRegistroSistema>(`/api/admin/registro-sistema?${parametros.toString()}`);
 }
 
-// ---------- Tareas por caso (con responsable asignado) ----------
-// Distinto del módulo de tareas del CRM (crearTareaCrm/completarTareaCrm, ligado a un
-// ClienteCrm en general con el nombre del responsable en texto libre): esto vive dentro de un
-// Caso puntual y el responsable es un usuario interno real -- pedido explícito del usuario,
-// "deja un registro de tareas por caso y con responsabilidad [...] esta habilidad la podra
-// tener tanto admin como cualquiera de los abogados".
+// ---------- Tareas (por caso o por persona del CRM, con responsable real asignado) ----------
+// Pedido explícito del usuario: "deja un registro de tareas por caso y con responsabilidad
+// [...] esta habilidad la podra tener tanto admin como cualquiera de los abogados", y luego
+// "arregla desde el directorio de clientes en el CRM ahi es donde se asginara las tareas por
+// cada persona" -- el módulo viejo de tareas del CRM (ligado solo a un ClienteCrm, con el
+// nombre del responsable en texto libre sin validar) se retiró por completo, reemplazado por
+// este.
 
 export type PrioridadTarea = "BAJA" | "MEDIA" | "ALTA";
 
+// casoId/clienteCrmId: una tarea está ligada a un Caso, a una persona del directorio del CRM, o
+// a ambos -- nunca a ninguno de los dos (ver migración V46, corrige el bug real de que el 96%
+// del directorio no tenía ningún caso judicial y por eso nunca podía tener tareas).
 export type Tarea = {
   id: number;
-  casoId: number;
+  casoId: number | null;
+  clienteCrmId: number | null;
   casoEtiqueta: string;
   clienteNombre: string;
   titulo: string;
@@ -972,6 +942,13 @@ export function listarTareasPorCaso(casoId: number): Promise<Tarea[]> {
   return pedido<Tarea[]>(`/api/admin/casos/${casoId}/tareas`);
 }
 
+// Registro de tareas de una persona del CRM (pedido explícito del usuario: "arregla desde el
+// directorio de clientes en el CRM ahi es donde se asginara las tareas por cada persona"):
+// junta las ligadas directamente a su ficha con las de cualquiera de sus casos.
+export function listarTareasPorClienteCrm(clienteCrmId: number): Promise<Tarea[]> {
+  return pedido<Tarea[]>(`/api/admin/crm/clientes/${clienteCrmId}/tareas`);
+}
+
 export function crearTarea(
   casoId: number,
   datos: {
@@ -983,6 +960,23 @@ export function crearTarea(
   },
 ): Promise<Tarea> {
   return pedido<Tarea>(`/api/admin/casos/${casoId}/tareas`, {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+// Tarea general ligada directamente a una persona del CRM, sin necesitar un caso judicial.
+export function crearTareaParaCliente(
+  clienteCrmId: number,
+  datos: {
+    titulo: string;
+    descripcion?: string;
+    fechaVencimiento?: string;
+    prioridad?: PrioridadTarea;
+    usuarioAsignadoId: number;
+  },
+): Promise<Tarea> {
+  return pedido<Tarea>(`/api/admin/crm/clientes/${clienteCrmId}/tareas`, {
     method: "POST",
     body: JSON.stringify(datos),
   });

@@ -13,14 +13,19 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import sie.siejuridicos.caso.Caso;
+import sie.siejuridicos.crm.ClienteCrm;
 import sie.siejuridicos.usuario.UsuarioInterno;
 
 import java.time.LocalDateTime;
 
-// Tarea con responsable asignado, ligada a un caso puntual (pedido explícito del usuario, ver
-// migración V45). A diferencia de crm.TareaCrm (ligada a un ClienteCrm en general, con el
-// nombre del responsable en texto libre sin validar), aquí el caso y el responsable son
-// relaciones reales -- permite "¿qué tengo pendiente?" por usuario real (ver TareaRepository).
+// Tarea con responsable asignado, ligada a un caso puntual O a una persona del directorio del
+// CRM (ver migración V46 -- antes, V45, exigía siempre un Caso, pero la mayoría de los clientes
+// del CRM todavía no tiene ningún caso judicial vinculado, así que el botón de asignar tareas
+// desde su ficha nunca tenía dónde engancharse). Al menos uno de los dos debe estar presente
+// (ver el CHECK de la migración), nunca los dos null -- TareaService se encarga de esa regla.
+// A diferencia de crm.TareaCrm (ligada a un ClienteCrm en general, con el nombre del responsable
+// en texto libre sin validar), aquí el responsable es una relación real a UsuarioInterno --
+// permite "¿qué tengo pendiente?" por usuario real (ver TareaRepository).
 @Entity
 @Table(name = "tareas")
 public class Tarea {
@@ -29,9 +34,13 @@ public class Tarea {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "caso_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "caso_id")
     private Caso caso;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_crm_id")
+    private ClienteCrm clienteCrm;
 
     @Column(name = "titulo", nullable = false)
     private String titulo;
@@ -74,6 +83,14 @@ public class Tarea {
 
     public void setCaso(Caso caso) {
         this.caso = caso;
+    }
+
+    public ClienteCrm getClienteCrm() {
+        return clienteCrm;
+    }
+
+    public void setClienteCrm(ClienteCrm clienteCrm) {
+        this.clienteCrm = clienteCrm;
     }
 
     public String getTitulo() {
