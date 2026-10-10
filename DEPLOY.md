@@ -320,6 +320,19 @@ Abre `https://tudominio.com` en el navegador: debe cargar el sitio público. Ent
 `https://tudominio.com/admin/login` con el correo/contraseña de `ADMIN_BOOTSTRAP_*` para
 confirmar que el backend y la base de datos responden de verdad.
 
+**Checklist que no se puede ver en `ps` ni en el navegador** (bug real encontrado en
+auditoría: el sitio funcionaba perfecto y aun así los envíos automáticos programados nunca
+salían, sin ningún error visible en ningún lado):
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec backend env | grep BLOQUEO_TOTAL_CLIENTES
+```
+
+Debe imprimir `BLOQUEO_TOTAL_CLIENTES=false`. Si no imprime nada o imprime `true`, los
+recordatorios de cobro, el reporte periódico de casos y los recordatorios de cita se están
+omitiendo en silencio todos los días -- revisa que `.env.prod` tenga la línea
+`BLOQUEO_TOTAL_CLIENTES=false` (ver `.env.prod.example`) y vuelve a levantar el stack.
+
 ## 5. Actualizar a una versión nueva
 
 ```bash

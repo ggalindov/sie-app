@@ -10,13 +10,13 @@ Permite:
     3. nueva_solicitud (Aviso interno a la firma con datos del formulario de contacto)
     4. confirmacion_cita (Confirmación de reunión con cliente)
     5. reporte_semanal_caso (Resumen semanal de estado del caso)
-    6. aviso_nuevo_blog (Aviso automático al equipo de redes de nuevo artículo publicado)
+    6. reporte_blog_publicado (Aviso automático al equipo de redes de nuevo artículo publicado)
 - Inspeccionar el estado de una plantilla específica con sus motivos de rechazo si aplica.
 - Eliminar plantillas obsoletas.
 
 Uso:
   python scripts/gestionar_plantillas_whatsapp.py --listar
-  python scripts/gestionar_plantillas_whatsapp.py --crear aviso_nuevo_blog
+  python scripts/gestionar_plantillas_whatsapp.py --crear reporte_blog_publicado
   python scripts/gestionar_plantillas_whatsapp.py --crear-todas
   python scripts/gestionar_plantillas_whatsapp.py --estado notificacion_radicado_caso
   python scripts/gestionar_plantillas_whatsapp.py --eliminar plantilla_vieja
@@ -34,17 +34,23 @@ IDIOMA_DEFECTO = "es_CO"
 
 # Definición de las plantillas oficiales del sistema
 PLANTILLAS_SISTEMA = {
-    "aviso_nuevo_blog": {
+    # Pedido explícito del usuario tras ver que Meta reclasificó la primera versión
+    # ("Recordatorio... no olvides subirlo a redes") de MARKETING por el lenguaje de llamado a
+    # la acción: "yo ya se que debo hacer, solo reporte que publique algo nuevo con el link" --
+    # texto puramente factual, sin ningún recordatorio ni instrucción. También corrige un
+    # segundo bug real de Meta: una plantilla no puede terminar en una variable ({{2}} solo),
+    # por eso cierra con "Notificación automática." después del enlace.
+    "reporte_blog_publicado": {
         "category": "UTILITY",
         "components": [
             {
                 "type": "BODY",
-                "text": "Recordatorio: Se acaba de publicar un nuevo contenido en SIE Jurídicos: {{1}}. Puedes leerlo completo aquí: {{2}}",
+                "text": "Reporte del sistema: nuevo artículo publicado en el blog de SIE Jurídicos. Título: {{1}}. Enlace: {{2}}. Notificación automática.",
                 "example": {
                     "body_text": [
                         [
-                            "Novedades laborales y jurisprudencia reciente",
-                            "https://siejuridicos.com/blog/novedades-laborales"
+                            "Guía práctica sobre liquidación de cesantías",
+                            "https://siejuridicos.com/blog/guia-liquidacion-cesantias"
                         ]
                     ]
                 }

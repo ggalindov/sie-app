@@ -52,6 +52,13 @@ services:
     restart: unless-stopped
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      # Bug real encontrado en auditoría: sin esto, el default de app.bloqueo-total-clientes
+      # (true, pensado para desarrollo local) bloqueaba en silencio TODOS los envíos
+      # automáticos a clientes reales en producción (recordatorios de cobro, reporte
+      # periódico de casos, recordatorios de cita) -- solo los botones manuales del panel
+      # funcionaban. Jamás pongas esto en true aquí salvo que de verdad quieras apagar todo
+      # el envío automático de producción a propósito.
+      - BLOQUEO_TOTAL_CLIENTES=${BLOQUEO_TOTAL_CLIENTES:-false}
       - DB_HOST=postgres
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
