@@ -813,6 +813,47 @@ html[data-theme="light"] .site-theme .section-seam::after {
   border-top: 1px solid var(--color-line);
 }
 
+/* Cuerpo del artículo en columnas de periódico, SOLO en escritorio (64rem, el mismo corte
+   que usa el resto del sitio) -- pedido explícito y repetido del usuario, anulando a
+   propósito una decisión anterior documentada en este mismo archivo en contra de
+   column-count: "no me contradigas, yo quiero dos columnas... ya el texto tomalo como un
+   periodico, primer letra Grande como periodico". column-fill: auto llena la primera
+   columna de arriba a abajo antes de pasar a la segunda -- "balance" (el valor por
+   defecto) reparte el texto a ojo entre las dos y deja huecos irregulares en cuanto hay
+   encabezados o imágenes de alto variable en medio. break-inside: avoid en encabezados/
+   imágenes/citas para que una columna nunca corte uno de estos bloques a la mitad. */
+@media (min-width: 64rem) {
+  .contenido-articulo {
+    column-count: 2;
+    column-gap: 3.5rem;
+    column-fill: auto;
+    column-rule: 1px solid var(--color-line);
+  }
+
+  .contenido-articulo h2,
+  .contenido-articulo h3,
+  .contenido-articulo h4,
+  .contenido-articulo img,
+  .contenido-articulo blockquote,
+  .contenido-articulo pre {
+    break-inside: avoid;
+  }
+
+  /* Letra capital del primer párrafo, en la misma tipografía de titulares -- pedido
+     explícito del usuario. float + line-height corto para que las líneas siguientes del
+     párrafo envuelvan la letra en vez de dejarla flotando con espacio de más debajo. */
+  .contenido-articulo > p:first-of-type::first-letter {
+    float: left;
+    margin-top: 0.02em;
+    padding-right: 0.12em;
+    font-family: var(--font-display);
+    font-size: 3.6em;
+    line-height: 0.82;
+    font-weight: 600;
+    color: var(--color-gold-deep);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

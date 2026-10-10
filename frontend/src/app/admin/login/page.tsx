@@ -12,15 +12,14 @@ import { PasswordInput } from "@/components/admin/password-input";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-// Entrada escalonada de cada bloque de la tarjeta (badge+título, campo de correo, campo de
-// contraseña, botón): un delay creciente por índice en vez de animar todo junto de golpe,
-// para que la tarjeta se sienta "servida" pieza por pieza en vez de aparecer de un salto.
+// Entrada escalonada de cada bloque del formulario (kicker+título, correo, contraseña,
+// botón): un delay creciente por índice en vez de animar todo junto de golpe.
 const bloqueVariants = {
-  oculto: { opacity: 0, y: 16 },
+  oculto: { opacity: 0, y: 14 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, ease: EASE, delay: 0.12 + i * 0.09 },
+    transition: { duration: 0.55, ease: EASE, delay: 0.1 + i * 0.08 },
   }),
 };
 
@@ -64,115 +63,93 @@ export default function LoginPage() {
   }
 
   return (
-    // El resto del panel se queda deliberadamente en la paleta clara (ver CLAUDE.md),
-    // pero esta pantalla de entrada es la única que un visitante cualquiera puede
-    // encontrarse sin pasar por el candado del nav -- pedido explícito: que se sienta
-    // continua con el sitio público (que ahora abre en oscuro por defecto) en vez de
-    // un salto brusco a blanco.
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-night px-6 py-16">
-      {/* Capa 1: fotografía de fondo a baja opacidad (pedido explícito del usuario) -- una
-          biblioteca, coherente con el oficio sin ser literal (no un mazo de juez ni una
-          balanza genérica). object-cover + fill cubre cualquier proporción de pantalla. */}
+    // Rediseño completo a pedido explícito del usuario ("quiero genuinamente algo nuevo y
+    // diferente, algo elegante y minimalista, no eso tan basico que parece 100% IA"): se
+    // abandonó la tarjeta de vidrio centrada con filetes en L y medallón cónico (el cliché
+    // genérico de "login con IA") a favor de una composición partida tipo editorial -- la
+    // foto de la biblioteca corre de borde a borde de TODA la pantalla (no encerrada en un
+    // panel propio ni detrás de una tarjeta), y el contenido se organiza en dos columnas
+    // reales: marca/cita a la izquierda, formulario sin caja a la derecha. Sin blur, sin
+    // bordes redondeados grandes, sin sombra de tarjeta -- el contraste lo da el propio
+    // texto sobre la viñeta, no un contenedor.
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-night md:flex-row">
       <Image
         src="/admin/login-fondo.jpg"
         alt=""
         fill
         priority
         sizes="100vw"
-        className="absolute inset-0 object-cover opacity-[0.16]"
+        className="absolute inset-0 object-cover opacity-[0.22]"
       />
-      {/* Capa 2: viñeta oscura sobre la foto -- nunca se diseña contraste de texto "a ojo"
-          sobre una fotografía real: esto garantiza que la tarjeta y el texto sean legibles
-          sin importar qué tan clara u oscura salga esa zona puntual de la imagen. */}
       <div
         aria-hidden="true"
         className="absolute inset-0"
         style={{
           backgroundImage:
-            "radial-gradient(130% 90% at 50% 8%, transparent 0%, rgba(20,19,15,0.55) 55%, rgba(20,19,15,0.94) 100%)",
+            "radial-gradient(130% 100% at 20% 0%, transparent 0%, rgba(20,19,15,0.6) 55%, rgba(20,19,15,0.95) 100%)",
         }}
       />
-      {/* Capa 3: el mismo degradado animado dorado/verde de siempre, ahora encima de la foto */}
       <div
         aria-hidden="true"
         className="gradient-animate absolute inset-0"
         style={{
           backgroundImage:
-            "radial-gradient(120% 100% at 15% 0%, rgba(217,169,37,0.16), transparent 55%), radial-gradient(120% 100% at 85% 100%, rgba(63,91,68,0.14), transparent 55%)",
+            "radial-gradient(110% 90% at 85% 0%, rgba(217,169,37,0.1), transparent 55%), radial-gradient(110% 90% at 10% 100%, rgba(63,91,68,0.1), transparent 55%)",
         }}
       />
 
-      {/* Centrado horizontal (pedido explícito del usuario, "el volver del login dejalo en la
-          mitad"): antes quedaba pegado a la esquina superior izquierda. */}
+      {/* Pedido explícito del usuario: "el boton de regresar lo quiero al borde izquierdo
+          pero en la mitad" -- fijo al borde izquierdo de la pantalla, centrado verticalmente,
+          no arriba. El texto se oculta en pantallas muy angostas para no chocar con el
+          formulario. */}
       <Link
         href="/"
-        className="absolute left-1/2 top-6 z-10 flex -translate-x-1/2 items-center gap-2 text-sm text-night-ink/60 transition-colors hover:text-night-ink"
+        className="fixed left-5 top-1/2 z-30 flex -translate-y-1/2 items-center gap-2 text-sm text-night-ink/45 transition-colors hover:text-night-ink md:left-8"
       >
         <ArrowLeft className="h-4 w-4" weight="bold" />
-        Volver al inicio
+        <span className="hidden sm:inline">Volver al inicio</span>
       </Link>
 
-      <motion.div
-        initial={{ opacity: 0, y: 26, scale: 0.965 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.65, ease: EASE }}
-        className="relative z-10 w-full max-w-sm"
-      >
-        {/* Halo dorado detrás de la tarjeta, como el resplandor de un gafete bajo luz --
-            estático a propósito (no pulsa): la tarjeta ya trae suficiente movimiento propio
-            con la entrada escalonada, sumarle un resplandor animado de fondo la saturaría. */}
-        <div aria-hidden="true" className="pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] bg-gold/[0.1] blur-3xl" />
+      {/* Columna izquierda: marca + cita, solo escritorio. No es un panel con imagen propia
+          -- comparte la misma foto de fondo de toda la pantalla, así que basta con el texto
+          flotando sobre ella. */}
+      <div className="relative z-10 hidden w-[42%] flex-col justify-between p-14 md:flex lg:w-[45%] lg:p-20">
+        <Image src="/marca/logo.png" alt="SIE Jurídicos" width={40} height={35} className="h-9 w-auto object-contain opacity-90" />
+        <div>
+          {/* "20+ años" es la misma cifra real ya usada en la sección "Con la confianza de"
+              del sitio público (ver trusted-by.tsx) -- no se inventa ningún dato nuevo aquí. */}
+          <p className="max-w-sm text-balance font-display text-3xl leading-[1.15] text-night-ink/95 lg:text-4xl">
+            Más de veinte años acompañando procesos jurídicos en Bogotá.
+          </p>
+          <p className="mt-5 text-sm text-night-ink/40">SIE Jurídicos · Panel interno</p>
+        </div>
+      </div>
 
-        {/* Pedido explícito del usuario: "hazla mas bonita y unica" -- un par de filetes en L
-            en las esquinas opuestas, como el corte de un sello o un documento certificado,
-            para que la tarjeta no sea un panel de vidrio genérico más. Decorativos puros
-            (aria-hidden), por fuera del propio panel para no interferir con su contenido. */}
-        <span aria-hidden="true" className="pointer-events-none absolute -left-3 -top-3 h-9 w-9 border-l-2 border-t-2 border-gold/50" />
-        <span aria-hidden="true" className="pointer-events-none absolute -bottom-3 -right-3 h-9 w-9 border-b-2 border-r-2 border-gold/50" />
+      {/* Separador: un filete, no un borde de tarjeta -- la única frontera visual entre las
+          dos mitades de la pantalla. */}
+      <div aria-hidden="true" className="relative z-10 hidden w-px self-stretch bg-gradient-to-b from-transparent via-gold/20 to-transparent md:block" />
 
-        {/* La "tarjetera": panel de vidrio esmerilado con el mismo filo dorado que ya usa
-            .card-edged en el resto del sistema (sello de documento legal), pensado como un
-            gafete de acceso -- badge del logo, kicker de "acceso exclusivo", campos y botón
-            todos dentro de un único contenedor con profundidad real (blur + sombra amplia)
-            en vez del formulario suelto sobre el fondo que había antes. */}
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.055] px-7 py-9 shadow-[0_45px_100px_-35px_rgba(0,0,0,0.65)] backdrop-blur-2xl sm:px-9">
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-[3px]"
-            style={{ backgroundImage: "linear-gradient(90deg, var(--color-gold-deep), var(--color-gold) 55%, var(--color-gold-pale))" }}
-          />
-
-          <motion.div custom={0} initial="oculto" animate="visible" variants={bloqueVariants} className="flex flex-col items-center">
-            {/* Medallón del logo: anillo en degradado cónico (dorado -> transparente ->
-                dorado) en vez de un ring sólido plano -- da la sensación de una moneda/sello
-                grabado, no un simple círculo de borde. Estático, mismo criterio que el halo
-                de arriba. */}
-            <span
-              className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full p-[1.5px]"
-              style={{ backgroundImage: "conic-gradient(from 0deg, var(--color-gold-pale), transparent 35%, transparent 65%, var(--color-gold))" }}
-            >
-              <span className="flex h-full w-full items-center justify-center rounded-full bg-night">
-                <span aria-hidden="true" className="absolute inset-0 rounded-full bg-gold/15 blur-lg" />
-                <Image src="/marca/logo.png" alt="SIE Jurídicos" width={34} height={34} className="relative h-[34px] w-[34px] object-contain" />
-              </span>
-            </span>
-            <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.22em] text-gold-pale/80">Acceso exclusivo</p>
-            <h1 className="mt-1.5 font-display text-2xl text-night-ink">Panel administrativo</h1>
-            <p className="mt-1 text-sm text-night-ink/50">SIE Jurídicos</p>
-          </motion.div>
-
-          {/* Separador ornamental: filete dorado con un rombo centrado, en vez de un simple
-              margen en blanco entre el encabezado y el formulario -- el mismo tipo de
-              flourish que llevaría un certificado o un documento membretado. */}
-          <div className="mt-7 flex items-center gap-3" aria-hidden="true">
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-gold/25" />
-            <span className="h-1.5 w-1.5 rotate-45 bg-gold/40" />
-            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-gold/25" />
+      <div className="relative z-10 flex flex-1 items-center justify-center px-7 py-20 sm:px-10 md:px-14 lg:px-16">
+        <div className="w-full max-w-sm">
+          {/* Equivalente compacto de la columna izquierda, solo en móvil (esa columna está
+              oculta ahí). */}
+          <div className="mb-10 flex items-center gap-3 md:hidden">
+            <Image src="/marca/logo.png" alt="SIE Jurídicos" width={32} height={28} className="h-7 w-auto object-contain opacity-90" />
+            <span className="text-sm text-night-ink/45">SIE Jurídicos · Panel interno</span>
           </div>
 
-          <form onSubmit={onSubmit} className="mt-7 space-y-4">
+          <motion.div custom={0} initial="oculto" animate="visible" variants={bloqueVariants}>
+            <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold-pale/70">Acceso interno</p>
+            <h1 className="mt-3 font-display text-4xl text-night-ink">Panel administrativo</h1>
+            <p className="mt-3 text-sm text-night-ink/45">Ingresa con tus credenciales de la firma.</p>
+          </motion.div>
+
+          <form onSubmit={onSubmit} className="mt-11 space-y-7">
+            {/* Campos tipo "subrayado" (sin caja, sin fondo) en vez de inputs encerrados --
+                el lenguaje minimalista que pidió el usuario, consistente con el resto de la
+                composición sin tarjetas. */}
             <motion.div custom={1} initial="oculto" animate="visible" variants={bloqueVariants} className="space-y-2">
-              <label htmlFor="correo" className="text-sm font-medium text-night-ink/70">
+              <label htmlFor="correo" className="text-xs font-medium uppercase tracking-wide text-night-ink/40">
                 Correo
               </label>
               <input
@@ -182,13 +159,13 @@ export default function LoginPage() {
                 autoFocus
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
-                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-night-ink placeholder:text-night-ink/30 transition-all duration-300 focus:border-gold-deep/70 focus:bg-white/[0.08] focus:outline-none focus:ring-4 focus:ring-gold/10"
+                className="w-full border-0 border-b border-night-ink/15 bg-transparent px-0 py-2.5 text-night-ink placeholder:text-night-ink/25 transition-colors duration-300 focus:border-gold focus:outline-none"
                 placeholder="tucorreo@siejuridicos.com"
               />
             </motion.div>
 
             <motion.div custom={2} initial="oculto" animate="visible" variants={bloqueVariants} className="space-y-2">
-              <label htmlFor="contrasena" className="text-sm font-medium text-night-ink/70">
+              <label htmlFor="contrasena" className="text-xs font-medium uppercase tracking-wide text-night-ink/40">
                 Contraseña
               </label>
               <PasswordInput
@@ -196,8 +173,8 @@ export default function LoginPage() {
                 required
                 value={contrasena}
                 onChange={(e) => setContrasena(e.target.value)}
-                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-night-ink placeholder:text-night-ink/30 transition-all duration-300 focus:border-gold-deep/70 focus:bg-white/[0.08] focus:outline-none focus:ring-4 focus:ring-gold/10"
-                eyeClassName="text-night-ink/50 hover:text-night-ink"
+                className="w-full border-0 border-b border-night-ink/15 bg-transparent px-0 py-2.5 text-night-ink placeholder:text-night-ink/25 transition-colors duration-300 focus:border-gold focus:outline-none"
+                eyeClassName="text-night-ink/40 hover:text-night-ink"
                 placeholder="••••••••"
               />
             </motion.div>
@@ -213,11 +190,11 @@ export default function LoginPage() {
               </motion.p>
             )}
 
-            <motion.div custom={3} initial="oculto" animate="visible" variants={bloqueVariants}>
+            <motion.div custom={3} initial="oculto" animate="visible" variants={bloqueVariants} className="pt-2">
               <button
                 type="submit"
                 disabled={enviando}
-                className="cta-boton flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-3.5 text-sm font-medium text-ink-fixed transition-opacity disabled:opacity-60"
+                className="cta-boton flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 text-sm font-medium text-ink-fixed transition-opacity disabled:opacity-60"
               >
                 {enviando ? (
                   <>
@@ -233,10 +210,10 @@ export default function LoginPage() {
               </button>
             </motion.div>
           </form>
-        </div>
 
-        <p className="mt-6 text-center text-xs text-night-ink/35">Acceso restringido a personal autorizado de SIE Jurídicos.</p>
-      </motion.div>
+          <p className="mt-10 text-xs text-night-ink/30">Acceso restringido a personal autorizado de SIE Jurídicos.</p>
+        </div>
+      </div>
     </div>
   );
 }

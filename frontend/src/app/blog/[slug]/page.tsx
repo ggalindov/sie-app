@@ -74,13 +74,17 @@ export default async function ArticuloPage({
           igualar el alto del artículo (se queda "sticky" a su propio contenido, ver
           ArticuloSidebar). Contenedor ampliado a max-w-7xl (antes 6xl) para darle más aire a
           la imagen, que ahora ocupa todo el ancho de su columna en vez de acotarse al ancho
-          de lectura del texto (pedido explícito: "la imagen mas GRANDE"). */}
+          de lectura del texto (pedido explícito: "la imagen mas GRANDE"). Riel lateral
+          ensanchado a 380px (antes 300px): pedido explícito "al lado mas grande quien lo
+          redacto, fecha y si necesitas orientacion" -- ver ArticuloSidebar para el resto del
+          agrandamiento (tipografía y espaciados internos). */}
       <div className="mx-auto max-w-3xl px-6 lg:max-w-7xl lg:px-8">
-        <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-16 lg:items-start">
-          {/* Sin max-width propio: breadcrumb/título/meta (dentro de ArticuloCabecera) y el
-              cuerpo del texto (.contenido-articulo) cada uno pide su propio ancho de lectura
-              cómodo (~42rem) por separado -- la imagen y el video, que SÍ quieren ser grandes,
-              quedan libres para ocupar el ancho completo de la columna. */}
+        <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-16 lg:items-start">
+          {/* Título, foto y video quedan libres para ocupar el ancho completo de la columna
+              -- "titulo grande e imperial" pedido explícito. El cuerpo del texto YA NO se
+              acota a un ancho de lectura único: a partir de lg corre en columnas de periódico
+              (ver .contenido-articulo en globals.css), así que también necesita el ancho
+              completo de la columna para tener espacio real donde partirse en dos. */}
           <article className="min-w-0">
             <ArticuloCabecera
               categoria={articulo.categoria.nombre}
@@ -116,12 +120,15 @@ export default async function ArticuloPage({
               </div>
             )}
 
-            <div className="lg:max-w-[42rem]">
-              <div
-                className="contenido-articulo mt-10 text-ink md:mt-12"
-                dangerouslySetInnerHTML={{ __html: articulo.contenido }}
-              />
-            </div>
+            {/* Pedido explícito del usuario, anulando a propósito la decisión anterior de
+                NO usar columnas CSS: "ya el texto tomalo como un periodico, dos columnas del
+                articulo, primer letra Grande como periodico". Ya no lleva su propio
+                max-width -- necesita el ancho completo de la columna para partirse en dos
+                (ver .contenido-articulo en globals.css, media query lg). */}
+            <div
+              className="contenido-articulo mt-10 text-ink md:mt-12"
+              dangerouslySetInnerHTML={{ __html: articulo.contenido }}
+            />
           </article>
 
           <ArticuloSidebar

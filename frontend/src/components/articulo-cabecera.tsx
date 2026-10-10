@@ -24,15 +24,14 @@ export function ArticuloCabecera({
 }) {
   return (
     <>
-      {/* Breadcrumb y título/meta se quedan en el ancho de lectura cómodo (~42rem) aunque la
-          imagen de abajo ya no -- pedido explícito del usuario: "la imagen mas GRANDE". El
-          <article> que envuelve todo esto (ver blog/[slug]/page.tsx) ya no tiene su propio
-          max-width, así que cada bloque decide el suyo por separado. */}
+      {/* Breadcrumb y título/meta ya NO se acotan a un ancho de lectura -- pedido explícito
+          del usuario: "titulo grande e imperial", a todo el ancho de la columna, igual que
+          la imagen. El <article> que envuelve todo esto (ver blog/[slug]/page.tsx) no tiene
+          max-width propio. */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: EASE }}
-        className="lg:max-w-[42rem]"
       >
         <Link
           href="/blog"
@@ -47,10 +46,9 @@ export function ArticuloCabecera({
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.08, ease: EASE }}
-        className="lg:max-w-[42rem]"
       >
         <p className="mt-8 text-xs font-medium uppercase tracking-[0.1em] text-gold-deep">{categoria}</p>
-        <h1 className="mt-3 text-balance font-display text-3xl leading-tight tracking-tight md:text-5xl">
+        <h1 className="mt-3 text-balance font-display text-3xl leading-tight tracking-tight md:text-5xl lg:text-6xl">
           {titulo}
         </h1>
         <p className="mt-5 text-sm text-ink-soft">{meta}</p>
