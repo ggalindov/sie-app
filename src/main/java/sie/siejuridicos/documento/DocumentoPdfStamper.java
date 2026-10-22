@@ -13,7 +13,9 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfReader;
 import com.lowagie.text.pdf.PdfWriter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import sie.siejuridicos.documento.pdf.QrImageUtil;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
@@ -40,6 +42,14 @@ public class DocumentoPdfStamper {
     private static final Font FUENTE_SIN_FIRMA = new Font(Font.HELVETICA, 9, Font.ITALIC, Color.GRAY);
     private static final DateTimeFormatter FORMATO_FECHA =
             DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy, h:mm a", Locale.of("es", "CO"));
+    private static final int LADO_QR_PX = 180;
+    private static final float ANCHO_QR_PT = 64f;
+
+    private final String sitioPublicoUrl;
+
+    public DocumentoPdfStamper(@Value("${app.documento.sitio-web}") String sitioPublicoUrl) {
+        this.sitioPublicoUrl = sitioPublicoUrl;
+    }
 
     public byte[] estamparFirmas(byte[] pdfOriginal, DocumentoFirma documento, List<DocumentoFirmante> firmantes) {
         try {
@@ -63,6 +73,9 @@ public class DocumentoPdfStamper {
         }
         doc.add(new Paragraph(" "));
 
+        doc.add(bloqueBaseLegal(documento));
+        doc.add(new Paragraph(" "));
+
         for (DocumentoFirmante firmante : firmantes) {
             doc.add(bloqueFirma(firmante));
             doc.add(new Paragraph(" "));
@@ -70,6 +83,54 @@ public class DocumentoPdfStamper {
 
         doc.close();
         return salida.toByteArray();
+    }
+
+    // Pedido explícito del usuario: que el motor quede lo mejor adaptado posible a la
+    // justicia colombiana. Esta página queda DENTRO del mismo PDF que recibe cada firmante
+    // (a diferencia del certificado de evidencia, que es un archivo aparte que se puede
+    // perder u olvidar reenviar) -- así el documento es autosuficiente como evidencia desde
+    // el primer momento: cualquiera que lo abra, incluido un juez, ve de inmediato la base
+    // legal exacta y puede escanear el QR para verificarlo de forma independiente, sin
+    // depender de que alguien le entregue el certificado de evidencia por separado.
+    private PdfPTable bloqueBaseLegal(DocumentoFirma documento) {
+        String urlVerificacion = documento.getCodigoVerificacion() != null
+                ? sitioPublicoUrl + "/verificar-documento?codigo=" + documento.getCodigoVerificacion()
+                : null;
+
+        PdfPTable tabla = new PdfPTable(urlVerificacion != null ? new float[]{1f, 3.4f} : new float[]{1f});
+        tabla.setWidthPercentage(100);
+
+        if (urlVerificacion != null) {
+            PdfPCell celdaQr = new PdfPCell();
+            celdaQr.setBorder(Rectangle.NO_BORDER);
+            celdaQr.setPadding(4f);
+            celdaQr.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            celdaQr.setHorizontalAlignment(Element.ALIGN_CENTER);
+            Image qr = QrImageUtil.generar(urlVerificacion, LADO_QR_PX);
+            if (qr != null) {
+                qr.scaleToFit(ANCHO_QR_PT, ANCHO_QR_PT);
+                celdaQr.addElement(qr);
+            }
+            tabla.addCell(celdaQr);
+        }
+
+        PdfPCell celdaTexto = new PdfPCell(new Paragraph(
+                "Este documento fue firmado electrónicamente con equivalencia funcional a la firma manuscrita "
+                        + "(artículo 7 de la Ley 527 de 1999), con fiabilidad verificable conforme a los atributos "
+                        + "del artículo 1 del Decreto 2364 de 2012 (unicidad del firmante, verificabilidad, control "
+                        + "exclusivo al momento de firmar y vinculación con el contenido mediante cadena de hashes, "
+                        + "firma criptográfica, firma digital PAdES embebida y sello de tiempo RFC 3161), válida en "
+                        + "trámites judiciales y extrajudiciales conforme a la Ley 2213 de 2022."
+                        + (urlVerificacion != null
+                                ? " Escanee el código QR o visite " + urlVerificacion + " para verificar su integridad."
+                                : ""),
+                FUENTE_SUBTITULO));
+        celdaTexto.setBorder(Rectangle.NO_BORDER);
+        celdaTexto.setPadding(4f);
+        celdaTexto.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        tabla.addCell(celdaTexto);
+
+        return tabla;
     }
 
     private PdfPTable bloqueFirma(DocumentoFirmante firmante) throws Exception {

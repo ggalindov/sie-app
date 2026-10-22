@@ -1,12 +1,5 @@
 package sie.siejuridicos.documento.pdf;
 
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.EncodeHintType;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
-import com.lowagie.text.BadElementException;
 import com.lowagie.text.Chunk;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
@@ -25,13 +18,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import sie.siejuridicos.documento.FechaEsCo;
 
-import javax.imageio.ImageIO;
 import java.awt.Color;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.io.ByteArrayOutputStream;
-import java.util.EnumMap;
-import java.util.Map;
 
 // PDF del "Certificado de Evidencia Técnica de Firma Electrónica": un documento SEPARADO del
 // PDF original del documento (nunca se toca desde aquí), con su propio membrete simple y
@@ -144,17 +132,37 @@ public class EvidenceCertificatePdfGenerator {
                         + "rastrea la integridad de este documento de forma continua y ya tiene conocimiento de ello.";
     }
 
+    // Redactado para que el certificado se explique a sí mismo ante un juez, un árbitro o
+    // la contraparte sin depender de que quien lo lea conozca de antemano el régimen legal:
+    // mapea cada mecanismo técnico capturado a los cuatro atributos de fiabilidad que exige
+    // el artículo 1 del Decreto 2364 de 2012 para que una firma electrónica tenga la misma
+    // fuerza que la manuscrita (art. 7, Ley 527 de 1999), y aclara explícitamente que esto
+    // es firma ELECTRÓNICA, no firma DIGITAL con certificado de una entidad de certificación
+    // acreditada (art. 28 de la misma ley) -- esa es una presunción legal distinta y más
+    // fuerte que este sistema, con certificado autofirmado, no tiene ni reclama tener. Sí
+    // reclamar esa presunción sin tenerla sería un error legal real: lo contrario, quedarse
+    // corto describiendo la fiabilidad que SÍ existe, le resta fuerza a la evidencia sin
+    // necesidad.
     private Paragraph avisoLegal() {
         PdfPTable tabla = new PdfPTable(1);
         tabla.setWidthPercentage(100);
         PdfPCell celda = new PdfPCell(new Paragraph(
-                "Este documento cuenta con protección técnica integral: cadena de hashes del timeline, firma "
-                        + "criptográfica de aplicación, firma digital PAdES embebida y sello de tiempo RFC 3161. "
-                        + "Cualquier intento de alteración del contenido, del cifrado o de la firma electrónica "
-                        + "aplicada después de firmado queda expuesto automáticamente por estos mecanismos. "
-                        + "SIE Jurídicos puede confirmar en cualquier momento si un documento firmado "
-                        + "electrónicamente ha sido modificado desde su emisión. Firma electrónica con evidencia "
-                        + "técnica, amparada por la Ley 527 de 1999, el Decreto 2364 de 2012 y la Ley 2213 de 2022.",
+                "Este documento constituye firma electrónica con plenos efectos jurídicos y equivalencia funcional "
+                        + "a la firma manuscrita (artículo 7 de la Ley 527 de 1999), válida en trámites judiciales y "
+                        + "extrajudiciales (Ley 2213 de 2022). Su fiabilidad satisface los cuatro atributos exigidos "
+                        + "por el artículo 1 del Decreto 2364 de 2012: (a) unicidad del firmante, verificada mediante "
+                        + "su documento de identidad, un código de un solo uso enviado a un canal propio, fotografía "
+                        + "de su documento y fotografía de verificación humana; (b) verificabilidad independiente, "
+                        + "mediante el portal público de verificación y el código QR de este certificado; "
+                        + "(c) control exclusivo del firmante en el momento de firmar, acreditado por el código de "
+                        + "un solo uso, la geolocalización y la fotografía de verificación humana capturadas en el "
+                        + "mismo acto; y (d) vinculación inseparable con el contenido firmado, mediante cadena de "
+                        + "hashes del timeline, firma criptográfica de aplicación, firma digital PAdES embebida y "
+                        + "sello de tiempo RFC 3161 -- cualquier alteración posterior del contenido invalida "
+                        + "automáticamente estos mecanismos y queda expuesta. Este certificado no sustituye ni "
+                        + "implica una firma digital con certificado de una entidad de certificación digital "
+                        + "acreditada (artículo 28 de la Ley 527 de 1999); documenta la fiabilidad de una firma "
+                        + "electrónica conforme al régimen general.",
                 fuente(Font.BOLD, 8.5f, TINTA)));
         celda.setBackgroundColor(FONDO_AVISO);
         celda.setPadding(10f);
@@ -322,7 +330,7 @@ public class EvidenceCertificatePdfGenerator {
         PdfPCell celdaQr = new PdfPCell();
         celdaQr.setPadding(4f);
         celdaQr.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        Image qr = generarQr(datos.urlVerificacion());
+        Image qr = QrImageUtil.generar(datos.urlVerificacion(), LADO_QR_PX);
         if (qr != null) {
             qr.scaleToFit(ANCHO_QR_PT, ANCHO_QR_PT);
             celdaQr.addElement(qr);
@@ -339,34 +347,6 @@ public class EvidenceCertificatePdfGenerator {
         tabla.addCell(celdaQr);
         tabla.addCell(celdaTexto);
         return tabla;
-    }
-
-    // Nunca lanza: sin QR el certificado sigue siendo válido (el enlace de texto sigue
-    // impreso en las secciones anteriores), así que un fallo del encoder no debe bloquear
-    // la generación.
-    private Image generarQr(String contenido) {
-        if (contenido == null || contenido.isBlank()) {
-            return null;
-        }
-        try {
-            Map<EncodeHintType, Object> sugerencias = new EnumMap<>(EncodeHintType.class);
-            sugerencias.put(EncodeHintType.MARGIN, 1);
-            sugerencias.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.M);
-            BitMatrix matriz = new QRCodeWriter().encode(contenido, BarcodeFormat.QR_CODE, LADO_QR_PX, LADO_QR_PX, sugerencias);
-
-            BufferedImage imagen = new BufferedImage(LADO_QR_PX, LADO_QR_PX, BufferedImage.TYPE_INT_RGB);
-            for (int x = 0; x < LADO_QR_PX; x++) {
-                for (int y = 0; y < LADO_QR_PX; y++) {
-                    imagen.setRGB(x, y, matriz.get(x, y) ? 0x00211C15 : 0xFFFFFFFF);
-                }
-            }
-            ByteArrayOutputStream salida = new ByteArrayOutputStream();
-            ImageIO.write(imagen, "png", salida);
-            return Image.getInstance(salida.toByteArray());
-        } catch (WriterException | IOException | BadElementException ex) {
-            log.warn("No se pudo generar el código QR de verificación del certificado: {}", ex.getMessage());
-            return null;
-        }
     }
 
     private void agregarLinea(Paragraph contenedor, String etiqueta, String valor) {

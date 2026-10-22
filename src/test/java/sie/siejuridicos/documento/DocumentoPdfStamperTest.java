@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // rompa en silencio, igual que para la hoja de cierre.
 class DocumentoPdfStamperTest {
 
-    private final DocumentoPdfStamper stamper = new DocumentoPdfStamper();
+    private final DocumentoPdfStamper stamper = new DocumentoPdfStamper("https://siejuridicos.com");
 
     private byte[] pdfOriginalDeUnaPagina() throws Exception {
         ByteArrayOutputStream salida = new ByteArrayOutputStream();

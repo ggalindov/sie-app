@@ -8,6 +8,7 @@ import com.lowagie.text.Font;
 import com.lowagie.text.Image;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
+import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfCopy;
@@ -115,15 +116,7 @@ public class CierreCustodiaPdfAppender {
         doc.add(filaEtiquetaValor("Código de verificación", datos.codigoVerificacion()));
         doc.add(espacio(4));
 
-        Paragraph redireccion = new Paragraph(
-                "El hash SHA-256 definitivo, el sello de tiempo RFC 3161 y la firma digital PAdES/PKCS7 "
-                        + "aplicados sobre la versión final de este documento (que incluye esta misma hoja) se "
-                        + "pueden consultar en cualquier momento, junto con el detalle técnico completo de cada "
-                        + "firma, mediante el código de verificación impreso arriba"
-                        + (datos.urlVerificacion() != null ? (" en " + datos.urlVerificacion()) : "") + ".",
-                fuente(Font.NORMAL, 8, TINTA_SUAVE));
-        redireccion.setSpacingAfter(6f);
-        doc.add(redireccion);
+        doc.add(bloqueVerificacion(datos));
 
         doc.add(seccionTitulo("Firmantes"));
         for (HojaCierreCustodiaData.FirmanteResumen firmante : datos.firmantes()) {
@@ -135,10 +128,17 @@ public class CierreCustodiaPdfAppender {
         return salida.toByteArray();
     }
 
-    // El "rastro" explícito de quién firmó, con el lenguaje de presunción de validez legal
-    // (Art. 5 y 7 de la Ley 527 de 1999, Decreto 2364 de 2012, Ley 2213 de 2022): un lector
-    // no tiene que interpretar campos técnicos dispersos para saber que el documento fue
-    // firmado electrónicamente y por quién -- queda dicho en una sola frase.
+    // El "rastro" explícito de quién firmó: un lector no tiene que interpretar campos
+    // técnicos dispersos para saber que el documento fue firmado electrónicamente y por
+    // quién -- queda dicho en una sola frase. CORREGIDO (pedido explícito del usuario de
+    // dejar el motor lo mejor adaptado posible a la justicia colombiana): la redacción
+    // anterior decía que la firma "goza de presunción de validez legal", lo cual es
+    // impreciso -- esa presunción automática es propia de la firma DIGITAL con certificado
+    // de una entidad de certificación acreditada (art. 28, Ley 527 de 1999), que este
+    // sistema no tiene (su certificado PAdES es autofirmado). Lo que sí tiene, y es lo que
+    // dice ahora, es equivalencia funcional a la firma manuscrita (art. 7) con fiabilidad
+    // verificable conforme al art. 1 del Decreto 2364 de 2012 -- afirmar de más aquí sería
+    // un error legal real que la contraparte podría usar para cuestionar todo el documento.
     private Paragraph rastroFirmaElectronica(HojaCierreCustodiaData datos) {
         StringBuilder nombres = new StringBuilder();
         for (int i = 0; i < datos.firmantes().size(); i++) {
@@ -156,8 +156,12 @@ public class CierreCustodiaPdfAppender {
         tabla.setWidthPercentage(100);
         PdfPCell celda = new PdfPCell(new Paragraph(
                 "Este documento fue firmado electrónicamente por: " + nombres + ". La firma electrónica aplicada "
-                        + "goza de presunción de validez legal y equivale a la firma manuscrita conforme al "
-                        + "artículo 7 de la Ley 527 de 1999, el Decreto 2364 de 2012 y la Ley 2213 de 2022. El "
+                        + "tiene equivalencia funcional a la firma manuscrita conforme al artículo 7 de la Ley 527 "
+                        + "de 1999, es válida en trámites judiciales y extrajudiciales conforme a la Ley 2213 de "
+                        + "2022, y su fiabilidad es verificable conforme a los atributos del artículo 1 del Decreto "
+                        + "2364 de 2012 (unicidad del firmante, verificabilidad, control exclusivo al momento de "
+                        + "firmar y vinculación con el contenido). No se trata de una firma digital con certificado "
+                        + "de una entidad de certificación digital acreditada (artículo 28 de la misma ley). El "
                         + "mecanismo de identificación exacto de cada firmante -- verificación de su número de "
                         + "documento, código de un solo uso, geolocalización cuando estuvo disponible, "
                         + "fotografía de su documento de identidad y fotografía de verificación humana tomada "
@@ -171,6 +175,40 @@ public class CierreCustodiaPdfAppender {
         Paragraph contenedor = new Paragraph();
         contenedor.add(tabla);
         return contenedor;
+    }
+
+    private PdfPTable bloqueVerificacion(HojaCierreCustodiaData datos) {
+        String urlVerificacion = datos.urlVerificacion();
+        PdfPTable tabla = new PdfPTable(urlVerificacion != null ? new float[]{1f, 4.3f} : new float[]{1f});
+        tabla.setWidthPercentage(100);
+        tabla.setSpacingAfter(6f);
+
+        if (urlVerificacion != null) {
+            PdfPCell celdaQr = new PdfPCell();
+            celdaQr.setBorder(Rectangle.NO_BORDER);
+            celdaQr.setPadding(2f);
+            celdaQr.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            Image qr = QrImageUtil.generar(urlVerificacion, LADO_MINIATURA_PX);
+            if (qr != null) {
+                qr.scaleToFit(ANCHO_FOTO_PT, ANCHO_FOTO_PT);
+                celdaQr.addElement(qr);
+            }
+            tabla.addCell(celdaQr);
+        }
+
+        PdfPCell celdaTexto = new PdfPCell(new Paragraph(
+                "El hash SHA-256 definitivo, el sello de tiempo RFC 3161 y la firma digital PAdES/PKCS7 "
+                        + "aplicados sobre la versión final de este documento (que incluye esta misma hoja) se "
+                        + "pueden consultar en cualquier momento, junto con el detalle técnico completo de cada "
+                        + "firma, mediante el código de verificación impreso arriba"
+                        + (urlVerificacion != null ? (", escaneando el QR o en " + urlVerificacion) : "") + ".",
+                fuente(Font.NORMAL, 8, TINTA_SUAVE)));
+        celdaTexto.setBorder(Rectangle.NO_BORDER);
+        celdaTexto.setPadding(2f);
+        celdaTexto.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        tabla.addCell(celdaTexto);
+
+        return tabla;
     }
 
     private Paragraph seccionTitulo(String texto) {
