@@ -71,6 +71,23 @@ function huellaDeDispositivo(): string {
   return partes.join("|");
 }
 
+// Bug real encontrado en producción: huellaDispositivo se mandaba cruda (navigator.userAgent
+// completo incluido) a una columna VARCHAR(64) -- en cualquier celular real el user-agent
+// por sí solo ya supera los 64 caracteres, así que CADA firma real fallaba con "value too
+// long for type character varying(64)" (un 500 traducido a "El servicio no está disponible"
+// por el manejador genérico de errores de base de datos). En las pruebas de esta sesión
+// nunca se notó porque se mandaba una huella sintética corta por curl, no una real de
+// navegador. El arreglo correcto es justo lo que el nombre del campo ya decía que debía
+// ser -- una HUELLA (hash), no el texto crudo: SHA-256 hex mide siempre 64 caracteres,
+// exactamente el límite de la columna.
+async function sha256Hex(texto: string): Promise<string> {
+  const datos = new TextEncoder().encode(texto);
+  const hash = await crypto.subtle.digest("SHA-256", datos);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export default function FirmarPage() {
   const { token } = useParams<{ token: string }>();
   const [paso, setPaso] = useState<Paso>("cargando");
@@ -268,7 +285,7 @@ export default function FirmarPage() {
     setCargandoAccion(true);
     try {
       const r = await firmarDocumento(token, firmaPng, {
-        huellaDispositivo: huella,
+        huellaDispositivo: await sha256Hex(huella),
         contextoDispositivoJson: JSON.stringify({ idioma: navigator.language, zonaHoraria: Intl.DateTimeFormat().resolvedOptions().timeZone }),
         trazoVectorialJson: trazoVectorial ? JSON.stringify(trazoVectorial) : undefined,
       });

@@ -34,6 +34,15 @@ public class PublicSignatureService {
     // ~10.000 puntos {x,y,t,p,ordenTrazo} de sobra para cualquier firma real; límite
     // defensivo contra un cliente que mande un JSON artificialmente enorme.
     private static final int TAMANO_MAXIMO_TRAZO_VECTORIAL_CARACTERES = 1024 * 1024;
+    // documento_firmantes.huella_dispositivo es VARCHAR(64) (ver V48) -- bug real encontrado
+    // en producción: el frontend mandaba el navigator.userAgent crudo ahí, que por sí solo ya
+    // supera 64 caracteres en cualquier celular real, y Postgres rechazaba el UPDATE entero
+    // con un genérico "value too long", que el manejador global traducía a un 503 "servicio
+    // no disponible" sin ninguna pista real del problema. El frontend ya quedó arreglado
+    // (ahora manda un hash SHA-256 de 64 caracteres, ver sha256Hex en el wizard), pero esta
+    // validación evita que el mismo error silencioso vuelva a pasar si algo cambia del lado
+    // del cliente o alguien llama este endpoint directo.
+    private static final int TAMANO_MAXIMO_HUELLA_DISPOSITIVO_CARACTERES = 64;
 
     private final SignerTokenService signerTokenService;
     private final OtpService otpService;
@@ -169,6 +178,9 @@ public class PublicSignatureService {
         validarImagen(firmaPng, "La firma capturada no es una imagen válida.");
         if (trazoVectorialJson != null && trazoVectorialJson.length() > TAMANO_MAXIMO_TRAZO_VECTORIAL_CARACTERES) {
             throw new EntidadInvalidaException("El trazo de la firma es demasiado grande.");
+        }
+        if (huellaDispositivo != null && huellaDispositivo.length() > TAMANO_MAXIMO_HUELLA_DISPOSITIVO_CARACTERES) {
+            throw new EntidadInvalidaException("La huella de dispositivo enviada no es válida.");
         }
         if (firmante.getConsentimientoAceptadoEn() == null) {
             throw new EntidadInvalidaException("Debes aceptar el consentimiento antes de firmar.");
