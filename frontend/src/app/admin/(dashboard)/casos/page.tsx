@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { ArrowsClockwise, Bell, CheckSquare, EnvelopeSimple, HourglassMedium, MagnifyingGlass, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, Bell, CheckSquare, EnvelopeSimple, FileText, HourglassMedium, MagnifyingGlass, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
 import {
   listarCasos,
   crearCaso,
@@ -18,6 +18,7 @@ import {
 import { AdminPageHeader, AdminCard, AdminButton, Badge, NotificationBadge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { EnvioLoteProgreso } from "@/components/admin/envio-lote-progreso";
 import { TareasDeCasoModal, type ObjetivoTareas } from "@/components/admin/tareas-de-caso-modal";
+import { DocumentosDeCasoModal, type CasoParaDocumentos } from "@/components/admin/documentos-de-caso-modal";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -42,6 +43,7 @@ export default function CasosAdminPage() {
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
   const [busqueda, setBusqueda] = useState("");
   const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<ObjetivoTareas | null>(null);
+  const [casoConDocumentosAbierto, setCasoConDocumentosAbierto] = useState<CasoParaDocumentos | null>(null);
   const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});
 
   const cargar = useCallback(() => {
@@ -367,6 +369,21 @@ export default function CasosAdminPage() {
                   </span>
                   {tareasPendientesPorCaso[c.id] ? `${tareasPendientesPorCaso[c.id]} tarea(s) pendiente(s)` : "Tareas"}
                 </button>
+
+                {/* Pedido explícito del usuario: ver desde aquí mismo qué documentos del
+                    motor de firma electrónica están anexados a este caso y en qué estado
+                    va cada uno, sin tener que buscarlo a mano entre todos en
+                    /admin/documentos. */}
+                <button
+                  type="button"
+                  onClick={() => setCasoConDocumentosAbierto({ id: c.id, nombreCliente: c.nombreCliente, radicadoId: c.radicadoId })}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 py-1 pl-1.5 pr-3 text-xs font-medium text-ink-soft transition-colors hover:bg-ink/10"
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/10">
+                    <FileText weight="bold" className="h-3 w-3" />
+                  </span>
+                  Documentos
+                </button>
               </div>
             </AdminCard>
           ))}
@@ -387,6 +404,8 @@ export default function CasosAdminPage() {
         onClose={() => setCasoConTareasAbierto(null)}
         onCambioPendientes={cargarConteoTareas}
       />
+
+      <DocumentosDeCasoModal caso={casoConDocumentosAbierto} onClose={() => setCasoConDocumentosAbierto(null)} />
     </div>
   );
 }

@@ -17,7 +17,16 @@ public enum TipoEnvio {
     PUBLICACION_BLOG("Aviso de publicación"),
     AVISO_REDES_SOCIALES("Aviso a redes sociales"),
     BOLETIN("Boletín"),
-    BIENVENIDA_BOLETIN("Bienvenida al boletín");
+    BIENVENIDA_BOLETIN("Bienvenida al boletín"),
+    // Motor de firma electrónica (ver sie.siejuridicos.documento): pedido explícito del
+    // usuario de llevar registro de correos/WhatsApp salientes y para quién, extendido
+    // también a los envíos de este nuevo módulo en vez de duplicar una segunda bitácora.
+    ENLACE_FIRMA_DOCUMENTO("Enlace de firma de documento"),
+    OTP_FIRMA_DOCUMENTO("Código de verificación de firma"),
+    DOCUMENTO_FIRMADO_FINAL("Documento firmado final"),
+    RECORDATORIO_FIRMA("Recordatorio de firma pendiente"),
+    ALERTA_INTEGRIDAD_DOCUMENTO("Alerta de integridad de documento"),
+    ALERTA_FIRMA_RECHAZADA("Alerta de firma rechazada");
 
     private final String nombreVisible;
 

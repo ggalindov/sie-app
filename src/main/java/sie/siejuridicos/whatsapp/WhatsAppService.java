@@ -61,6 +61,11 @@ public class WhatsAppService {
     private final String nombrePlantillaCita;
     private final String nombrePlantillaReporteSemanal;
     private final String nombrePlantillaBlog;
+    // Motor de firma electrónica (ver sie.siejuridicos.documento): enlace único de firma
+    // para una parte PERSONA_NATURAL que eligió el canal WhatsApp. El código de verificación
+    // (OTP) de ese mismo motor, en cambio, SIEMPRE va por correo (pedido explícito del
+    // usuario) -- ver EmailService.enviarCodigoOtpFirma, no tiene contraparte aquí.
+    private final String nombrePlantillaFirmaEnlace;
     private final String codigoIdiomaPlantilla;
     private final String urlImagenCabecera;
     private final String sitioWeb;
@@ -93,6 +98,7 @@ public class WhatsAppService {
             @Value("${app.whatsapp.admin-numero:+573124781583}") String numeroAdminNotificaciones,
             @Value("${app.whatsapp.numero-aviso-blog:3126029742}") String numeroAvisoBlog,
             @Value("${app.whatsapp.plantilla-blog-nombre:reporte_blog_publicado}") String nombrePlantillaBlog,
+            @Value("${app.whatsapp.plantilla-firma-enlace-nombre:enlace_firma_documento}") String nombrePlantillaFirmaEnlace,
             @Value("${app.firma.sitio-web}") String sitioWeb,
             @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.registroEnvioService = registroEnvioService;
@@ -104,6 +110,7 @@ public class WhatsAppService {
         this.nombrePlantillaCita = nombrePlantillaCita;
         this.nombrePlantillaReporteSemanal = nombrePlantillaReporteSemanal;
         this.nombrePlantillaBlog = nombrePlantillaBlog;
+        this.nombrePlantillaFirmaEnlace = nombrePlantillaFirmaEnlace;
         this.codigoIdiomaPlantilla = codigoIdiomaPlantilla;
         this.urlImagenCabecera = urlImagenCabecera;
         this.sitioWeb = sitioWeb;
@@ -345,6 +352,47 @@ public class WhatsAppService {
         registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.RECORDATORIO_COBRO,
                 nombreCliente, celular, honorariosTexto, exito);
         return exito;
+    }
+
+    // Motor de firma electrónica: enlace único de firma para una parte PERSONA_NATURAL que
+    // eligió el canal WhatsApp (ver DocumentoFirmaService). Nunca se usa para empresas --
+    // esa regla se valida en el servidor antes de siquiera llegar aquí, ver
+    // DocumentoFirmaService.ParteAFirmar.
+    @Async
+    public void enviarEnlaceFirmaDocumento(String nombreParte, String telefono, String nombreDocumento, String enlaceFirma) {
+        if (!configurado) {
+            return;
+        }
+        String celular = normalizarCelular(telefono);
+        if (celular == null) {
+            log.warn("No se pudo enviar el enlace de firma por WhatsApp: el teléfono guardado no es un celular "
+                    + "colombiano reconocible.");
+            return;
+        }
+        boolean exito;
+        try {
+            String cuerpo = construirCuerpoPlantillaFirmaEnlace(celular, nombreParte, nombreDocumento, enlaceFirma);
+            HttpRequest solicitud = HttpRequest.newBuilder()
+                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                    .timeout(Duration.ofSeconds(8))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                    .build();
+            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+            if (respuesta.statusCode() >= 300) {
+                log.warn("Meta respondió {} al enviar el enlace de firma por WhatsApp: {}",
+                        respuesta.statusCode(), respuesta.body());
+                exito = false;
+            } else {
+                exito = true;
+            }
+        } catch (Exception ex) {
+            log.warn("No se pudo enviar el enlace de firma por WhatsApp: {}", ex.getMessage());
+            exito = false;
+        }
+        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.ENLACE_FIRMA_DOCUMENTO,
+                nombreParte, celular, nombreDocumento, exito);
     }
 
     // Aviso interno (no al cliente): apenas llega una solicitud nueva del formulario público,
@@ -679,6 +727,53 @@ public class WhatsAppService {
         );
     }
 
+    // Mismo patrón exacto que construirCuerpoPlantilla() (notificacion_radicado_caso, ya
+    // aprobada y probada en producción): imagen de cabecera + el enlace como texto plano
+    // en el cuerpo. Se descartó a propósito un botón de URL dinámico (primera versión de
+    // este método) -- ninguna plantilla de esta cuenta usa botones hoy, y no hay forma de
+    // validar aquí, sin acceso real a Meta, si Meta esperaría la URL completa o solo el
+    // sufijo dinámico de una URL base fija. Reusar el patrón ya probado elimina esa duda.
+    private String construirCuerpoPlantillaFirmaEnlace(String celular, String nombreParte, String nombreDocumento, String enlaceFirma) {
+        return """
+                {
+                  "messaging_product": "whatsapp",
+                  "to": "%s",
+                  "type": "template",
+                  "template": {
+                    "name": "%s",
+                    "language": { "code": "%s" },
+                    "components": [
+                      {
+                        "type": "header",
+                        "parameters": [
+                          {
+                            "type": "image",
+                            "image": { "link": "%s" }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "body",
+                        "parameters": [
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" },
+                          { "type": "text", "text": "%s" }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """.formatted(
+                celular,
+                nombrePlantillaFirmaEnlace,
+                codigoIdiomaPlantilla,
+                urlImagenCabecera,
+                escaparJson(nombreParte),
+                escaparJson(nombreDocumento),
+                escaparJson(enlaceFirma)
+        );
+    }
+
     // JSON armado a mano (sin Jackson) a propósito: son 3 valores de texto sencillos, y así
     // este servicio no depende de que el ObjectMapper del proyecto (Jackson 3, ver notas de
     // Spring Boot 4 en CLAUDE.md) esté configurado de una forma compatible -- una llamada
@@ -725,10 +820,38 @@ public class WhatsAppService {
         );
     }
 
-    private static String escaparJson(String texto) {
-        return texto == null ? "" : texto
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", " ");
+    // Bug real encontrado en auditoría: solo se escapaban "\", comillas y salto de línea.
+    // El cuerpo de una plantilla lleva texto libre (nombreCliente, mensaje de una solicitud
+    // del formulario público, etc.) que puede traer cualquier otro carácter de control --
+    // un \r (frecuente en texto pegado desde Windows) o un \t, por ejemplo. RFC 8259 exige
+    // escapar TODOS los caracteres de control (U+0000-U+001F) dentro de un string JSON; uno
+    // sin escapar produce un JSON inválido que Meta rechaza de entrada (o, peor, corta el
+    // valor en un punto inesperado), fallando el envío en silencio para ese destinatario en
+    // particular sin que se note por qué.
+    // Sin "private" (paquete), a propósito, igual que EmailService.htmlAPlano: solo para que
+    // WhatsAppServiceTest pueda probarlo directamente.
+    static String escaparJson(String texto) {
+        if (texto == null) {
+            return "";
+        }
+        StringBuilder resultado = new StringBuilder(texto.length());
+        for (int i = 0; i < texto.length(); i++) {
+            char c = texto.charAt(i);
+            switch (c) {
+                case '\\' -> resultado.append("\\\\");
+                case '"' -> resultado.append("\\\"");
+                case '\n' -> resultado.append(' ');
+                case '\r' -> resultado.append(' ');
+                case '\t' -> resultado.append(' ');
+                default -> {
+                    if (c < 0x20) {
+                        resultado.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        resultado.append(c);
+                    }
+                }
+            }
+        }
+        return resultado.toString();
     }
 }

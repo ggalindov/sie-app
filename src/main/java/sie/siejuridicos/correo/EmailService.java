@@ -624,6 +624,134 @@ public class EmailService {
         return exito;
     }
 
+    // Motor de firma electrónica (ver sie.siejuridicos.documento.DocumentIntegrityGuard):
+    // alerta a un administrador general en cuanto un documento se marca ALTERADO -- un
+    // escenario grave (manipulación directa de datos o un fallo real de integridad), por
+    // eso se envía a TODO administrador activo, uno por uno, nunca se agrupa en una sola
+    // copia/CC.
+    @Async
+    public void enviarAlertaDocumentoAlterado(String nombreAdmin, String correoAdmin, String nombreDocumento, String motivo) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;"><strong>El documento "%s" fue marcado ALTERADO</strong> por el motor
+                de firma electrónica.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Motivo</p>
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">Revisa el documento en el panel administrativo para más detalle.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreAdmin), escaparHtml(nombreDocumento),
+                COLOR_DORADO, COLOR_DORADO, escaparHtml(motivo),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(correoAdmin, "ALERTA: documento marcado ALTERADO - " + nombreDocumento, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.ALERTA_INTEGRIDAD_DOCUMENTO,
+                nombreAdmin, correoAdmin, nombreDocumento + ": " + motivo, exito);
+    }
+
+    // Motor de firma electrónica: una parte rechazó firmar -- el proceso completo del
+    // documento queda ANULADO de inmediato (ver DocumentoFirmaService#registrarRechazoDeParte),
+    // gerencia necesita saberlo para decidir qué sigue (volver a emitir, contactar a la
+    // parte, etc.), no es algo que deba descubrirse solo revisando el panel.
+    public void enviarAlertaFirmaRechazada(String nombreAdmin, String correoAdmin, String nombreDocumento,
+                                            String nombreFirmante, String motivo) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;"><strong>%s rechazó firmar el documento "%s"</strong>. El proceso de
+                firma quedó anulado de inmediato.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Motivo indicado</p>
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">Revisa el documento en el panel administrativo para decidir cómo continuar.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreAdmin), escaparHtml(nombreFirmante), escaparHtml(nombreDocumento),
+                COLOR_DORADO, COLOR_DORADO, escaparHtml(motivo == null || motivo.isBlank() ? "No se indicó un motivo." : motivo),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(correoAdmin, "Firma rechazada - " + nombreDocumento, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.ALERTA_FIRMA_RECHAZADA,
+                nombreAdmin, correoAdmin, nombreDocumento + ": rechazado por " + nombreFirmante, exito);
+    }
+
+    // Motor de firma electrónica: enlace único de firma para una parte que eligió (o para la
+    // que quedó forzado, si es empresa) el canal correo -- ver DocumentoFirmaService. El motor
+    // de WhatsApp tiene su propio método equivalente en WhatsAppService.
+    @Async
+    public void enviarEnlaceFirmaDocumento(String nombreParte, String correo, String nombreDocumento, String enlaceFirma) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">%s te invita a firmar electrónicamente el siguiente documento:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0;font-size:17px;font-weight:bold;color:%s;">%s</p>
+                </td></tr>
+                </table>
+                %s
+                <p style="margin:0 0 20px;">El enlace es personal e intransferible, y vence en unos días. Si no
+                esperabas este correo, puedes ignorarlo con tranquilidad.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreParte), nombreFirma,
+                COLOR_DORADO, COLOR_TEXTO, escaparHtml(nombreDocumento),
+                botonCta("Firmar documento", enlaceFirma),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(correo, "Tienes un documento para firmar - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.ENLACE_FIRMA_DOCUMENTO,
+                nombreParte, correo, nombreDocumento, exito);
+    }
+
+    // Código de verificación (OTP) para completar la firma -- viaja por el MISMO canal que
+    // el enlace (pedido explícito del usuario, mejora sobre el motor de referencia, que
+    // siempre usaba correo para el OTP sin importar el canal del enlace).
+    @Async
+    public void enviarCodigoOtpFirma(String nombreParte, String correo, String codigo) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Este es tu código de verificación para firmar el documento:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td align="center" style="background-color:#F7F4EC;border:1px dashed %s;padding:16px;">
+                <span style="font-size:28px;font-weight:bold;letter-spacing:6px;color:%s;font-family:Arial,Helvetica,sans-serif;">%s</span>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">El código vence en pocos minutos. Si no lo solicitaste tú, ignora este
+                correo.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreParte),
+                COLOR_DORADO, COLOR_TEXTO, escaparHtml(codigo),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(correo, "Tu código de verificación - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.OTP_FIRMA_DOCUMENTO,
+                nombreParte, correo, "Código de verificación", exito);
+    }
+
+    // Documento ya sellado y firmado por todas las partes, adjunto en PDF -- SIEMPRE por
+    // correo (WhatsApp no puede llevar un adjunto generado dinámicamente, solo plantillas
+    // con archivos pre-cargados en Meta), sin importar el canal que se usó para el enlace.
+    public boolean enviarDocumentoFirmadoFinal(String nombreParte, String correo, String nombreDocumento, byte[] pdfFinal) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Adjunto encontrarás el documento "%s", ya firmado por todas las
+                partes y sellado electrónicamente.</p>
+                %s
+                """.formatted(escaparHtml(nombreParte), escaparHtml(nombreDocumento), firmaCierre());
+        boolean exito = enviarHtmlConAdjunto(correo, "Documento firmado: " + nombreDocumento + " - " + nombreFirma,
+                cuerpo, nombreDocumento + ".pdf", pdfFinal);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.DOCUMENTO_FIRMADO_FINAL,
+                nombreParte, correo, nombreDocumento, exito);
+        return exito;
+    }
+
     private String firmaCierre() {
         return """
                 <p style="margin:24px 0 0;">Atentamente,<br><strong>Equipo %s</strong></p>
@@ -842,6 +970,42 @@ public class EmailService {
             return true;
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.warn("No se pudo enviar el correo '{}' a {}: {}", asunto, destinatario, ex.getMessage());
+            return false;
+        }
+    }
+
+    // Variante con adjunto binario (ver enviarDocumentoFirmadoFinal): mismo
+    // MULTIPART_MODE_MIXED_RELATED que enviarHtml ya usa, que admite adjuntos sin cambiar de
+    // modo -- "mixed" es justamente el nivel que agrupa el adjunto junto al cuerpo
+    // "related" (HTML + imágenes inline).
+    private boolean enviarHtmlConAdjunto(String destinatario, String asunto, String cuerpoHtml,
+                                          String nombreAdjunto, byte[] datosAdjunto) {
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Envío de correo con adjunto CANCELADO hacia '{}' con asunto '{}' (app.bloqueo-total-clientes=true).",
+                    destinatario, asunto);
+            return true;
+        }
+        String[] destinatarios = separarCorreos(destinatario);
+        if (destinatarios.length == 0) {
+            log.warn("No se pudo enviar el correo '{}': '{}' no tiene ninguna dirección válida.", asunto, destinatario);
+            return false;
+        }
+        try {
+            MimeMessage mensaje = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
+            helper.setFrom(remitente, nombreFirma);
+            helper.setTo(destinatarios);
+            helper.setReplyTo(correoAdmin);
+            helper.setSubject(asunto);
+            String htmlCompleto = plantilla(asunto, cuerpoHtml);
+            helper.setText(htmlAPlano(htmlCompleto), htmlCompleto);
+            helper.addInline(CID_LOGO, logoResource, "image/png");
+            helper.addInline(CID_SELLO, selloResource, "image/png");
+            helper.addAttachment(nombreAdjunto, new org.springframework.core.io.ByteArrayResource(datosAdjunto), "application/pdf");
+            mailSender.send(mensaje);
+            return true;
+        } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
+            log.warn("No se pudo enviar el correo con adjunto '{}' a {}: {}", asunto, destinatario, ex.getMessage());
             return false;
         }
     }

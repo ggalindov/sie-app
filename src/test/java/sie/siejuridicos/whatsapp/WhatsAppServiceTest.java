@@ -53,4 +53,34 @@ class WhatsAppServiceTest {
         // direcciones en una sola celda): no debe colarse como si fuera un número válido.
         assertNull(WhatsAppService.normalizarCelular("3001234567; 3009876543"));
     }
+
+    // Regresión de un bug real encontrado en auditoría: escaparJson() solo escapaba "\",
+    // comillas y "\n". Un "\r" o un "\t" (frecuentes en texto pegado desde Windows o un
+    // formulario) quedaban sin escapar dentro del valor JSON, violando RFC 8259 y arriesgando
+    // que Meta rechazara el envío completo de la plantilla sin aviso claro de por qué.
+    @Test
+    void escaparJsonConvierteSaltosDeCarroYTabsEnEspacios() {
+        // "\r\n" son DOS caracteres de control, cada uno se convierte en su propio espacio
+        // (de ahí el doble espacio) -- escaparJson() no intenta detectar la secuencia CRLF
+        // como una sola unidad, solo escapa carácter por carácter.
+        assertEquals("linea 1  linea 2", WhatsAppService.escaparJson("linea 1\r\nlinea 2"));
+        assertEquals("col1 col2", WhatsAppService.escaparJson("col1\tcol2"));
+    }
+
+    @Test
+    void escaparJsonEscapaBarraInvertidaYComillas() {
+        assertEquals("dice: \\\"hola\\\" y C:\\\\ruta", WhatsAppService.escaparJson("dice: \"hola\" y C:\\ruta"));
+    }
+
+    @Test
+    void escaparJsonEscapaCualquierOtroCaracterDeControl() {
+        // 0x07 (BEL) no tiene un caso especial propio como \n/\r/\t, pero RFC 8259 igual
+        // exige escaparlo: cae en la rama genérica \\u00xx.
+        assertEquals("a\\u0007b", WhatsAppService.escaparJson("a\u0007b"));
+    }
+
+    @Test
+    void escaparJsonConNuloDevuelveCadenaVacia() {
+        assertEquals("", WhatsAppService.escaparJson(null));
+    }
 }

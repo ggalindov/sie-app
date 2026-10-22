@@ -113,8 +113,19 @@ export default function LoginPage() {
       {/* Columna izquierda: marca + cita, solo escritorio. No es un panel con imagen propia
           -- comparte la misma foto de fondo de toda la pantalla, así que basta con el texto
           flotando sobre ella. */}
-      <div className="relative z-10 hidden w-[42%] flex-col justify-between p-14 md:flex lg:w-[45%] lg:p-20">
-        <Image src="/marca/logo.png" alt="SIE Jurídicos" width={40} height={35} className="h-9 w-auto object-contain opacity-90" />
+      <div className="relative z-10 hidden w-[42%] flex-col justify-between p-16 md:flex lg:w-[45%] lg:p-24">
+        {/* "mucho más grande y mejor posicionado" -- pedido explícito del usuario tras ver
+            el tamaño anterior (h-16) muy chico y pegado a la esquina. Ahora es el elemento
+            dominante de la columna izquierda, con su propio aire (mt-2) en vez de quedar
+            exactamente al ras del padding del contenedor. */}
+        <Image
+          src="/marca/logo.png"
+          alt="SIE Jurídicos"
+          width={644}
+          height={559}
+          priority
+          className="mt-2 h-36 w-auto object-contain opacity-95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] lg:h-44 xl:h-48"
+        />
         <div>
           {/* "20+ años" es la misma cifra real ya usada en la sección "Con la confianza de"
               del sitio público (ver trusted-by.tsx) -- no se inventa ningún dato nuevo aquí. */}
@@ -134,7 +145,7 @@ export default function LoginPage() {
           {/* Equivalente compacto de la columna izquierda, solo en móvil (esa columna está
               oculta ahí). */}
           <div className="mb-10 flex items-center gap-3 md:hidden">
-            <Image src="/marca/logo.png" alt="SIE Jurídicos" width={32} height={28} className="h-7 w-auto object-contain opacity-90" />
+            <Image src="/marca/logo.png" alt="SIE Jurídicos" width={644} height={559} className="h-16 w-auto object-contain opacity-95" />
             <span className="text-sm text-night-ink/45">SIE Jurídicos · Panel interno</span>
           </div>
 
@@ -159,7 +170,7 @@ export default function LoginPage() {
                 autoFocus
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
-                className="w-full border-0 border-b border-night-ink/15 bg-transparent px-0 py-2.5 text-night-ink placeholder:text-night-ink/25 transition-colors duration-300 focus:border-gold focus:outline-none"
+                className="autofill-safe w-full border-0 border-b border-night-ink/15 bg-transparent px-0 py-2.5 text-night-ink placeholder:text-night-ink/25 transition-colors duration-300 [--autofill-bg:var(--color-night)] [--autofill-ink:var(--color-night-ink)] focus:border-gold focus:outline-none"
                 placeholder="tucorreo@siejuridicos.com"
               />
             </motion.div>
@@ -173,7 +184,7 @@ export default function LoginPage() {
                 required
                 value={contrasena}
                 onChange={(e) => setContrasena(e.target.value)}
-                className="w-full border-0 border-b border-night-ink/15 bg-transparent px-0 py-2.5 text-night-ink placeholder:text-night-ink/25 transition-colors duration-300 focus:border-gold focus:outline-none"
+                className="autofill-safe w-full border-0 border-b border-night-ink/15 bg-transparent px-0 py-2.5 text-night-ink placeholder:text-night-ink/25 transition-colors duration-300 [--autofill-bg:var(--color-night)] [--autofill-ink:var(--color-night-ink)] focus:border-gold focus:outline-none"
                 eyeClassName="text-night-ink/40 hover:text-night-ink"
                 placeholder="••••••••"
               />

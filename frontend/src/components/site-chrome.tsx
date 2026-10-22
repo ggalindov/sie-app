@@ -21,6 +21,11 @@ import { LoadingScreen } from "@/components/loading-screen";
 export function SiteChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const esAdmin = pathname?.startsWith("/admin");
+  // El wizard de firma es un flujo legal, de un solo propósito, que el firmante puede
+  // abrir desde cualquier dispositivo con un enlace de WhatsApp/correo: nada de nav,
+  // footer, chatbot, WhatsApp flotante ni popups de newsletter debe competir con eso ni
+  // distraer de la operación que está realizando.
+  const esFirmaPublica = pathname?.startsWith("/firmar/");
   const esInicio = pathname === "/";
   // No tiene sentido ofrecer el acceso directo a "consulta tu caso" estando ya parado
   // en esa misma página.
@@ -47,7 +52,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
     };
   }, [esInicio]);
 
-  if (esAdmin) {
+  if (esAdmin || esFirmaPublica) {
     return <>{children}</>;
   }
 

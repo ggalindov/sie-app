@@ -22,4 +22,8 @@ public interface UsuarioInternoRepository extends JpaRepository<UsuarioInterno, 
     // ABOGADO, porque el propio ADMIN_GENERAL también puede quedar como responsable de una
     // reunión.
     List<UsuarioInterno> findByActivoTrueOrderByNombreAsc();
+
+    // Usado por el motor de firma electrónica (ver sie.siejuridicos.documento): a quién
+    // alertar por correo cuando un documento se marca ALTERADO (todo ADMIN_GENERAL activo).
+    List<UsuarioInterno> findByRolAndActivoTrue(RolUsuario rol);
 }

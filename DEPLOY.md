@@ -283,6 +283,53 @@ esta notificación utiliza la plantilla oficial de WhatsApp:
    - `WHATSAPP_TEMPLATE_BLOG_NAME=aviso_nuevo_blog`
    - `WHATSAPP_NUMERO_AVISO_BLOG=3126029742`
 
+### 2.7 Motor de firma electrónica de documentos
+
+Módulo completo (`sie.siejuridicos.documento`): gerencia sube un documento, asigna abogados
+y partes de la biblioteca de contactos (CRM), y el sistema inserta las firmas de staff, hace
+firmar a las partes en línea (identidad, OTP, consentimiento, geolocalización, foto y firma
+manuscrita) y sella el resultado con firma digital PAdES + sello de tiempo RFC 3161.
+
+1. **Llave raíz propia** (`DOCUMENTO_FIRMA_CLAVE_MAESTRA`): genera una con
+   `openssl rand -base64 32`, igual que `DATA_ENCRYPTION_KEY` pero NUNCA la misma -- están
+   separadas a propósito para que una filtración de un secreto no comprometa el otro dominio.
+   Si se omite, el backend usa el valor de desarrollo fijo de `application.properties`, que
+   **nunca** debe quedarse así en producción.
+2. **Una plantilla de WhatsApp NUEVA**, aparte de las cuatro anteriores, ya creada y
+   aprobándose en la cuenta real de producción (WABA ID `1082260184259579`) desde el
+   2026-10-18:
+   - `enlace_firma_documento`: mismo patrón que `notificacion_radicado` (cabecera con el
+     logo + cuerpo de texto, sin botones), 3 variables (`{{1}}` nombre del firmante, `{{2}}`
+     nombre del documento, `{{3}}` enlace de firma). Categoría Utilidad.
+   - El código de verificación (OTP) de este motor SIEMPRE se envía por correo (pedido
+     explícito del usuario, ver `DocumentoNotificacionListener.onOtpGenerado`), sin importar
+     el canal elegido para el enlace -- por eso NO hay una segunda plantilla de WhatsApp para
+     esto. Se evaluó una vía (`codigo_verificacion_firma`, categoría AUTHENTICATION, única
+     categoría que Meta permite para un código de un solo uso) y quedó descartada: además de
+     exigir una estructura de mensaje especial sin texto personalizado, requiere habilitar un
+     permiso aparte a nivel de cuenta en WhatsApp Manager que esta cuenta no tenía activo.
+   - Está definida en `scripts/gestionar_plantillas_whatsapp.py`. Si hace falta recrearla
+     desde cero (otro entorno, otro WABA):
+     ```bash
+     python scripts/gestionar_plantillas_whatsapp.py --waba-id <TU_WABA_ID> --crear enlace_firma_documento
+     ```
+     (el WABA ID se consigue en **Meta Business Suite → Cuentas de WhatsApp → ID de la
+     cuenta**, o **Meta for Developers → Tu App → WhatsApp → Configuración de la API →
+     "WhatsApp Business Account ID"** -- Meta no lo expone a partir del token ni del
+     `WHATSAPP_PHONE_NUMBER_ID`, hay que copiarlo de ahí una vez y guardarlo como
+     `WHATSAPP_BUSINESS_ACCOUNT_ID` en `.env.prod`). Necesita subir el logo primero vía la
+     Resumable Upload API de Meta -- el script ya lo hace solo (`subir_imagen_header`), una
+     URL pública directa ya no es aceptada por la API de creación de plantillas.
+3. Mientras la plantilla esté pendiente de aprobación (la primera vez que se cree en una
+   cuenta nueva), el enlace simplemente no se envía por WhatsApp (sin romper nada); si la
+   parte eligió WhatsApp como canal, igual puede recibirlo por correo (correo es obligatorio
+   para toda parte asignada, ver `DocumentoAdminController`).
+4. Completa en `.env.prod`:
+   - `DOCUMENTO_FIRMA_CLAVE_MAESTRA=<la que generaste>`
+   - `WHATSAPP_TEMPLATE_FIRMA_ENLACE_NAME=enlace_firma_documento`
+   - El correo saliente de este módulo reusa `MAIL_USERNAME`/`MAIL_PASSWORD` (sección de
+     correo arriba), no necesita credenciales propias.
+
 ## 3. Levantar el stack
 
 ```bash

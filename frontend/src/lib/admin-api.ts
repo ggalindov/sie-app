@@ -1094,3 +1094,233 @@ export function completarTarea(id: number, completada: boolean): Promise<Tarea> 
 export function eliminarTarea(id: number): Promise<void> {
   return pedido<void>(`/api/admin/tareas/${id}`, { method: "DELETE" });
 }
+
+// ---------- Mi firma (perfil) ----------
+// Autoservicio: cada usuario interno sube su propia firma manuscrita una sola vez (o la
+// reemplaza). Ver AuthController#actualizarFirma/consultarFirma en el backend.
+
+export function consultarMiFirma(): Promise<{ tieneFirma: boolean }> {
+  return pedido<{ tieneFirma: boolean }>("/api/auth/firma");
+}
+
+export async function subirMiFirma(archivo: File): Promise<void> {
+  const token = obtenerToken();
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+  const res = await fetch(`${API_URL}/api/auth/firma`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (res.status === 401) {
+    borrarToken();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/admin/login")) {
+      window.location.href = "/admin/login";
+    }
+    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
+  }
+  if (!res.ok) {
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+}
+
+// ---------- Motor de firma electrónica de documentos ----------
+// Gerencia (ADMIN_GENERAL) sube el documento, asigna abogados y partes de la biblioteca de
+// contactos (CRM); el motor inserta las firmas de staff automáticamente (en cuanto cada uno
+// tiene "Mi firma" cargada) y notifica a las partes para que firmen en línea. Ver
+// sie.siejuridicos.documento.DocumentoAdminController en el backend.
+
+export type EstadoDocumentoFirma =
+  | "DILIGENCIADO"
+  | "EMITIDO"
+  | "FIRMADO_STAFF"
+  | "NOTIFICADO"
+  | "EN_FIRMA_PARTES"
+  | "SELLADO"
+  | "REMITIDO"
+  | "ENCRIPTADO"
+  | "ANULADO";
+
+export type EstadoIntegridadDocumento = "VIGENTE" | "ALTERADO";
+
+export type TipoFirmante = "STAFF_GERENTE" | "STAFF_ABOGADO" | "PARTE";
+
+export type EstadoFirmante =
+  | "PENDIENTE"
+  | "NOTIFICADO"
+  | "OTP_VERIFICADO"
+  | "FIRMADO"
+  | "RECHAZADO"
+  | "EXPIRADO"
+  | "REVOCADO";
+
+export type CanalNotificacionFirma = "EMAIL" | "WHATSAPP";
+
+export type DocumentoFirmaListado = {
+  id: string;
+  nombre: string;
+  casoId: number | null;
+  creadoPorNombre: string | null;
+  numeroSecuencia: number | null;
+  estadoDocumento: EstadoDocumentoFirma;
+  estadoIntegridad: EstadoIntegridadDocumento;
+  fechaCreacion: string;
+};
+
+export type DocumentoFirmanteSeguimiento = {
+  id: string;
+  tipoFirmante: TipoFirmante;
+  nombreCapturado: string;
+  estado: EstadoFirmante;
+  canalNotificacion: CanalNotificacionFirma | null;
+  identidadVerificadaEn: string | null;
+  ipCaptura: string | null;
+  geolocalizacionLat: string | null;
+  geolocalizacionLon: string | null;
+  geolocalizacionRechazada: boolean;
+  documentoIdentidadCapturado: boolean;
+  firmadoEn: string | null;
+};
+
+export type DocumentoEventoSeguimiento = {
+  secuencia: number;
+  tipoEvento: string;
+  actorTipo: "STAFF" | "FIRMANTE" | "SISTEMA";
+  actorNombre: string | null;
+  descripcion: string;
+  ip: string | null;
+  hashDocumentoEnEvento: string | null;
+  ocurridoEn: string;
+};
+
+export type DocumentoSeguimiento = {
+  documentoId: string;
+  nombre: string;
+  estadoDocumento: EstadoDocumentoFirma;
+  estadoIntegridad: EstadoIntegridadDocumento;
+  firmantes: DocumentoFirmanteSeguimiento[];
+  eventos: DocumentoEventoSeguimiento[];
+  cadenaEventosIntegra: boolean;
+  cadenaEventosDetalle: string | null;
+};
+
+export function listarDocumentosFirma(estado?: EstadoDocumentoFirma): Promise<DocumentoFirmaListado[]> {
+  const parametros = estado ? `?estado=${estado}` : "";
+  return pedido<DocumentoFirmaListado[]>(`/api/admin/documentos${parametros}`);
+}
+
+export function obtenerSeguimientoDocumento(id: string): Promise<DocumentoSeguimiento> {
+  return pedido<DocumentoSeguimiento>(`/api/admin/documentos/${id}`);
+}
+
+// Una parte a asignar como firmante: clienteCrmId de un contacto ya existente en el CRM
+// (créalo primero con crearClienteCrm() si no existe) y el canal de notificación -- el
+// backend fuerza EMAIL si el contacto es EMPRESA, sin importar lo que se envíe aquí.
+export type ParteAFirmarInput = { clienteCrmId: number; canal: CanalNotificacionFirma };
+
+export async function crearDocumentoFirma(datos: {
+  archivo: File;
+  nombre: string;
+  casoId?: number;
+  abogadoIds: number[];
+  partes: ParteAFirmarInput[];
+}): Promise<DocumentoFirmaListado> {
+  const token = obtenerToken();
+  const formData = new FormData();
+  formData.append("archivo", datos.archivo);
+  formData.append("nombre", datos.nombre);
+  if (datos.casoId) formData.append("casoId", String(datos.casoId));
+  datos.abogadoIds.forEach((id) => formData.append("abogadoIds", String(id)));
+  formData.append("partesJson", JSON.stringify(datos.partes));
+
+  const res = await fetch(`${API_URL}/api/admin/documentos`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (res.status === 401) {
+    borrarToken();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/admin/login")) {
+      window.location.href = "/admin/login";
+    }
+    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
+  }
+  if (!res.ok) {
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+  return res.json();
+}
+
+export function descargarDocumentoFirma(id: string, nombreDocumento: string, conHojaCierre = false): Promise<void> {
+  return descargarArchivo(
+    `/api/admin/documentos/${id}/descargar?hojaCierre=${conHojaCierre}`,
+    `${nombreDocumento}.pdf`,
+  );
+}
+
+export function descargarCertificadoEvidencia(id: string, nombreDocumento: string): Promise<void> {
+  return descargarArchivo(
+    `/api/admin/documentos/${id}/certificado-evidencia`,
+    `certificado-evidencia-${nombreDocumento}.pdf`,
+  );
+}
+
+// ---------- Solicitudes de cambio sobre un documento (doble confirmación) ----------
+// Un cambio sensible sobre un documento ya sellado (invalidarlo, re-emitirlo, corregir un
+// metadato, anular la firma de una parte, revertir un estado ALTERADO) necesita que un
+// ADMIN_GENERAL y un ABOGADO distintos lo confirmen antes de poder ejecutarse.
+
+export type TipoAccionCambioDocumento =
+  | "INVALIDAR"
+  | "RE_EMITIR"
+  | "CORREGIR_METADATO"
+  | "ANULAR_FIRMA_PARTE"
+  | "REVERTIR_ALTERADO";
+
+export type EstadoCambioSolicitud = "PENDIENTE" | "CONFIRMADA_PARCIAL" | "APROBADA" | "EJECUTADA" | "RECHAZADA";
+
+export type DocumentoCambioSolicitud = {
+  id: string;
+  documentoId: string;
+  tipoAccion: TipoAccionCambioDocumento;
+  justificacion: string;
+  estado: EstadoCambioSolicitud;
+  solicitadoPorNombre: string;
+  solicitadoEn: string;
+  confirmacionGerenteNombre: string | null;
+  confirmacionAbogadoNombre: string | null;
+  ejecutadoEn: string | null;
+  motivoRechazo: string | null;
+};
+
+export function crearCambioSolicitudDocumento(datos: {
+  documentoId: string;
+  tipoAccion: TipoAccionCambioDocumento;
+  justificacion: string;
+  payloadJson?: string;
+}): Promise<DocumentoCambioSolicitud> {
+  return pedido<DocumentoCambioSolicitud>("/api/admin/documentos/cambios", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+}
+
+export function listarCambiosSolicitudDocumento(estado?: EstadoCambioSolicitud): Promise<DocumentoCambioSolicitud[]> {
+  const parametros = estado ? `?estado=${estado}` : "";
+  return pedido<DocumentoCambioSolicitud[]>(`/api/admin/documentos/cambios${parametros}`);
+}
+
+export function confirmarCambioSolicitudDocumento(id: string): Promise<DocumentoCambioSolicitud> {
+  return pedido<DocumentoCambioSolicitud>(`/api/admin/documentos/cambios/${id}/confirmar`, { method: "POST" });
+}
+
+export function rechazarCambioSolicitudDocumento(id: string, motivo: string): Promise<DocumentoCambioSolicitud> {
+  return pedido<DocumentoCambioSolicitud>(`/api/admin/documentos/cambios/${id}/rechazar`, {
+    method: "POST",
+    body: JSON.stringify({ motivo }),
+  });
+}
+
+export function ejecutarCambioSolicitudDocumento(id: string): Promise<DocumentoCambioSolicitud> {
+  return pedido<DocumentoCambioSolicitud>(`/api/admin/documentos/cambios/${id}/ejecutar`, { method: "POST" });
+}

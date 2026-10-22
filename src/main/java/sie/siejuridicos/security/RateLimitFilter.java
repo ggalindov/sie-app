@@ -75,7 +75,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new RegistroLimite("GET", "/api/articulos", 60),
             new RegistroLimite("GET", "/api/categorias", 60),
             new RegistroLimite("GET", "/api/testimonios", 60),
-            new RegistroLimite("GET", "/api/faq", 60)
+            new RegistroLimite("GET", "/api/faq", 60),
+            // Motor de firma electrónica: el flujo del firmante no usa JWT (ver
+            // SecurityConfig), así que su único freno contra automatización/fuerza bruta es
+            // este límite. 60/min por IP cubre de sobra una sesión real de firma (varios
+            // pasos, cada uno consulta el resumen después) sin abrir la puerta a recorrer el
+            // espacio de un OTP de 6 dígitos solo con reintentos HTTP (OtpService ya pone su
+            // propio tope diario y de intentos por código, esto es una capa adicional).
+            new RegistroLimite("GET", "/api/v1/firmas", 60),
+            new RegistroLimite("POST", "/api/v1/firmas", 30),
+            // Verificación pública de documentos: cualquiera puede consultarla por diseño,
+            // sin autenticación -- el límite evita que se use para raspar en volumen o
+            // probar códigos de verificación al azar.
+            new RegistroLimite("GET", "/api/v1/verificacion", 30),
+            new RegistroLimite("POST", "/api/v1/verificacion", 10)
     );
 
     private static final class Contador {

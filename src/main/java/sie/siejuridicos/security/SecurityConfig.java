@@ -79,6 +79,13 @@ public class SecurityConfig {
                         // llama directo, sin JWT), protegido en su lugar por la verificación de
                         // firma HMAC del propio controlador (ver WhatsAppWebhookController).
                         .requestMatchers("/api/whatsapp/webhook").permitAll()
+                        // Motor de firma electrónica: el flujo del firmante y la verificación
+                        // pública de documentos NUNCA usan JWT de staff -- su propia auth es el
+                        // token opaco del link único (ver SignerTokenService) o, para
+                        // verificación, el código/PDF que cualquiera puede consultar por
+                        // diseño. Protegidos por RateLimitFilter, no por JWT.
+                        .requestMatchers("/api/v1/firmas/**").permitAll()
+                        .requestMatchers("/api/v1/verificacion/**").permitAll()
                         .requestMatchers("/api/admin/usuarios/**").hasRole("ADMIN_GENERAL")
                         // Testimonios, marketing y boletines quedan fuera del alcance del rol
                         // ABOGADO (pedido explícito: "que se queden más como abogados y ya", el

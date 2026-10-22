@@ -11,6 +11,8 @@ Permite:
     4. confirmacion_cita (Confirmación de reunión con cliente)
     5. reporte_semanal_caso (Resumen semanal de estado del caso)
     6. reporte_blog_publicado (Aviso automático al equipo de redes de nuevo artículo publicado)
+    7. enlace_firma_documento (Motor de firma electrónica: enlace único para firmar un documento;
+       el código de verificación de ese mismo motor SIEMPRE va por correo, no por WhatsApp)
 - Inspeccionar el estado de una plantilla específica con sus motivos de rechazo si aplica.
 - Eliminar plantillas obsoletas.
 
@@ -31,6 +33,51 @@ import urllib.error
 
 VERSION_API = "v22.0"
 IDIOMA_DEFECTO = "es_CO"
+# ID de la app de Meta ("SIE API"), necesario solo para subir la imagen de cabecera vía la
+# Resumable Upload API (ver subir_imagen_header). No es el WABA ID ni el phone number ID.
+APP_ID = "1094065903545976"
+RUTA_LOGO = os.path.join(os.path.dirname(__file__), "..", "frontend", "public", "marca", "logo.png")
+
+_cache_handles_imagen = {}
+
+
+def subir_imagen_header(token, ruta_imagen=RUTA_LOGO):
+    """Sube una imagen a Meta vía la Resumable Upload API y devuelve el 'handle' que exige
+    el campo example.header_handle al crear una plantilla con cabecera tipo IMAGE.
+
+    BUG REAL encontrado al crear las plantillas del motor de firma: una URL pública directa
+    (ej. "https://siejuridicos.com/marca/logo.png") YA NO es aceptada por el endpoint de
+    creación de plantillas -- falla con "Falta el parámetro de muestra para el tipo de
+    título". Las plantillas antiguas de este archivo que SÍ muestran esa URL en el
+    diccionario de abajo se crearon en una versión anterior de la API que sí la aceptaba; al
+    consultarlas hoy, Meta devuelve una URL de scontent.whatsapp.net porque ya realoja la
+    imagen tras la aprobación. Si se necesita recrear alguna de esas plantillas, pasa por
+    esta misma función.
+    """
+    if ruta_imagen in _cache_handles_imagen:
+        return _cache_handles_imagen[ruta_imagen]
+
+    with open(ruta_imagen, "rb") as f:
+        contenido = f.read()
+    tipo_mime = "image/png" if ruta_imagen.lower().endswith(".png") else "image/jpeg"
+
+    url_iniciar = (f"https://graph.facebook.com/{VERSION_API}/{APP_ID}/uploads"
+                   f"?file_length={len(contenido)}&file_type={tipo_mime}&access_token={token}")
+    req_iniciar = urllib.request.Request(url_iniciar, method="POST")
+    with urllib.request.urlopen(req_iniciar) as resp:
+        sesion_id = json.loads(resp.read().decode("utf-8"))["id"]
+
+    req_subida = urllib.request.Request(
+        f"https://graph.facebook.com/{VERSION_API}/{sesion_id}",
+        data=contenido,
+        headers={"Authorization": f"OAuth {token}", "file_offset": "0"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req_subida) as resp:
+        handle = json.loads(resp.read().decode("utf-8"))["h"]
+
+    _cache_handles_imagen[ruta_imagen] = handle
+    return handle
 
 # Definición de las plantillas oficiales del sistema
 PLANTILLAS_SISTEMA = {
@@ -169,6 +216,45 @@ PLANTILLAS_SISTEMA = {
             }
         ]
     },
+    # Motor de firma electrónica (ver sie.siejuridicos.documento): mismo patrón que
+    # notificacion_radicado_caso -- cabecera con el logo + cuerpo de texto plano con el
+    # enlace al final. Se descartó a propósito un botón de URL dinámico: ninguna plantilla
+    # de esta cuenta usa botones hoy y así no depende de un comportamiento de Meta que no
+    # se haya probado antes en esta cuenta.
+    "enlace_firma_documento": {
+        "category": "UTILITY",
+        "components": [
+            {
+                "type": "HEADER",
+                "format": "IMAGE",
+                "example": {
+                    "header_handle": [
+                        "https://siejuridicos.com/marca/logo.png"
+                    ]
+                }
+            },
+            {
+                "type": "BODY",
+                "text": "Hola {{1}},\n\nSIE Jurídicos te invita a firmar electrónicamente el siguiente documento: *{{2}}*.\n\nPuedes revisarlo y firmarlo ingresando al siguiente enlace:\n{{3}}\n\nEl enlace es personal e intransferible y vence en unos días.",
+                "example": {
+                    "body_text": [
+                        [
+                            "Juan Pérez",
+                            "Contrato de prestación de servicios",
+                            "https://siejuridicos.com/firmar/abc123"
+                        ]
+                    ]
+                }
+            }
+        ]
+    },
+    # NOTA: el código de verificación (OTP) del motor de firma SIEMPRE se envía por correo
+    # (pedido explícito del usuario), nunca por WhatsApp -- por eso no hay una plantilla
+    # "codigo_verificacion_firma" aquí. Se evaluó y se descartó: Meta exige la categoría
+    # especial AUTHENTICATION para cualquier código de un solo uso (rechaza automáticamente
+    # un intento como UTILITY con texto libre, rejected_reason: INCORRECT_CATEGORY), y esa
+    # categoría además requiere habilitar un permiso aparte a nivel de cuenta en WhatsApp
+    # Manager que esta cuenta no tenía activo.
     "reporte_semanal_caso": {
         "category": "UTILITY",
         "components": [
@@ -285,12 +371,17 @@ def crear_plantilla(token, waba_id, nombre, idioma=IDIOMA_DEFECTO):
         return False
 
     definicion = PLANTILLAS_SISTEMA[nombre]
+    componentes = json.loads(json.dumps(definicion["components"]))  # copia profunda
+    for componente in componentes:
+        if componente.get("type") == "HEADER" and componente.get("format") == "IMAGE":
+            componente["example"]["header_handle"] = [subir_imagen_header(token)]
+
     payload = {
         "name": nombre,
         "category": definicion["category"],
         "allow_category_change": True,
         "language": idioma,
-        "components": definicion["components"]
+        "components": componentes
     }
 
     url = f"https://graph.facebook.com/{VERSION_API}/{waba_id}/message_templates"

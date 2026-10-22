@@ -23,6 +23,7 @@ import {
   ClockCounterClockwise,
   CalendarBlank,
   AddressBook,
+  FileText,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
@@ -60,6 +61,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/solicitudes", label: "Solicitudes", icon: Envelope, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/calendario", label: "Calendario", icon: CalendarBlank, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/casos", label: "Casos", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      { href: "/admin/documentos", label: "Documentos para firma", icon: FileText, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       // Pedido explícito del usuario: "El Admin si tendra la seccion de la nav de tareas para
       // que vea todas las tareas del sistema" -- un ABOGADO ya no tiene esta entrada en el
       // menú, ve sus propias tareas pendientes desde la campanita de notificaciones (ver

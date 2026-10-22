@@ -854,6 +854,28 @@ html[data-theme="light"] .site-theme .section-seam::after {
   }
 }
 
+/* El navegador pinta su propio fondo (amarillo en Chrome, azul claro en Edge/Firefox) sobre
+   un campo autocompletado con una especificidad que ninguna propiedad normal de CSS puede
+   ganar -- rompía el diseño "subrayado, sin caja" de los inputs (ver app/admin/login) en
+   cuanto el usuario autocompletaba correo/contraseña, mostrando una caja ajena al resto del
+   formulario. El truco estándar es tapar ese fondo con un box-shadow inset enorme (sí gana
+   la pelea de especificidad) del mismo color que el fondo real del input, y forzar el color
+   del texto con -webkit-text-fill-color (color por sí solo tampoco lo gana). El color se
+   parametriza con variables CSS (--autofill-bg/--autofill-ink) para reutilizar esta misma
+   clase en formularios de paleta oscura (login) o clara (resto del panel admin) sin
+   duplicar la regla. La transición de 600000s es el hack conocido para que Chrome no
+   reaplique su color un instante después de que el usuario empieza a escribir encima. */
+.autofill-safe:-webkit-autofill,
+.autofill-safe:-webkit-autofill:hover,
+.autofill-safe:-webkit-autofill:focus,
+.autofill-safe:autofill {
+  -webkit-text-fill-color: var(--autofill-ink, currentColor);
+  caret-color: var(--autofill-ink, currentColor);
+  -webkit-box-shadow: 0 0 0 1000px var(--autofill-bg, transparent) inset;
+  box-shadow: 0 0 0 1000px var(--autofill-bg, transparent) inset;
+  transition: background-color 600000s ease-in-out 0s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -23,6 +23,7 @@ import {
   type TipoEnvio,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { useAuth } from "@/lib/auth-context";
 
 function formatearFechaHora(iso: string) {
   return new Date(iso).toLocaleString("es-CO", {
@@ -370,7 +371,22 @@ function TabEnvios() {
 }
 
 export default function RegistroSistemaPage() {
+  const { sesion } = useAuth();
   const [tab, setTab] = useState<"procesos" | "envios">("procesos");
+
+  // Bug real: esta página no tenía ningún guard de rol (a diferencia de usuarios/cobros/
+  // testimonios/marketing, que sí lo tienen) -- un ABOGADO que entrara directo a /admin/
+  // registro por URL disparaba dos llamadas que el backend rechaza con 403 (solo
+  // ADMIN_GENERAL, ver RegistroEnvioAdminController/RegistroSistemaAdminController),
+  // mostrando toasts de error en vez de un mensaje claro de "no tienes acceso".
+  if (sesion && sesion.rol !== "ADMIN_GENERAL") {
+    return (
+      <EmptyState
+        title="No tienes acceso a esta sección"
+        description="Solo el administrador general puede ver el registro del sistema."
+      />
+    );
+  }
 
   return (
     <div>

@@ -106,6 +106,12 @@ rem firma). Usa la plantilla oficial de Meta "aviso_nuevo_blog".
 set WHATSAPP_TEMPLATE_BLOG_NAME=aviso_nuevo_blog
 set WHATSAPP_NUMERO_AVISO_BLOG=3126029742
 
+rem Motor de firma electronica (ver sie.siejuridicos.documento). Llave raiz propia,
+rem separada de DATA_ENCRYPTION_KEY -- ya trae un valor de desarrollo por defecto (ver
+rem application.properties), igual que DATA_ENCRYPTION_KEY, asi que puedes dejarla en
+rem blanco en local. En produccion DEBE cambiarse: genera una con "openssl rand -base64 32".
+set DOCUMENTO_FIRMA_CLAVE_MAESTRA=
+
 rem Credenciales reales (Gmail u otras): NUNCA las pongas aqui arriba, este archivo esta
 rem versionado en git y se sube al repositorio. Crea "run.local.bat" (esta en .gitignore,
 rem nunca se sube) junto a este script con las mismas variables set MAIL_USERNAME=... /

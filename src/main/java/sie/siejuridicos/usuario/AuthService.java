@@ -2,12 +2,14 @@ package sie.siejuridicos.usuario;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
+import sie.siejuridicos.documento.events.FirmaStaffActualizadaEvent;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.security.JwtService;
@@ -37,17 +39,20 @@ public class AuthService {
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
     private final RegistroSistemaService registroSistemaService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthService(UsuarioInternoRepository usuarioInternoRepository,
                         PasswordEncoder passwordEncoder,
                         JwtService jwtService,
                         LoginAttemptService loginAttemptService,
-                        RegistroSistemaService registroSistemaService) {
+                        RegistroSistemaService registroSistemaService,
+                        ApplicationEventPublisher eventPublisher) {
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
         this.registroSistemaService = registroSistemaService;
+        this.eventPublisher = eventPublisher;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -106,5 +111,26 @@ public class AuthService {
 
         usuario.setContrasena(passwordEncoder.encode(request.contrasenaNueva()));
         usuarioInternoRepository.save(usuario);
+    }
+
+    // Motor de firma electrónica (ver sie.siejuridicos.documento): cada usuario interno
+    // sube su propia firma manuscrita una sola vez (o la reemplaza) desde su perfil --
+    // "el sistema debe insertar firma del gerente... el sistema ingresa la firma de los
+    // abogados", pedido explícito del usuario. Nunca la sube otro en su nombre: mismo
+    // criterio de autoservicio que cambiarContrasena().
+    @Transactional
+    public void actualizarFirma(Long usuarioId, byte[] firmaPng, String contentType) {
+        UsuarioInterno usuario = usuarioInternoRepository.findById(usuarioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe el usuario con id " + usuarioId));
+        usuario.actualizarFirma(firmaPng, contentType);
+        usuarioInternoRepository.save(usuario);
+        eventPublisher.publishEvent(new FirmaStaffActualizadaEvent(usuarioId));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean tieneFirma(Long usuarioId) {
+        return usuarioInternoRepository.findById(usuarioId)
+                .map(u -> u.getFirmaPng() != null)
+                .orElse(false);
     }
 }

@@ -250,4 +250,40 @@ export async function registrarVisita(visitanteId: string): Promise<void> {
   if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
 }
 
+// ---------- Verificación pública de documentos firmados (motor de firma electrónica) ----------
+
+export type VeredictoVerificacion = "INTEGRO" | "ALTERADO" | "NO_REGISTRADO";
+
+export type VerificacionPublica = {
+  veredicto: VeredictoVerificacion;
+  detalleLegal: string;
+  nombreDocumento: string | null;
+  fechaEmision: string | null;
+  estadoDocumento: string | null;
+  estadoIntegridad: string | null;
+  version: number | null;
+  versionVigente: boolean;
+  hashSha256: string | null;
+  firmantes: { nombreEnmascarado: string; rol: string; estado: string; firmadoEn: string | null }[] | null;
+  selloTiempo: { aplicado: boolean; autoridad: string | null; fecha: string | null } | null;
+  cadenaEventos: { integra: boolean; secuenciaRota: number | null; detalle: string | null } | null;
+  firmaAplicacionValida: boolean | null;
+  firmaPades: { firmasEncontradas: number; firmaValida: boolean; emitidaPorSie: boolean; cubreTodoElDocumento: boolean } | null;
+  hallazgos: string[];
+};
+
+export async function verificarDocumentoPorCodigo(codigo: string): Promise<VerificacionPublica> {
+  const res = await fetch(`${API_URL}/api/v1/verificacion/${encodeURIComponent(codigo)}`);
+  if (!res.ok && res.status !== 404) throw new ApiError(await parseErrorMessage(res), res.status);
+  return res.json();
+}
+
+export async function verificarDocumentoPorPdf(archivo: File): Promise<VerificacionPublica> {
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+  const res = await fetch(`${API_URL}/api/v1/verificacion/pdf`, { method: "POST", body: formData });
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+  return res.json();
+}
+
 export { ApiError };
