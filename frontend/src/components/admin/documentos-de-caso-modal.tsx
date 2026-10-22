@@ -27,10 +27,11 @@ const etiquetaEstado: Record<EstadoDocumentoFirma, string> = {
   REMITIDO: "Remitido",
   ENCRIPTADO: "Completado",
   ANULADO: "Anulado",
+  CANCELADO: "Cancelado",
 };
 
 function tonoEstado(estado: EstadoDocumentoFirma): "neutral" | "gold" | "success" | "warning" | "danger" {
-  if (estado === "ANULADO") return "danger";
+  if (estado === "ANULADO" || estado === "CANCELADO") return "danger";
   if (estado === "ENCRIPTADO" || estado === "REMITIDO" || estado === "SELLADO") return "success";
   if (estado === "EN_FIRMA_PARTES" || estado === "NOTIFICADO") return "gold";
   if (estado === "EMITIDO") return "warning";

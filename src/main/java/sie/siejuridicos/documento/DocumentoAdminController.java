@@ -1,12 +1,14 @@
 package sie.siejuridicos.documento;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import sie.siejuridicos.common.exception.EntidadInvalidaException;
 import sie.siejuridicos.documento.dto.AsignarParteRequest;
+import sie.siejuridicos.documento.dto.CancelarDocumentoRequest;
 import sie.siejuridicos.documento.dto.CrearCambioSolicitudRequest;
 import sie.siejuridicos.documento.dto.DocumentoCambioSolicitudDto;
 import sie.siejuridicos.documento.dto.DocumentoFirmaListadoDto;
@@ -96,6 +99,27 @@ public class DocumentoAdminController {
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename("certificado-evidencia.pdf", StandardCharsets.UTF_8).build().toString())
                 .body(pdf);
+    }
+
+    // Pedido explícito del usuario: cancelar un proceso de firma en marcha desde el panel
+    // (sin que nadie haya rechazado firmar) -- mismo nivel de autorización que crear() y
+    // asignar partes, solo gerencia puede decidirlo.
+    @PostMapping("/{id}/cancelar")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<DocumentoFirmaListadoDto> cancelar(@PathVariable UUID id,
+                                                               @Valid @RequestBody CancelarDocumentoRequest request,
+                                                               @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(documentoAdminService.cancelar(id, request.motivo(), principal.getId()));
+    }
+
+    // Pedido explícito del usuario: eliminar del todo un documento ya cancelado o anulado
+    // (ver DocumentoAdminService#eliminar -- bloqueado a propósito para cualquier documento
+    // ya ENCRIPTADO, es evidencia legal real).
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<Void> eliminar(@PathVariable UUID id) {
+        documentoAdminService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
     // --- Solicitudes de cambio (doble confirmación ADMIN_GENERAL + ABOGADO) ---

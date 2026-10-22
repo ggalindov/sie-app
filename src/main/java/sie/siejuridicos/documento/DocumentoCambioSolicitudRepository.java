@@ -10,4 +10,7 @@ public interface DocumentoCambioSolicitudRepository extends JpaRepository<Docume
     List<DocumentoCambioSolicitud> findByEstadoOrderBySolicitadoEnDesc(String estado);
 
     List<DocumentoCambioSolicitud> findByDocumentoIdOrderBySolicitadoEnDesc(UUID documentoId);
+
+    // Eliminación en cascada manual de un documento (ver DocumentoAdminService#eliminar).
+    void deleteByDocumentoId(UUID documentoId);
 }

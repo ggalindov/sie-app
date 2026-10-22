@@ -256,6 +256,40 @@ public class DocumentoFirmaService {
         eventPublisher.publishEvent(new DocumentoFirmaRechazadaEvent(documento, firmante.getNombreCapturado(), motivo));
     }
 
+    // Cancelación manual por gerencia (pedido explícito del usuario, ver
+    // DocumentoAdminController#cancelar): a diferencia de registrarRechazoDeParte(), nadie
+    // rechazó firmar -- gerencia simplemente decide no seguir adelante con el proceso (se
+    // subió el documento equivocado, se canceló el trámite, etc.). Mismo efecto sobre los
+    // firmantes (revoca cualquier enlace todavía pendiente) pero con su PROPIO estado
+    // terminal (CANCELADO, nunca ANULADO) para que el historial distinga claramente ambas
+    // causas. Solo tiene sentido antes de que el documento quede sellado: una vez
+    // ENCRIPTADO ya es un documento legal completo, cancelarlo no tendría efecto real sobre
+    // lo ya firmado (para eso existe el sistema de solicitudes de cambio con doble
+    // confirmación, ver DocumentChangeRequestService).
+    @Transactional
+    public void cancelar(DocumentoFirma documento, UsuarioInterno staff, String motivo) {
+        if (DocumentoFirma.ESTADO_DOC_ENCRIPTADO.equals(documento.getEstadoDocumento())
+                || DocumentoFirma.ESTADO_DOC_ANULADO.equals(documento.getEstadoDocumento())
+                || DocumentoFirma.ESTADO_DOC_CANCELADO.equals(documento.getEstadoDocumento())) {
+            throw new EntidadInvalidaException(
+                    "Este documento ya no se puede cancelar (estado actual: " + documento.getEstadoDocumento() + ").");
+        }
+
+        for (DocumentoFirmante firmante : documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documento.getId())) {
+            if (DocumentoFirmante.ESTADO_FIRMADO.equals(firmante.getEstado())
+                    || DocumentoFirmante.ESTADO_RECHAZADO.equals(firmante.getEstado())) {
+                continue;
+            }
+            signerTokenService.revocar(firmante);
+            firmante.setEstado(DocumentoFirmante.ESTADO_REVOCADO);
+            documentoFirmanteRepository.save(firmante);
+        }
+
+        documento.setEstadoDocumento(DocumentoFirma.ESTADO_DOC_CANCELADO);
+        documentoTimelineService.registrarStaff(documento, DocumentoEvento.TIPO_PROCESO_CANCELADO, staff,
+                "Gerencia canceló el proceso de firma. Motivo: " + (motivo == null || motivo.isBlank() ? "no indicado." : motivo));
+    }
+
     // Biometría dinámica del trazo (puntos x/y/tiempo/presión): un dato más sensible que
     // la imagen final de la firma, así que se cifra en reposo con el mismo esquema
     // envelope encryption AES-256-GCM que DocumentoFirma.contenidoPdf -- nunca se expone

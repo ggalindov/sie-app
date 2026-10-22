@@ -1139,7 +1139,8 @@ export type EstadoDocumentoFirma =
   | "SELLADO"
   | "REMITIDO"
   | "ENCRIPTADO"
-  | "ANULADO";
+  | "ANULADO"
+  | "CANCELADO";
 
 export type EstadoIntegridadDocumento = "VIGENTE" | "ALTERADO";
 
@@ -1211,6 +1212,21 @@ export function listarDocumentosFirma(estado?: EstadoDocumentoFirma): Promise<Do
 
 export function obtenerSeguimientoDocumento(id: string): Promise<DocumentoSeguimiento> {
   return pedido<DocumentoSeguimiento>(`/api/admin/documentos/${id}`);
+}
+
+// Cancela el proceso de firma en marcha (nadie rechazó firmar, gerencia decide no seguir
+// adelante) -- queda en estado CANCELADO, distinto de ANULADO (ver DocumentoFirmaService).
+export function cancelarDocumentoFirma(id: string, motivo: string): Promise<DocumentoFirmaListado> {
+  return pedido<DocumentoFirmaListado>(`/api/admin/documentos/${id}/cancelar`, {
+    method: "POST",
+    body: JSON.stringify({ motivo }),
+  });
+}
+
+// Solo documentos CANCELADO o ANULADO -- el backend rechaza cualquier otro estado (ver
+// DocumentoAdminService#eliminar). Un documento ya ENCRIPTADO nunca se puede eliminar.
+export function eliminarDocumentoFirma(id: string): Promise<void> {
+  return pedido<void>(`/api/admin/documentos/${id}`, { method: "DELETE" });
 }
 
 // Una parte a asignar como firmante: clienteCrmId de un contacto ya existente en el CRM

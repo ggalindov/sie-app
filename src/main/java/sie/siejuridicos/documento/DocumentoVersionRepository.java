@@ -13,4 +13,7 @@ public interface DocumentoVersionRepository extends JpaRepository<DocumentoVersi
     Optional<DocumentoVersion> findFirstByHashContenidoIgnoreCase(String hashContenido);
 
     long countByDocumentoId(UUID documentoId);
+
+    // Eliminación en cascada manual de un documento (ver DocumentoAdminService#eliminar).
+    void deleteByDocumentoId(UUID documentoId);
 }

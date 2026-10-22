@@ -46,6 +46,7 @@ public class DocumentoEvento {
     public static final String TIPO_ENLACE_REVOCADO = "ENLACE_REVOCADO";
     public static final String TIPO_PROCESO_EXPIRADO = "PROCESO_EXPIRADO";
     public static final String TIPO_PROCESO_ANULADO = "PROCESO_ANULADO";
+    public static final String TIPO_PROCESO_CANCELADO = "PROCESO_CANCELADO";
 
     public static final String ACTOR_STAFF = "STAFF";
     public static final String ACTOR_PARTE = "PARTE";

@@ -80,6 +80,7 @@ export default function FirmarPage() {
   const [numeroDocumento, setNumeroDocumento] = useState("");
   const [codigoOtp, setCodigoOtp] = useState("");
   const [consentimientoMarcado, setConsentimientoMarcado] = useState(false);
+  const [errorGeolocalizacion, setErrorGeolocalizacion] = useState<string | null>(null);
   const [fotoIdentidad, setFotoIdentidad] = useState<Blob | null>(null);
   const [fotoHumana, setFotoHumana] = useState<Blob | null>(null);
   const [firmaPng, setFirmaPng] = useState<Blob | null>(null);
@@ -178,16 +179,22 @@ export default function FirmarPage() {
     }
   }
 
+  // Pedido explícito del usuario: la ubicación deja de ser un dato "mejor esfuerzo" --
+  // ahora es obligatoria para continuar. Antes, negarla o no tenerla disponible registraba
+  // el rechazo como evidencia y avanzaba igual a la foto de identidad; ahora se queda en
+  // este mismo paso con un mensaje claro y la opción de reintentar (el backend también
+  // bloquea firmar() sin ubicación capturada, ver PublicSignatureService -- esto no es solo
+  // una validación de interfaz que se pueda saltar llamando la API directo).
   function onPedirGeolocalizacion() {
-    // cargandoAccion se reutiliza aquí solo para bloquear el botón mientras el navegador
-    // muestra el permiso de ubicación -- antes quedaba sin bloquear y un doble clic podía
-    // disparar dos veces el prompt de permiso/la llamada al backend.
     setCargandoAccion(true);
+    setErrorGeolocalizacion(null);
     if (!navigator.geolocation) {
-      registrarGeolocalizacionFirma(token, { lat: null, lon: null, precisionM: null, rechazada: true }).finally(() => {
-        setCargandoAccion(false);
-        setPaso("foto_identidad");
-      });
+      registrarGeolocalizacionFirma(token, { lat: null, lon: null, precisionM: null, rechazada: true })
+        .catch(() => undefined)
+        .finally(() => {
+          setCargandoAccion(false);
+          setErrorGeolocalizacion("Tu navegador no soporta compartir ubicación. Prueba desde otro navegador o dispositivo para poder continuar.");
+        });
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -198,18 +205,21 @@ export default function FirmarPage() {
           precisionM: pos.coords.accuracy,
           rechazada: false,
         })
-          .catch(() => undefined)
-          .finally(() => {
-            setCargandoAccion(false);
+          .then((r) => {
+            setResumen(r);
             setPaso("foto_identidad");
-          });
+          })
+          .catch(() => setErrorGeolocalizacion("No se pudo guardar tu ubicación. Inténtalo de nuevo."))
+          .finally(() => setCargandoAccion(false));
       },
       () => {
         registrarGeolocalizacionFirma(token, { lat: null, lon: null, precisionM: null, rechazada: true })
           .catch(() => undefined)
           .finally(() => {
             setCargandoAccion(false);
-            setPaso("foto_identidad");
+            setErrorGeolocalizacion(
+              "Necesitamos tu ubicación para continuar. Revisa que le hayas dado permiso de ubicación a este sitio en tu navegador y vuelve a intentarlo.",
+            );
           });
       },
       { timeout: 8000 },
@@ -381,18 +391,31 @@ export default function FirmarPage() {
 
             {paso === "geolocalizacion" && (
               <Tarjeta className="mt-4">
-                <h2 className="font-display text-lg text-[#1a1a1a]">Ubicación (opcional)</h2>
+                <h2 className="font-display text-lg text-[#1a1a1a]">Confirma tu ubicación</h2>
                 <p className="mt-2 text-sm text-[#6b6b6b]">
-                  Tu navegador te pedirá permiso de ubicación. Es un dato adicional de evidencia; si lo niegas, el
-                  proceso continúa igual.
+                  Tu navegador te pedirá permiso de ubicación. Es un requisito de este proceso de firma: hace falta
+                  para poder continuar.
                 </p>
-                <BotonContinuar onClick={onPedirGeolocalizacion} cargando={cargandoAccion} texto="Continuar" />
+                {errorGeolocalizacion && (
+                  <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorGeolocalizacion}</p>
+                )}
+                <BotonContinuar
+                  onClick={onPedirGeolocalizacion}
+                  cargando={cargandoAccion}
+                  texto={errorGeolocalizacion ? "Reintentar" : "Continuar"}
+                />
               </Tarjeta>
             )}
 
             {paso === "foto_identidad" && (
               <Tarjeta className="mt-4">
                 <h2 className="font-display text-lg text-[#1a1a1a]">Foto de tu documento de identidad</h2>
+                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Toma la foto en vivo, directo del documento físico que tienes en tus manos -- no de una foto
+                  guardada, una captura de pantalla ni un documento de otra persona. Esta foto queda registrada como
+                  evidencia; si no corresponde a un documento real tomado en el momento, la firma pierde su validez
+                  legal.
+                </p>
                 <div className="mt-4">
                   <CameraCapture
                     etiqueta="Enfoca tu cédula o documento de identidad, que se vea legible."
@@ -410,8 +433,13 @@ export default function FirmarPage() {
                   Es evidencia adicional de seguridad, no reconocimiento facial: solo confirma que una persona real
                   está completando esta firma.
                 </p>
+                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Debe ser una selfie tuya, tomada en vivo con la cámara ahora mismo -- no la foto de otra persona ni
+                  una imagen guardada. Si esta foto no corresponde a quien está firmando, la firma pierde su validez
+                  legal.
+                </p>
                 <div className="mt-4">
-                  <CameraCapture etiqueta="Mira hacia la cámara." onCapturar={setFotoHumana} />
+                  <CameraCapture etiqueta="Mira hacia la cámara." onCapturar={setFotoHumana} facingMode="user" />
                 </div>
                 <BotonContinuar onClick={onGuardarFotoHumana} cargando={cargandoAccion} />
               </Tarjeta>

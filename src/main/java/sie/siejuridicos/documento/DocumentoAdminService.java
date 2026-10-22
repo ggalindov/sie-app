@@ -32,6 +32,9 @@ public class DocumentoAdminService {
     private final DocumentoFirmaRepository documentoFirmaRepository;
     private final DocumentoFirmanteRepository documentoFirmanteRepository;
     private final DocumentoEventoRepository documentoEventoRepository;
+    private final DocumentoOtpRepository documentoOtpRepository;
+    private final DocumentoCambioSolicitudRepository documentoCambioSolicitudRepository;
+    private final DocumentoVersionRepository documentoVersionRepository;
     private final DocumentoTimelineService documentoTimelineService;
     private final DocumentoEventoChainVerifier documentoEventoChainVerifier;
     private final DocumentoFirmaService documentoFirmaService;
@@ -46,6 +49,9 @@ public class DocumentoAdminService {
     public DocumentoAdminService(DocumentoFirmaRepository documentoFirmaRepository,
                                   DocumentoFirmanteRepository documentoFirmanteRepository,
                                   DocumentoEventoRepository documentoEventoRepository,
+                                  DocumentoOtpRepository documentoOtpRepository,
+                                  DocumentoCambioSolicitudRepository documentoCambioSolicitudRepository,
+                                  DocumentoVersionRepository documentoVersionRepository,
                                   DocumentoTimelineService documentoTimelineService,
                                   DocumentoEventoChainVerifier documentoEventoChainVerifier,
                                   DocumentoFirmaService documentoFirmaService,
@@ -59,6 +65,9 @@ public class DocumentoAdminService {
         this.documentoFirmaRepository = documentoFirmaRepository;
         this.documentoFirmanteRepository = documentoFirmanteRepository;
         this.documentoEventoRepository = documentoEventoRepository;
+        this.documentoOtpRepository = documentoOtpRepository;
+        this.documentoCambioSolicitudRepository = documentoCambioSolicitudRepository;
+        this.documentoVersionRepository = documentoVersionRepository;
         this.documentoTimelineService = documentoTimelineService;
         this.documentoEventoChainVerifier = documentoEventoChainVerifier;
         this.documentoFirmaService = documentoFirmaService;
@@ -191,6 +200,53 @@ public class DocumentoAdminService {
     @Transactional(readOnly = true)
     public byte[] certificadoEvidencia(UUID documentoId) {
         return evidenceCertificateService.generarConsolidadoPorDocumento(documentoId);
+    }
+
+    // Pedido explícito del usuario: una forma de cancelar el proceso de firma desde el
+    // panel (sin que nadie haya rechazado firmar) -- ver DocumentoFirmaService#cancelar
+    // para por qué usa su propio estado CANCELADO en vez de reutilizar ANULADO.
+    @Transactional
+    public DocumentoFirmaListadoDto cancelar(UUID documentoId, String motivo, Long staffId) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new EntidadInvalidaException("Indica el motivo de la cancelación.");
+        }
+        DocumentoFirma documento = obtener(documentoId);
+        UsuarioInterno staff = usuarioInternoRepository.findById(staffId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el usuario autenticado."));
+        documentoFirmaService.cancelar(documento, staff, motivo.trim());
+        return DocumentoFirmaListadoDto.from(documento);
+    }
+
+    // Pedido explícito del usuario: tras cancelar un proceso (o si una parte rechazó
+    // firmar), poder eliminarlo por completo del sistema -- a propósito solo para esos dos
+    // estados terminales "nunca llegó a ser un documento legal completo". Un documento ya
+    // ENCRIPTADO (sellado con PAdES + RFC 3161 + cadena de eventos) NUNCA se puede eliminar
+    // por aquí: es evidencia legal real, para eso existe el sistema de solicitudes de
+    // cambio con doble confirmación (ver DocumentChangeRequestService), no un borrado
+    // irreversible de un clic. Borra en el orden correcto para no violar las llaves
+    // foráneas: OTP (por firmante) -> eventos -> solicitudes de cambio -> versiones ->
+    // firmantes -> el documento mismo.
+    @Transactional
+    public void eliminar(UUID documentoId) {
+        DocumentoFirma documento = obtener(documentoId);
+        if (!DocumentoFirma.ESTADO_DOC_CANCELADO.equals(documento.getEstadoDocumento())
+                && !DocumentoFirma.ESTADO_DOC_ANULADO.equals(documento.getEstadoDocumento())) {
+            throw new EntidadInvalidaException(
+                    "Solo se pueden eliminar documentos cancelados o anulados (estado actual: "
+                            + documento.getEstadoDocumento() + "). Cancélalo primero.");
+        }
+
+        List<DocumentoFirmante> firmantes = documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documentoId);
+        List<UUID> firmanteIds = firmantes.stream().map(DocumentoFirmante::getId).toList();
+
+        if (!firmanteIds.isEmpty()) {
+            documentoOtpRepository.deleteByFirmanteIdIn(firmanteIds);
+        }
+        documentoEventoRepository.deleteByDocumentoId(documentoId);
+        documentoCambioSolicitudRepository.deleteByDocumentoId(documentoId);
+        documentoVersionRepository.deleteByDocumentoId(documentoId);
+        documentoFirmanteRepository.deleteByDocumentoId(documentoId);
+        documentoFirmaRepository.delete(documento);
     }
 
     private DocumentoFirma obtener(UUID id) {

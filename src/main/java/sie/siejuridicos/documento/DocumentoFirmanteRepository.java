@@ -23,4 +23,7 @@ public interface DocumentoFirmanteRepository extends JpaRepository<DocumentoFirm
 
     // Firmantes ya firmados pero sin sello de tiempo (ver Rfc3161RetryScheduler).
     List<DocumentoFirmante> findByEstadoAndRfc3161TokenIsNullAndHashEvidenciaIsNotNull(String estado);
+
+    // Eliminación en cascada manual de un documento (ver DocumentoAdminService#eliminar).
+    void deleteByDocumentoId(UUID documentoId);
 }

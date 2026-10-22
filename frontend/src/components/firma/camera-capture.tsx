@@ -9,7 +9,19 @@ import { toast } from "sonner";
 // escritorio solo abre el selector de archivos. getUserMedia funciona igual en escritorio
 // y móvil -- coherente con la decisión de NO bloquear la firma a solo celulares (ver
 // CLAUDE.md, decisión 8 del motor de firma).
-export function CameraCapture({ onCapturar, etiqueta }: { onCapturar: (foto: Blob) => void; etiqueta: string }) {
+export function CameraCapture({
+  onCapturar,
+  etiqueta,
+  // "environment" (cámara trasera) para fotografiar un documento físico; "user" (cámara
+  // frontal/selfie) para la verificación humana. Antes quedaba fijo en "user" para los dos
+  // casos -- funcional, pero forzaba a sostener el documento mirando hacia la pantalla en
+  // vez de hacia la cámara trasera, normalmente de mejor calidad para este uso.
+  facingMode = "environment",
+}: {
+  onCapturar: (foto: Blob) => void;
+  etiqueta: string;
+  facingMode?: "user" | "environment";
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [activa, setActiva] = useState(false);
@@ -20,14 +32,24 @@ export function CameraCapture({ onCapturar, etiqueta }: { onCapturar: (foto: Blo
     return () => detener();
   }, []);
 
+  // Bug real encontrado: el <video> solo existe en el DOM cuando `activa` ya es true (ver
+  // el return de más abajo), pero antes se intentaba asignarle srcObject ANTES de llamar
+  // setActiva(true) -- en ese momento videoRef.current todavía era null (el elemento ni
+  // siquiera se había montado), así que el `if (videoRef.current)` lo saltaba en silencio
+  // y la cámara quedaba en negro para siempre, aunque el permiso sí se hubiera concedido.
+  // Ahora el stream se conecta en un efecto que corre DESPUÉS de que `activa` cambia y el
+  // <video> ya existe.
+  useEffect(() => {
+    if (activa && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => undefined);
+    }
+  }, [activa]);
+
   async function iniciar() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setActiva(true);
       setErrorCamara(false);
     } catch {
@@ -98,7 +120,11 @@ export function CameraCapture({ onCapturar, etiqueta }: { onCapturar: (foto: Blo
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-line bg-black">
-      <video ref={videoRef} className="w-full -scale-x-100" muted playsInline />
+      {/* El espejo (-scale-x-100) solo tiene sentido para la cámara frontal (como un
+          espejo real); con la trasera, un documento con texto se vería al revés mientras
+          se encuadra -- la foto capturada nunca queda espejada de todas formas, porque
+          canvas.drawImage lee los píxeles reales del video, no el CSS aplicado. */}
+      <video ref={videoRef} className={`w-full ${facingMode === "user" ? "-scale-x-100" : ""}`} muted playsInline />
       <button
         type="button"
         onClick={capturar}

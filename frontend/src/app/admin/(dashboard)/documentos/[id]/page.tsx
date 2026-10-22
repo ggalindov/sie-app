@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { DownloadSimple, ShieldCheck, ShieldWarning, Certificate } from "@phosphor-icons/react";
+import { DownloadSimple, ShieldCheck, ShieldWarning, Certificate, Prohibit, Trash } from "@phosphor-icons/react";
 import {
   obtenerSeguimientoDocumento,
   descargarDocumentoFirma,
@@ -13,12 +13,15 @@ import {
   confirmarCambioSolicitudDocumento,
   rechazarCambioSolicitudDocumento,
   ejecutarCambioSolicitudDocumento,
+  cancelarDocumentoFirma,
+  eliminarDocumentoFirma,
   ApiError,
   type DocumentoSeguimiento,
   type DocumentoCambioSolicitud,
   type TipoAccionCambioDocumento,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminButton, AdminCard, Badge, AdminLoader } from "@/components/admin/ui";
+import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string | null) {
   if (!iso) return "—";
@@ -49,11 +52,22 @@ const tiposAccionCambio: { value: TipoAccionCambioDocumento; label: string }[] =
   { value: "RE_EMITIR", label: "Re-emitir documento" },
 ];
 
+// Estados en los que ya no tiene sentido cancelar: ya terminó, para bien (ENCRIPTADO) o
+// para mal (ya ANULADO/CANCELADO) -- ver DocumentoFirmaService#cancelar.
+const ESTADOS_NO_CANCELABLES = ["ENCRIPTADO", "ANULADO", "CANCELADO"];
+// Solo se puede eliminar un documento que nunca llegó a ser un documento legal completo
+// (ver DocumentoAdminService#eliminar) -- ENCRIPTADO nunca es eliminable por aquí.
+const ESTADOS_ELIMINABLES = ["ANULADO", "CANCELADO"];
+
 export default function DocumentoDetallePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const { sesion } = useAuth();
   const [datos, setDatos] = useState<DocumentoSeguimiento | null>(null);
   const [cambios, setCambios] = useState<DocumentoCambioSolicitud[]>([]);
   const [mostrarFormCambio, setMostrarFormCambio] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   useEffect(() => {
     cargar();
@@ -79,9 +93,53 @@ export default function DocumentoDetallePage() {
     }
   }
 
+  async function onCancelar() {
+    if (!datos) return;
+    const motivo = window.prompt(
+      "¿Por qué se cancela este proceso de firma? (se le avisa a quien lo consulte más adelante)",
+    );
+    if (!motivo || !motivo.trim()) return;
+    if (!window.confirm("¿Cancelar el proceso de firma? Se revocan los enlaces pendientes y el documento queda marcado como CANCELADO.")) {
+      return;
+    }
+    setCancelando(true);
+    try {
+      await cancelarDocumentoFirma(datos.documentoId, motivo.trim());
+      toast.success("Proceso de firma cancelado.");
+      cargar();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo cancelar el proceso.");
+    } finally {
+      setCancelando(false);
+    }
+  }
+
+  async function onEliminar() {
+    if (!datos) return;
+    if (
+      !window.confirm(
+        "¿Eliminar este documento por completo del sistema? Esta acción no se puede deshacer -- se borran el archivo, los firmantes y toda la línea de tiempo.",
+      )
+    ) {
+      return;
+    }
+    setEliminando(true);
+    try {
+      await eliminarDocumentoFirma(datos.documentoId);
+      toast.success("Documento eliminado.");
+      router.push("/admin/documentos");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo eliminar el documento.");
+      setEliminando(false);
+    }
+  }
+
   if (!datos) return <AdminLoader />;
 
   const puedeDescargarFinal = ["SELLADO", "REMITIDO", "ENCRIPTADO"].includes(datos.estadoDocumento);
+  const esAdminGeneral = sesion?.rol === "ADMIN_GENERAL";
+  const puedeCancelar = esAdminGeneral && !ESTADOS_NO_CANCELABLES.includes(datos.estadoDocumento);
+  const puedeEliminar = esAdminGeneral && ESTADOS_ELIMINABLES.includes(datos.estadoDocumento);
 
   return (
     <div>
@@ -106,6 +164,18 @@ export default function DocumentoDetallePage() {
               <Certificate className="h-4 w-4" weight="bold" />
               Certificado de evidencia
             </AdminButton>
+            {puedeCancelar && (
+              <AdminButton variant="danger" onClick={onCancelar} disabled={cancelando}>
+                <Prohibit className="h-4 w-4" weight="bold" />
+                {cancelando ? "Cancelando..." : "Cancelar proceso"}
+              </AdminButton>
+            )}
+            {puedeEliminar && (
+              <AdminButton variant="danger" onClick={onEliminar} disabled={eliminando}>
+                <Trash className="h-4 w-4" weight="bold" />
+                {eliminando ? "Eliminando..." : "Eliminar documento"}
+              </AdminButton>
+            )}
           </div>
         }
       />

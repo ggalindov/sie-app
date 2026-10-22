@@ -23,7 +23,13 @@ import java.util.UUID;
 // DocumentoFirmante). Ciclo de vida monótono (cada documento avanza en este orden, sin
 // retroceder): DILIGENCIADO -> EMITIDO -> FIRMADO_STAFF -> [EN_FIRMA_PARTES, solo si hay
 // partes asignadas] -> SELLADO -> REMITIDO -> ENCRIPTADO, con ANULADO como terminal
-// alcanzable desde EN_FIRMA_PARTES (expiración del proceso o anulación manual). A
+// alcanzable desde EN_FIRMA_PARTES por un rechazo de una parte o por expiración del
+// proceso (ver FirmaRecordatorioService), y CANCELADO como otro terminal distinto,
+// alcanzable desde cualquier estado previo a ENCRIPTADO por una decisión manual de
+// gerencia (ver DocumentoFirmaService#cancelar) -- deliberadamente NO reutiliza ANULADO:
+// ese estado documenta que una parte se negó a firmar o que el enlace venció solo, nunca
+// que gerencia decidió cancelar el proceso a propósito (pedido explícito del usuario, para
+// no mezclar ambas causas bajo la misma etiqueta en el historial). A
 // diferencia del motor original (UCN), aquí no hay un "tipo" de documento que determine la
 // ruta -- la rama a EN_FIRMA_PARTES depende solo de si se asignaron partes o no, ver
 // DocumentoFirmaService.
@@ -47,6 +53,7 @@ public class DocumentoFirma {
     public static final String ESTADO_DOC_REMITIDO = "REMITIDO";
     public static final String ESTADO_DOC_ENCRIPTADO = "ENCRIPTADO";
     public static final String ESTADO_DOC_ANULADO = "ANULADO";
+    public static final String ESTADO_DOC_CANCELADO = "CANCELADO";
 
     public static final String INTEGRIDAD_VIGENTE = "VIGENTE";
     public static final String INTEGRIDAD_ALTERADO = "ALTERADO";

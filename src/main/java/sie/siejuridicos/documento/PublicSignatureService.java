@@ -179,6 +179,15 @@ public class PublicSignatureService {
         if (firmante.getFotoVerificacionHumana() == null) {
             throw new EntidadInvalidaException("Debes tomarte una foto de verificación antes de firmar.");
         }
+        // Pedido explícito del usuario: la ubicación pasó de ser evidencia "mejor esfuerzo"
+        // a un requisito obligatorio del proceso -- antes solo quedaba registrado el rechazo
+        // y se dejaba firmar igual. El frontend ya no deja avanzar sin ella (ver
+        // onPedirGeolocalizacion en el wizard), pero esta validación es la que de verdad lo
+        // hace obligatorio: sin ella, cualquiera podría llamar /firmar directo saltándose el
+        // paso del navegador.
+        if (firmante.isGeolocalizacionRechazada() || firmante.getGeolocalizacionCapturadaEn() == null) {
+            throw new EntidadInvalidaException("Debes compartir tu ubicación antes de firmar. Vuelve al paso de ubicación e inténtalo de nuevo.");
+        }
         firmante.registrarCapturaTecnica(ip, userAgent);
         evidenceCaptureService.registrarContextoDispositivo(firmante, huellaDispositivo, contextoDispositivoJson, senalesProxyDetectadas);
         documentoFirmaService.registrarFirmaDeParte(firmante, firmaPng, trazoVectorialJson);

@@ -20,4 +20,7 @@ public interface DocumentoEventoRepository extends JpaRepository<DocumentoEvento
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM DocumentoEvento e WHERE e.documento.id = :documentoId ORDER BY e.secuencia DESC")
     List<DocumentoEvento> buscarUltimoEncadenado(@Param("documentoId") UUID documentoId, Pageable pageable);
+
+    // Eliminación en cascada manual de un documento (ver DocumentoAdminService#eliminar).
+    void deleteByDocumentoId(UUID documentoId);
 }
