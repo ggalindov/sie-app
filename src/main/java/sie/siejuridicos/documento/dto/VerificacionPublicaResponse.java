@@ -31,7 +31,12 @@ public record VerificacionPublicaResponse(
     public record SelloTiempo(boolean aplicado, String autoridad, String fecha) {
     }
 
-    public record CadenaEventos(boolean integra, Long secuenciaRota, String detalle) {
+    // Pedido explícito del usuario: esta consulta es pública, sin autenticación -- nunca
+    // debe revelar en qué secuencia exacta se rompió la cadena de hashes ni el detalle
+    // técnico forense de cómo (eso le daría pistas a quien quisiera manipular un
+    // documento). 'detalle' llega ya simplificado desde VerificacionPublicaService; el
+    // seguimiento preciso queda únicamente en el panel interno (ver DocumentoSeguimientoDto).
+    public record CadenaEventos(boolean integra, String detalle) {
     }
 
     // Solo se llena en la verificación de un PDF subido. 'firmasEncontradas' = 0 si el

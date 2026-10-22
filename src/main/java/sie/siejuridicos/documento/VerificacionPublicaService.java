@@ -152,7 +152,11 @@ public class VerificacionPublicaService {
         evaluacion.cadena = chainVerifier.verificar(documento);
         if (!evaluacion.cadena.integra()) {
             evaluacion.alterado = true;
-            evaluacion.hallazgos.add("la cadena de hashes de eventos está rota en la secuencia " + evaluacion.cadena.secuenciaRota());
+            // Pedido explícito del usuario: no revelar públicamente el número de secuencia
+            // exacto ni el detalle forense de dónde se rompió la cadena -- solo que se
+            // rompió. El detalle preciso queda en el registro interno (ver
+            // DocumentIntegrityGuard.marcarAlteradoEnNuevaTransaccion, que sí lo conserva).
+            evaluacion.hallazgos.add("la cadena de hashes de eventos del documento presenta una inconsistencia");
         }
         evaluacion.firmaAplicacionValida = applicationSignatureVerifier.verificar(documento);
         if (!evaluacion.firmaAplicacionValida) {
@@ -198,11 +202,20 @@ public class VerificacionPublicaService {
                 hashConsultado != null ? hashConsultado : documento.getHashContenido(),
                 firmantes,
                 sello,
-                new VerificacionPublicaResponse.CadenaEventos(evaluacion.cadena.integra(), evaluacion.cadena.secuenciaRota(),
-                        evaluacion.cadena.detalle()),
+                new VerificacionPublicaResponse.CadenaEventos(evaluacion.cadena.integra(), detalleCadenaPublico(evaluacion.cadena)),
                 evaluacion.firmaAplicacionValida,
                 pades,
                 List.copyOf(evaluacion.hallazgos));
+    }
+
+    // Nunca el detalle forense exacto hacia el público -- ver el comentario de
+    // VerificacionPublicaResponse.CadenaEventos.
+    private static String detalleCadenaPublico(ResultadoVerificacionCadena cadena) {
+        if (cadena.integra()) {
+            return null;
+        }
+        return "Se detectó una inconsistencia en el registro de eventos de este documento. SIE Jurídicos rastrea "
+                + "la integridad de este documento de forma continua y ya tiene conocimiento de ello.";
     }
 
     private VerificacionPublicaResponse.Firmante aFirmante(DocumentoFirmante f) {

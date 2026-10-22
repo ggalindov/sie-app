@@ -109,12 +109,12 @@ public class EvidenceCertificatePdfGenerator {
                                     + FechaEsCo.largo(datos.selloTiempoDocumentoEn())
                             : "No se obtuvo un sello de tiempo externo para este documento."));
             doc.add(filaEstado("Cadena de hashes del timeline de eventos", datos.cadenaEventosIntegra(),
-                    datos.cadenaEventosDetalle() != null ? datos.cadenaEventosDetalle() : "Sin observaciones."));
+                    detalleCadenaEventos(datos)));
             doc.add(espacio(10));
 
             doc.add(seccionTitulo("Firmantes"));
             for (EvidenceCertificateData.FirmanteData firmante : datos.firmantes()) {
-                doc.add(bloqueFirmante(firmante));
+                doc.add(bloqueFirmante(firmante, datos.detalleTecnicoCompleto()));
                 doc.add(espacio(8));
             }
 
@@ -128,6 +128,20 @@ public class EvidenceCertificatePdfGenerator {
         } catch (DocumentException ex) {
             throw new IllegalStateException("No se pudo generar el certificado de evidencia.", ex);
         }
+    }
+
+    // Para el firmante, nunca se revela el detalle técnico exacto (p.ej. en qué número de
+    // secuencia del timeline se rompió la cadena de hashes) -- eso es información forense
+    // interna que solo necesita el staff en una eventual disputa, y exponerla no le aporta
+    // nada al firmante, solo le da pistas a quien quisiera manipular el documento.
+    private String detalleCadenaEventos(EvidenceCertificateData datos) {
+        if (datos.detalleTecnicoCompleto()) {
+            return datos.cadenaEventosDetalle() != null ? datos.cadenaEventosDetalle() : "Sin observaciones.";
+        }
+        return datos.cadenaEventosIntegra()
+                ? "Sin observaciones."
+                : "Se detectó una inconsistencia en el registro de eventos de este documento. SIE Jurídicos "
+                        + "rastrea la integridad de este documento de forma continua y ya tiene conocimiento de ello.";
     }
 
     private Paragraph avisoLegal() {
@@ -179,7 +193,7 @@ public class EvidenceCertificatePdfGenerator {
         return combinado;
     }
 
-    private PdfPTable bloqueFirmante(EvidenceCertificateData.FirmanteData f) {
+    private PdfPTable bloqueFirmante(EvidenceCertificateData.FirmanteData f, boolean detalleTecnicoCompleto) {
         PdfPTable tabla = new PdfPTable(1);
         tabla.setWidthPercentage(100);
         Paragraph contenido = new Paragraph();
@@ -189,10 +203,16 @@ public class EvidenceCertificatePdfGenerator {
         agregarLinea(contenido, "Enlace de firma generado el", f.creadoEn() != null ? FechaEsCo.largo(f.creadoEn()) : null);
         agregarLinea(contenido, "Enlace vigente hasta", f.tokenExpiraEn() != null ? FechaEsCo.largo(f.tokenExpiraEn()) : null);
         agregarLinea(contenido, "Firmado el", f.firmadoEn() != null ? FechaEsCo.largo(f.firmadoEn()) : null);
-        agregarLinea(contenido, "IP de captura", f.ipCaptura());
-        agregarLinea(contenido, "Navegador/dispositivo (user-agent)", f.userAgentCaptura());
-        agregarLinea(contenido, "Huella de dispositivo (no biométrica)", f.huellaDispositivo());
-        agregarLinea(contenido, "Señales de proxy detectadas", f.senalesProxyDetectadas() != null ? f.senalesProxyDetectadas() : "Ninguna");
+        if (detalleTecnicoCompleto) {
+            agregarLinea(contenido, "IP de captura", f.ipCaptura());
+            agregarLinea(contenido, "Navegador/dispositivo (user-agent)", f.userAgentCaptura());
+            agregarLinea(contenido, "Huella de dispositivo (no biométrica)", f.huellaDispositivo());
+            agregarLinea(contenido, "Señales de proxy detectadas", f.senalesProxyDetectadas() != null ? f.senalesProxyDetectadas() : "Ninguna");
+        } else {
+            // Pedido explícito del usuario: al firmante no se le detallan los mecanismos
+            // forenses propios -- solo que existen y que SIE Jurídicos los rastrea 24/7.
+            agregarLinea(contenido, "Trazabilidad técnica", "Capturada y verificada internamente bajo monitoreo continuo de integridad.");
+        }
         String geoTexto = f.geolocalizacionRechazada() ? "Permiso rechazado por el firmante" : f.geolocalizacionTexto();
         if (!f.geolocalizacionRechazada() && f.geolocalizacionCapturadaEn() != null) {
             geoTexto = (geoTexto != null ? geoTexto : "") + " -- capturada el " + FechaEsCo.largo(f.geolocalizacionCapturadaEn());
@@ -201,8 +221,10 @@ public class EvidenceCertificatePdfGenerator {
         agregarLinea(contenido, "Consentimiento aceptado el",
                 f.consentimientoAceptadoEn() != null ? FechaEsCo.largo(f.consentimientoAceptadoEn()) : null);
         agregarLinea(contenido, "Verificación humana (foto de seguridad, no reconocimiento facial)",
-                f.verificacionHumanaCapturada() ? "Capturada -- hash " + partirLargo(f.verificacionHumanaHash()) : "No aplica");
-        agregarLinea(contenido, "Hash de evidencia (SHA-256)", partirLargo(f.hashEvidencia()));
+                f.verificacionHumanaCapturada() ? "Capturada" + (detalleTecnicoCompleto ? " -- hash " + partirLargo(f.verificacionHumanaHash()) : "") : "No aplica");
+        if (detalleTecnicoCompleto) {
+            agregarLinea(contenido, "Hash de evidencia (SHA-256)", partirLargo(f.hashEvidencia()));
+        }
         agregarLinea(contenido, "Sello de tiempo RFC 3161",
                 f.selloTiempoAplicado()
                         ? "Emitido por " + f.selloTiempoUrl() + " (validado: " + (f.selloTiempoValido() ? "SÍ" : "NO") + ")"

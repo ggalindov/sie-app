@@ -266,7 +266,7 @@ export type VerificacionPublica = {
   hashSha256: string | null;
   firmantes: { nombreEnmascarado: string; rol: string; estado: string; firmadoEn: string | null }[] | null;
   selloTiempo: { aplicado: boolean; autoridad: string | null; fecha: string | null } | null;
-  cadenaEventos: { integra: boolean; secuenciaRota: number | null; detalle: string | null } | null;
+  cadenaEventos: { integra: boolean; detalle: string | null } | null;
   firmaAplicacionValida: boolean | null;
   firmaPades: { firmasEncontradas: number; firmaValida: boolean; emitidaPorSie: boolean; cubreTodoElDocumento: boolean } | null;
   hallazgos: string[];

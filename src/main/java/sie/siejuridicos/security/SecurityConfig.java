@@ -30,6 +30,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitFilter rateLimitFilter;
     private final RequestSizeLimitFilter requestSizeLimitFilter;
+    private final MobileOnlySignatureFilter mobileOnlySignatureFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final List<String> corsAllowedOrigins;
@@ -37,12 +38,14 @@ public class SecurityConfig {
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                            RateLimitFilter rateLimitFilter,
                            RequestSizeLimitFilter requestSizeLimitFilter,
+                           MobileOnlySignatureFilter mobileOnlySignatureFilter,
                            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
                            JwtAccessDeniedHandler jwtAccessDeniedHandler,
                            @Value("${app.cors.allowed-origins}") List<String> corsAllowedOrigins) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.rateLimitFilter = rateLimitFilter;
         this.requestSizeLimitFilter = requestSizeLimitFilter;
+        this.mobileOnlySignatureFilter = mobileOnlySignatureFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
         this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
         this.corsAllowedOrigins = corsAllowedOrigins;
@@ -111,7 +114,8 @@ public class SecurityConfig {
                 // Tamaño de payload y rate limiting corren antes que el filtro de JWT: deben
                 // aplicarse incluso a solicitudes sin token (login, formularios públicos).
                 .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
-                .addFilterBefore(requestSizeLimitFilter, RateLimitFilter.class);
+                .addFilterBefore(requestSizeLimitFilter, RateLimitFilter.class)
+                .addFilterBefore(mobileOnlySignatureFilter, RequestSizeLimitFilter.class);
 
         return http.build();
     }

@@ -49,16 +49,18 @@ public class EvidenceCertificateService {
     public byte[] generarConsolidadoPorDocumento(UUID documentoId) {
         DocumentoFirma documento = documento(documentoId);
         List<DocumentoFirmante> firmantes = documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documentoId);
-        return pdfGenerator.generar(construirDatos(documento, firmantes));
+        return pdfGenerator.generar(construirDatos(documento, firmantes, true));
     }
 
     // Para el flujo público por token: SOLO su propio firmante, nunca los demás -- evita
-    // que la descarga de una parte exponga los datos forenses de las otras.
+    // que la descarga de una parte exponga los datos forenses de las otras. Tampoco se le
+    // expone a ESE firmante su propio detalle forense (IP, user-agent, huella de
+    // dispositivo, etc.) -- ver el comentario de EvidenceCertificateData.detalleTecnicoCompleto.
     @Transactional(readOnly = true)
     public byte[] generarPorFirmante(UUID firmanteId) {
         DocumentoFirmante firmante = documentoFirmanteRepository.findById(firmanteId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el firmante solicitado."));
-        return pdfGenerator.generar(construirDatos(firmante.getDocumento(), List.of(firmante)));
+        return pdfGenerator.generar(construirDatos(firmante.getDocumento(), List.of(firmante), false));
     }
 
     private DocumentoFirma documento(UUID documentoId) {
@@ -66,7 +68,8 @@ public class EvidenceCertificateService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el documento solicitado."));
     }
 
-    private EvidenceCertificateData construirDatos(DocumentoFirma documento, List<DocumentoFirmante> firmantes) {
+    private EvidenceCertificateData construirDatos(DocumentoFirma documento, List<DocumentoFirmante> firmantes,
+                                                     boolean detalleTecnicoCompleto) {
         ResultadoVerificacionCadena cadena = documentoEventoChainVerifier.verificar(documento);
         boolean firmaAppValida = applicationSignatureVerifier.verificar(documento);
         boolean selloDocumentoAplicado = documento.getRfc3161Token() != null;
@@ -96,7 +99,8 @@ public class EvidenceCertificateService {
                         ? sitioPublicoUrl + "/verificar-documento?codigo=" + documento.getCodigoVerificacion()
                         : null,
                 LocalDateTime.now(),
-                firmantesData
+                firmantesData,
+                detalleTecnicoCompleto
         );
     }
 

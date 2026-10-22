@@ -122,13 +122,6 @@ export async function firmarDocumento(
   return res.json();
 }
 
-export async function descargarCertificadoEvidenciaFirma(token: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/v1/firmas/${token}/certificado-evidencia`);
-  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
-  const blob = await res.blob();
-  descargarBlob(blob, "certificado-evidencia.pdf");
-}
-
 export async function descargarDocumentoFinalFirma(token: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/v1/firmas/${token}/documento-final`);
   if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
@@ -160,4 +153,12 @@ export async function contarPaginasDocumento(token: string): Promise<number> {
 // real) para usar directo en un <img src="...">.
 export function urlPaginaDocumento(token: string, numero: number): string {
   return `${API_URL}/api/v1/firmas/${token}/documento/paginas/${numero}`;
+}
+
+// El endpoint no necesita header de autorización (el token ya va en la ruta), así que se
+// usa como href directo de un <a target="_blank"> en vez de fetch+blob+click sintético:
+// ese patrón es poco confiable en iOS Safari (el blob: URL creado de forma asíncrona tras
+// un await pierde el "user activation" del clic y Safari puede bloquearlo en silencio).
+export function urlCertificadoEvidenciaFirma(token: string): string {
+  return `${API_URL}/api/v1/firmas/${token}/certificado-evidencia`;
 }

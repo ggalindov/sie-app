@@ -10,6 +10,7 @@ import {
   ArrowRight,
   DownloadSimple,
   XCircle,
+  DeviceMobile,
 } from "@phosphor-icons/react";
 import {
   obtenerResumenFirma,
@@ -22,7 +23,7 @@ import {
   registrarIdentidadFirma,
   registrarVerificacionHumanaFirma,
   firmarDocumento,
-  descargarCertificadoEvidenciaFirma,
+  urlCertificadoEvidenciaFirma,
   ApiError,
   type FirmaResumen,
 } from "@/lib/firma-publica-api";
@@ -33,6 +34,7 @@ import { VisorDocumentoFirma } from "@/components/firma/visor-documento";
 type Paso =
   | "cargando"
   | "error"
+  | "solo_celular"
   | "bienvenida"
   | "identidad"
   | "otp"
@@ -88,6 +90,16 @@ async function sha256Hex(texto: string): Promise<string> {
     .join("");
 }
 
+// Pedido explícito del usuario: firmar solo debe poder hacerse desde un celular, nunca
+// desde un PC de escritorio. Este chequeo del lado del cliente es solo para mostrar un
+// mensaje claro en vez de que cada paso falle con un error genérico -- el bloqueo real,
+// el que no se puede saltar abriendo las herramientas de desarrollador, vive en el
+// servidor (ver MobileOnlySignatureFilter), con el mismo regex "Mobi".
+function esDispositivoMovil(): boolean {
+  if (typeof navigator === "undefined") return true;
+  return /Mobi/i.test(navigator.userAgent);
+}
+
 export default function FirmarPage() {
   const { token } = useParams<{ token: string }>();
   const [paso, setPaso] = useState<Paso>("cargando");
@@ -113,7 +125,9 @@ export default function FirmarPage() {
     obtenerResumenFirma(token)
       .then((r) => {
         setResumen(r);
-        setPaso(pasoDesdeResumen(r));
+        const pasoCalculado = pasoDesdeResumen(r);
+        const yaTermino = pasoCalculado === "completado" || pasoCalculado === "rechazado";
+        setPaso(!yaTermino && !esDispositivoMovil() ? "solo_celular" : pasoCalculado);
       })
       .catch(() => setPaso("error"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -341,7 +355,18 @@ export default function FirmarPage() {
           </Tarjeta>
         )}
 
-        {paso !== "cargando" && paso !== "error" && resumen && (
+        {paso === "solo_celular" && (
+          <Tarjeta className="text-center">
+            <DeviceMobile className="mx-auto h-10 w-10 text-[#b5922e]" weight="bold" />
+            <h2 className="mt-3 font-display text-lg text-[#1a1a1a]">Abre este enlace desde tu celular</h2>
+            <p className="mt-2 text-sm text-[#6b6b6b]">
+              Por seguridad y validez legal, la firma electrónica de este documento solo se puede completar desde un
+              teléfono móvil. Copia este enlace y ábrelo en el navegador de tu celular para continuar.
+            </p>
+          </Tarjeta>
+        )}
+
+        {paso !== "cargando" && paso !== "error" && paso !== "solo_celular" && resumen && (
           <>
             <Tarjeta>
               <p className="text-xs font-medium uppercase tracking-wide text-[#b5922e]">Documento</p>
@@ -488,13 +513,14 @@ export default function FirmarPage() {
                 <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-emerald-700">
                   <ShieldCheck className="h-4 w-4" weight="bold" /> Firma sellada con validez legal (Ley 527 de 1999)
                 </div>
-                <button
-                  type="button"
-                  onClick={() => descargarCertificadoEvidenciaFirma(token).catch(() => toast.error("No se pudo descargar."))}
+                <a
+                  href={urlCertificadoEvidenciaFirma(token)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] px-4 py-2.5 text-sm font-medium text-white"
                 >
                   <DownloadSimple className="h-4 w-4" weight="bold" /> Descargar mi certificado de evidencia
-                </button>
+                </a>
               </Tarjeta>
             )}
 

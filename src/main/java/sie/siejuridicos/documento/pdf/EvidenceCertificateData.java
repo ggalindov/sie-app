@@ -24,7 +24,15 @@ public record EvidenceCertificateData(
         String codigoVerificacion,
         String urlVerificacion,
         LocalDateTime certificadoGeneradoEn,
-        List<FirmanteData> firmantes
+        List<FirmanteData> firmantes,
+        // Pedido explícito del usuario: al cliente/firmante no se le debe exponer
+        // información técnica/forense que pueda ayudar a vulnerar la seguridad del
+        // documento (IP, user-agent, huella de dispositivo, señales de proxy, hash de
+        // evidencia, ni el detalle exacto de dónde se rompió la cadena de eventos). El
+        // seguimiento 24/7 de integridad lo hace la firma internamente -- false para la
+        // descarga pública por token (EvidenceCertificateService#generarPorFirmante),
+        // true solo para el consolidado que descarga el staff autenticado.
+        boolean detalleTecnicoCompleto
 ) {
     public record FirmanteData(
             String tipoFirmante,
