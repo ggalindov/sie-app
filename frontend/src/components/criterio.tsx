@@ -21,7 +21,19 @@ export function Criterio({ media }: { media: ReactNode }) {
 
   return (
     <section ref={ref} className="snap-slide frame-fixed relative">
-      <motion.div style={{ y }} className="absolute inset-[-8%]">
+      {/* top-[-8%] + h-[116dvh], no inset-[-8%]: en escritorio frame-fixed deja esta
+          sección a exactamente un viewport, así que antes daba igual -- pero en móvil
+          frame-fixed NO fija altura a propósito (las secciones fluyen con su contenido
+          real, sin el límite de "ningún scroll por sección" que es solo de escritorio), y
+          este texto es alto (títulos grandes apilados). Con inset-[-8%] el fondo medía lo
+          mismo que la sección entera -- en móvil eso podía ser 1.5-2 pantallas -- y el
+          video se estiraba a ese alto completo en vez de cubrir solo la primera pantalla,
+          deformándose de forma visible al hacer scroll (reportado por el usuario con
+          capturas reales de iPhone). Fijar el alto a la ventana (no al padre) resuelve
+          esto en cualquier tamaño: el video cubre la pantalla inicial, el resto de la
+          sección (donde sigue el texto) se apoya en el degradado oscuro de abajo, que ya
+          cubre toda la sección de todas formas. */}
+      <motion.div style={{ y }} className="absolute inset-x-[-8%] top-[-8%] h-[116dvh]">
         {media}
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-b from-night/90 via-night/80 to-night/90" />
