@@ -351,7 +351,11 @@ export function ChatbotWidget() {
         transition={{ duration: 0.5, delay: 0.9, ease: EASE }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-5 left-3 sm:left-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-surface text-ink shadow-[0_14px_34px_-10px_rgba(20,19,15,0.35)]"
+        // h-11/w-11 en móvil (no h-14): pedido explícito del usuario tras ver capturas
+        // reales -- el stack de botones flotantes tapaba caras y texto al hacer scroll por
+        // secciones con contenido denso (Equipo). Menos huella en pantallas chicas, mismo
+        // tamaño de siempre a partir de sm:.
+        className="fixed bottom-5 left-3 sm:left-6 z-40 flex h-11 w-11 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-surface text-ink shadow-[0_14px_34px_-10px_rgba(20,19,15,0.35)]"
       >
         <motion.span
           aria-hidden="true"
@@ -375,7 +379,7 @@ export function ChatbotWidget() {
               transition={{ duration: 0.2 }}
               className="relative"
             >
-              <X className="h-6 w-6 text-ink" weight="bold" />
+              <X className="h-4 w-4 sm:h-6 sm:w-6 text-ink" weight="bold" />
             </motion.span>
           ) : (
             <motion.span
@@ -386,7 +390,7 @@ export function ChatbotWidget() {
               transition={{ duration: 0.25 }}
               className="relative"
             >
-              <div className="relative h-11 w-11 sm:h-13 sm:w-13 rounded-full overflow-hidden">
+              <div className="relative h-8 w-8 sm:h-13 sm:w-13 rounded-full overflow-hidden">
                 <Image
                   src="/chatbot/siebot-vendedor.png"
                   alt="Siebot Asesor Virtual"
@@ -395,9 +399,9 @@ export function ChatbotWidget() {
                   className="object-cover object-top scale-110"
                 />
               </div>
-              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+              <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 flex h-2.5 w-2.5 sm:h-3.5 sm:w-3.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 ring-2 ring-surface" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 bg-emerald-500 ring-2 ring-surface" />
               </span>
             </motion.span>
           )}

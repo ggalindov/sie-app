@@ -45,9 +45,12 @@ export function ConsultaCasoFloat() {
         <Link
           href="/consulta-caso"
           aria-label="Consulta el estado de tu caso"
-          className="btn-sweep flex h-12 items-center gap-2 overflow-hidden rounded-full bg-night pl-3.5 pr-3.5 text-night-ink shadow-[0_10px_26px_-10px_rgba(0,0,0,0.5)] ring-1 ring-gold/25 sm:h-14 sm:pl-4 sm:pr-4"
+          // h-10 en móvil (no h-12): mismo motivo que el resto del stack flotante -- menos
+          // huella en pantallas chicas para taparle menos contenido al usuario al hacer
+          // scroll (pedido explícito tras ver capturas reales de la sección Equipo).
+          className="btn-sweep flex h-10 items-center gap-2 overflow-hidden rounded-full bg-night pl-3 pr-3 text-night-ink shadow-[0_10px_26px_-10px_rgba(0,0,0,0.5)] ring-1 ring-gold/25 sm:h-14 sm:pl-4 sm:pr-4"
         >
-          <FileMagnifyingGlass weight="bold" className="h-5 w-5 shrink-0 text-gold sm:h-6 sm:w-6" />
+          <FileMagnifyingGlass weight="bold" className="h-4 w-4 shrink-0 text-gold sm:h-6 sm:w-6" />
 
           {/* Escritorio: siempre expandido, sin AnimatePresence -- el texto es parte
               permanente del botón, no una revelación. */}
