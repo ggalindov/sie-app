@@ -16,13 +16,16 @@ import java.util.List;
 public class DocumentoEventoChainVerifier {
 
     private final DocumentoEventoRepository documentoEventoRepository;
+    private final DocumentoEventoCheckpointRepository checkpointRepository;
     private final HashChainCalculator hashChainCalculator;
     private final DocumentIntegrityGuard documentIntegrityGuard;
 
     public DocumentoEventoChainVerifier(DocumentoEventoRepository documentoEventoRepository,
+                                         DocumentoEventoCheckpointRepository checkpointRepository,
                                          HashChainCalculator hashChainCalculator,
                                          DocumentIntegrityGuard documentIntegrityGuard) {
         this.documentoEventoRepository = documentoEventoRepository;
+        this.checkpointRepository = checkpointRepository;
         this.hashChainCalculator = hashChainCalculator;
         this.documentIntegrityGuard = documentIntegrityGuard;
     }
@@ -30,6 +33,18 @@ public class DocumentoEventoChainVerifier {
     @Transactional(readOnly = true)
     public ResultadoVerificacionCadena verificar(DocumentoFirma documento) {
         List<DocumentoEvento> eventos = documentoEventoRepository.findByDocumentoIdOrderBySecuenciaAsc(documento.getId());
+
+        // Ataque de truncamiento: borrar los ÚLTIMOS eventos de la cadena no rompe ningún
+        // eslabón (lo que queda sigue perfectamente encadenado), así que el resto de este
+        // método no lo detectaría. documento_eventos_checkpoints es append-only y solo
+        // puede crecer (ver AnclaDiariaIntegridadScheduler); si algún checkpoint pasado
+        // registró MÁS eventos de los que existen ahora, eso es evidencia concluyente de
+        // que algo se borró, sin importar si la cadena "se ve" íntegra.
+        Long maximoRegistrado = checkpointRepository.maximoCantidadEventosRegistrado(documento.getId()).orElse(null);
+        if (maximoRegistrado != null && maximoRegistrado > eventos.size()) {
+            return marcarTruncada(documento, maximoRegistrado, eventos.size());
+        }
+
         if (eventos.isEmpty()) {
             return ResultadoVerificacionCadena.pendiente();
         }
@@ -88,5 +103,12 @@ public class DocumentoEventoChainVerifier {
                 "Cadena de eventos rota en la secuencia " + secuencia + ": " + detalle,
                 DocumentoEvento.ACTOR_SISTEMA, null);
         return ResultadoVerificacionCadena.rota(secuencia, detalle);
+    }
+
+    private ResultadoVerificacionCadena marcarTruncada(DocumentoFirma documento, long cantidadEsperada, int cantidadActual) {
+        String detalle = "Truncamiento detectado: un checkpoint diario registró " + cantidadEsperada
+                + " evento(s) para este documento, pero hoy solo existen " + cantidadActual + ".";
+        documentIntegrityGuard.marcarAlteradoEnNuevaTransaccion(documento, detalle, DocumentoEvento.ACTOR_SISTEMA, null);
+        return ResultadoVerificacionCadena.rota(cantidadEsperada, detalle);
     }
 }

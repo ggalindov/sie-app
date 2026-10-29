@@ -624,6 +624,105 @@ public class EmailService {
         return exito;
     }
 
+    // PQRS (Peticiones, Quejas, Reclamos y Sugerencias): confirmación inmediata con el
+    // radicado, mismo "tipo tirilla" que enviarCodigoCaso -- es la única forma en que el
+    // remitente recupera su radicado si lo pierde antes de anotarlo.
+    @Async
+    public void enviarRadicadoPqrs(sie.siejuridicos.pqrs.Pqrs pqrs) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Registramos tu %s en %s. Puedes consultar el estado en
+                cualquier momento, sin necesidad de crear una cuenta, con tu número de radicado:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td align="center" style="background-color:#F7F4EC;border:1px dashed %s;padding:16px;">
+                <span style="font-size:24px;font-weight:bold;letter-spacing:3px;color:%s;font-family:Arial,Helvetica,sans-serif;">%s</span>
+                </td></tr>
+                </table>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 16px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Asunto</p>
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 8px;">Ingresa tu radicado en
+                <a href="%s/pqrs" style="color:%s;">%s/pqrs</a> para ver el estado actual.</p>
+                <p style="margin:0 0 20px;">Guarda este radicado en un lugar seguro: lo necesitarás para
+                futuras consultas.</p>
+                %s
+                """.formatted(
+                escaparHtml(pqrs.getNombre()),
+                pqrs.getTipo().getNombreVisible().toLowerCase(Locale.of("es", "CO")),
+                nombreFirma,
+                COLOR_DORADO, COLOR_TEXTO, escaparHtml(pqrs.getRadicado()),
+                COLOR_DORADO, COLOR_DORADO, escaparHtml(pqrs.getAsunto()),
+                sitioWeb, COLOR_DORADO, sitioWeb,
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(pqrs.getCorreo(), "Tu radicado de " + pqrs.getTipo().getNombreVisible() + " - " + nombreFirma, cuerpo, false);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.RADICADO_PQRS,
+                pqrs.getNombre(), pqrs.getCorreo(), "Radicado " + pqrs.getRadicado(), exito);
+    }
+
+    @Async
+    public void enviarNotificacionAdminNuevaPqrs(sie.siejuridicos.pqrs.Pqrs pqrs) {
+        String cuerpo = """
+                <p style="margin:0 0 12px;">Llegó una nueva <strong>%s</strong> desde el sitio público.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;border-collapse:collapse;">
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;width:120px;">Radicado</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;">Nombre</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;">Correo</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;color:#736C5C;">Asunto</td><td style="padding:6px 0;border-bottom:1px solid #E4DFD1;">%s</td></tr>
+                    <tr><td style="padding:6px 0;color:#736C5C;vertical-align:top;">Descripción</td><td style="padding:6px 0;">%s</td></tr>
+                </table>
+                <p style="margin:12px 0 0;">Revísala en el panel administrativo para responderla.</p>
+                """.formatted(
+                pqrs.getTipo().getNombreVisible(),
+                escaparHtml(pqrs.getRadicado()),
+                escaparHtml(pqrs.getNombre()),
+                escaparHtml(pqrs.getCorreo()),
+                escaparHtml(pqrs.getAsunto()),
+                escaparHtml(pqrs.getDescripcion())
+        );
+        boolean exito = enviarHtml(correoAdmin, "Nueva " + pqrs.getTipo().getNombreVisible() + ": " + pqrs.getRadicado(), cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.NOTIFICACION_INTERNA,
+                null, correoAdmin, "Nueva PQRS " + pqrs.getRadicado(), exito);
+    }
+
+    // Respuesta que un abogado/admin escribe desde el panel para una PQRS -- mismo patrón
+    // de insignia que enviarRespuestaSolicitud, adaptado a "Gerencia" genérico (quien
+    // responde puede ser cualquier abogado, no solo gerencia).
+    @Async
+    public void enviarRespuestaPqrs(sie.siejuridicos.pqrs.Pqrs pqrs) {
+        String insignia = """
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;">
+                <tr><td style="border-left:3px solid %s;padding:2px 0 2px 16px;">
+                <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Respuesta a tu %s</p>
+                </td></tr>
+                </table>
+                """.formatted(COLOR_DORADO, COLOR_DORADO, pqrs.getTipo().getNombreVisible().toLowerCase(Locale.of("es", "CO")));
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                %s
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 16px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Radicado %s</p>
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                %s
+                %s
+                """.formatted(
+                escaparHtml(pqrs.getNombre()),
+                insignia,
+                COLOR_DORADO, COLOR_DORADO, escaparHtml(pqrs.getRadicado()), escaparHtml(pqrs.getAsunto()),
+                escaparHtmlConParrafos(pqrs.getRespuesta()),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(pqrs.getCorreo(), "Respuesta a tu " + pqrs.getTipo().getNombreVisible() + " " + pqrs.getRadicado() + " - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.RESPUESTA_PQRS,
+                pqrs.getNombre(), pqrs.getCorreo(), "Respuesta a " + pqrs.getRadicado(), exito);
+    }
+
     // Motor de firma electrónica (ver sie.siejuridicos.documento.DocumentIntegrityGuard):
     // alerta a un administrador general en cuanto un documento se marca ALTERADO -- un
     // escenario grave (manipulación directa de datos o un fallo real de integridad), por

@@ -33,13 +33,14 @@ class DocumentoEventoChainVerifierTest {
     private static final String CLAVE_MAESTRA = Base64.getEncoder().encodeToString(new byte[32]);
 
     @Mock private DocumentoEventoRepository documentoEventoRepository;
+    @Mock private DocumentoEventoCheckpointRepository checkpointRepository;
     @Mock private DocumentIntegrityGuard documentIntegrityGuard;
 
     private final HashChainCalculator hashChainCalculator =
             new HashChainCalculator(new DocumentoClaveMaestraService(CLAVE_MAESTRA));
 
     private DocumentoEventoChainVerifier verificador() {
-        return new DocumentoEventoChainVerifier(documentoEventoRepository, hashChainCalculator, documentIntegrityGuard);
+        return new DocumentoEventoChainVerifier(documentoEventoRepository, checkpointRepository, hashChainCalculator, documentIntegrityGuard);
     }
 
     private DocumentoFirma documentoConId(UUID id) {
@@ -135,5 +136,38 @@ class DocumentoEventoChainVerifierTest {
         assertFalse(resultado.integra());
         assertEquals(1L, resultado.secuenciaRota());
         verify(documentIntegrityGuard).marcarAlteradoEnNuevaTransaccion(eq(documento), any(), eq(DocumentoEvento.ACTOR_SISTEMA), eq(null));
+    }
+
+    // Ataque de truncamiento (ver V54__documento_checkpoints_anclas_diarias.sql): un
+    // checkpoint de ayer registró más eventos de los que existen hoy -- la cadena que queda
+    // (e1, e2) está perfectamente bien encadenada por sí sola, así que sin esta comprobación
+    // extra el verificador la daría por íntegra sin detectar que falta e3.
+    @Test
+    void unCheckpointConMasEventosQueLosActualesSeDetectaComoTruncamiento() {
+        DocumentoFirma documento = documentoConId(UUID.randomUUID());
+        DocumentoEvento e1 = eventoEncadenado(documento, 1, HashChainCalculator.GENESIS, DocumentoEvento.TIPO_DILIGENCIADO);
+        DocumentoEvento e2 = eventoEncadenado(documento, 2, e1.getHashEvento(), DocumentoEvento.TIPO_EMITIDO);
+        when(documentoEventoRepository.findByDocumentoIdOrderBySecuenciaAsc(documento.getId())).thenReturn(List.of(e1, e2));
+        when(checkpointRepository.maximoCantidadEventosRegistrado(documento.getId())).thenReturn(java.util.Optional.of(3L));
+
+        ResultadoVerificacionCadena resultado = verificador().verificar(documento);
+
+        assertFalse(resultado.integra());
+        assertEquals(3L, resultado.secuenciaRota());
+        verify(documentIntegrityGuard).marcarAlteradoEnNuevaTransaccion(eq(documento), any(), eq(DocumentoEvento.ACTOR_SISTEMA), eq(null));
+    }
+
+    @Test
+    void unCheckpointConMenosOIgualesEventosNoDisparaTruncamiento() {
+        DocumentoFirma documento = documentoConId(UUID.randomUUID());
+        DocumentoEvento e1 = eventoEncadenado(documento, 1, HashChainCalculator.GENESIS, DocumentoEvento.TIPO_DILIGENCIADO);
+        DocumentoEvento e2 = eventoEncadenado(documento, 2, e1.getHashEvento(), DocumentoEvento.TIPO_EMITIDO);
+        when(documentoEventoRepository.findByDocumentoIdOrderBySecuenciaAsc(documento.getId())).thenReturn(List.of(e1, e2));
+        when(checkpointRepository.maximoCantidadEventosRegistrado(documento.getId())).thenReturn(java.util.Optional.of(2L));
+
+        ResultadoVerificacionCadena resultado = verificador().verificar(documento);
+
+        assertTrue(resultado.integra());
+        verify(documentIntegrityGuard, never()).marcarAlteradoEnNuevaTransaccion(any(), any(), any(), any());
     }
 }

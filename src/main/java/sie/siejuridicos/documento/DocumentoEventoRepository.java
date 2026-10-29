@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface DocumentoEventoRepository extends JpaRepository<DocumentoEvento, UUID> {
@@ -23,4 +24,13 @@ public interface DocumentoEventoRepository extends JpaRepository<DocumentoEvento
 
     // Eliminación en cascada manual de un documento (ver DocumentoAdminService#eliminar).
     void deleteByDocumentoId(UUID documentoId);
+
+    // Para el checkpoint diario (ver AnclaDiariaIntegridadScheduler): todo documento que ya
+    // tenga al menos un evento, sin bloqueo pesimista -- a diferencia de
+    // buscarUltimoEncadenado (que SÍ lo necesita, serializa escrituras concurrentes sobre el
+    // mismo documento), este job es de solo lectura.
+    @Query("SELECT DISTINCT e.documento.id FROM DocumentoEvento e")
+    List<UUID> buscarDocumentoIdsConEventos();
+
+    Optional<DocumentoEvento> findTop1ByDocumentoIdOrderBySecuenciaDesc(UUID documentoId);
 }

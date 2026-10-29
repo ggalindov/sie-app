@@ -90,7 +90,7 @@ public class EvidenceCertificatePdfGenerator {
 
             doc.add(seccionTitulo("Integridad criptográfica"));
             doc.add(filaEstado("Firma criptográfica de aplicación (Ed25519)", datos.firmaAppValida(),
-                    datos.firmaAppKid() != null ? "Llave: " + datos.firmaAppKid() : "Documento aún no sellado."));
+                    detalleFirmaAplicacion(datos)));
             doc.add(filaEstado("Sello de tiempo RFC 3161", datos.selloTiempoDocumentoAplicado(),
                     datos.selloTiempoDocumentoAplicado()
                             ? "Emitido por " + datos.selloTiempoDocumentoUrl() + " el "
@@ -116,6 +116,17 @@ public class EvidenceCertificatePdfGenerator {
         } catch (DocumentException ex) {
             throw new IllegalStateException("No se pudo generar el certificado de evidencia.", ex);
         }
+    }
+
+    // Punto 14 de las mejoras pedidas sobre el motor "hermano" (UCN): el identificador de
+    // la llave de firma de aplicación es un dato interno de infraestructura, no evidencia
+    // que el firmante necesite -- igual que la IP/user-agent/huella de dispositivo, que ya
+    // estaban correctamente ocultos tras este mismo flag.
+    private String detalleFirmaAplicacion(EvidenceCertificateData datos) {
+        if (datos.firmaAppKid() == null) {
+            return "Documento aún no sellado.";
+        }
+        return datos.detalleTecnicoCompleto() ? "Llave: " + datos.firmaAppKid() : "Verificada internamente.";
     }
 
     // Para el firmante, nunca se revela el detalle técnico exacto (p.ej. en qué número de
@@ -207,9 +218,15 @@ public class EvidenceCertificatePdfGenerator {
         Paragraph contenido = new Paragraph();
         contenido.add(new Paragraph(f.nombreCapturado() + " (" + f.tipoFirmante() + ") -- " + f.estado(),
                 fuente(Font.BOLD, 10.5f, TINTA)));
-        agregarLinea(contenido, "Documento de identidad", f.documentoIdentidadCapturado());
+        agregarLinea(contenido, "Documento de identidad",
+                detalleTecnicoCompleto ? f.documentoIdentidadCapturado() : enmascararCedula(f.documentoIdentidadCapturado()));
         agregarLinea(contenido, "Enlace de firma generado el", f.creadoEn() != null ? FechaEsCo.largo(f.creadoEn()) : null);
-        agregarLinea(contenido, "Enlace vigente hasta", f.tokenExpiraEn() != null ? FechaEsCo.largo(f.tokenExpiraEn()) : null);
+        if (detalleTecnicoCompleto) {
+            // Punto 14: la fecha de vencimiento del enlace es un dato operativo interno (le
+            // da a un atacante información sobre la ventana de validez del token), no
+            // evidencia que el propio firmante necesite ver en su certificado.
+            agregarLinea(contenido, "Enlace vigente hasta", f.tokenExpiraEn() != null ? FechaEsCo.largo(f.tokenExpiraEn()) : null);
+        }
         agregarLinea(contenido, "Firmado el", f.firmadoEn() != null ? FechaEsCo.largo(f.firmadoEn()) : null);
         if (detalleTecnicoCompleto) {
             agregarLinea(contenido, "IP de captura", f.ipCaptura());
@@ -250,7 +267,7 @@ public class EvidenceCertificatePdfGenerator {
         celdaTexto.setBorderColor(BORDE_SUAVE);
         tabla.addCell(celdaTexto);
 
-        PdfPTable filaImagenes = filaImagenesFirmante(f);
+        PdfPTable filaImagenes = filaImagenesFirmante(f, detalleTecnicoCompleto);
         if (filaImagenes != null) {
             PdfPCell celdaImagenes = new PdfPCell(filaImagenes);
             celdaImagenes.setPadding(8f);
@@ -261,19 +278,41 @@ public class EvidenceCertificatePdfGenerator {
         return tabla;
     }
 
-    // Fila de 3 miniaturas (firma, documento de identidad, verificación humana); cada
-    // celda muestra la imagen si existe o un texto "No disponible" si esa evidencia no se capturó.
-    private PdfPTable filaImagenesFirmante(EvidenceCertificateData.FirmanteData f) {
-        boolean hayAlguna = f.firmaImagenPng() != null || f.documentoIdentidadImagen() != null || f.fotoVerificacionHumana() != null;
-        if (!hayAlguna) {
+    // Fila de miniaturas; cada celda muestra la imagen si existe o un texto "No disponible"
+    // si esa evidencia no se capturó. Punto 14 de las mejoras pedidas sobre el motor
+    // "hermano" (UCN): las fotos de la cédula y de la selfie de verificación humana son
+    // datos de identidad sensibles del propio firmante -- se incluyen SOLO en la versión
+    // completa para staff (una disputa real), nunca en la que descarga el firmante. La
+    // firma manuscrita SÍ se mantiene siempre: es la propia firma de quien descarga el
+    // certificado, no un dato sensible de identidad ajeno.
+    private PdfPTable filaImagenesFirmante(EvidenceCertificateData.FirmanteData f, boolean detalleTecnicoCompleto) {
+        boolean hayFirma = f.firmaImagenPng() != null;
+        boolean hayFotosIdentidad = detalleTecnicoCompleto
+                && (f.documentoIdentidadImagen() != null || f.fotoVerificacionHumana() != null);
+        if (!hayFirma && !hayFotosIdentidad) {
             return null;
         }
-        PdfPTable tabla = new PdfPTable(3);
+        PdfPTable tabla = new PdfPTable(detalleTecnicoCompleto ? 3 : 1);
         tabla.setWidthPercentage(100);
         tabla.addCell(celdaImagen("Firma manuscrita", f.firmaImagenPng(), false));
-        tabla.addCell(celdaImagen("Documento de identidad", f.documentoIdentidadImagen(), true));
-        tabla.addCell(celdaImagen("Verificación humana", f.fotoVerificacionHumana(), true));
+        if (detalleTecnicoCompleto) {
+            tabla.addCell(celdaImagen("Documento de identidad", f.documentoIdentidadImagen(), true));
+            tabla.addCell(celdaImagen("Verificación humana", f.fotoVerificacionHumana(), true));
+        }
         return tabla;
+    }
+
+    // Deja solo los últimos 4 caracteres visibles (p.ej. "****1234"); si el documento
+    // capturado tiene 4 caracteres o menos, se oculta por completo para no revelar nada útil.
+    private static String enmascararCedula(String documentoIdentidad) {
+        if (documentoIdentidad == null || documentoIdentidad.isBlank()) {
+            return null;
+        }
+        String limpio = documentoIdentidad.trim();
+        if (limpio.length() <= 4) {
+            return "****";
+        }
+        return "****" + limpio.substring(limpio.length() - 4);
     }
 
     private PdfPCell celdaImagen(String titulo, byte[] bytesOriginales, boolean reducirComoFoto) {

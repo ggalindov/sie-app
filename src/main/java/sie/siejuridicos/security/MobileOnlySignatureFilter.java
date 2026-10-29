@@ -41,6 +41,8 @@ public class MobileOnlySignatureFilter extends OncePerRequestFilter {
             "/otp/verificar",
             "/consentimiento",
             "/geolocalizacion",
+            "/advertencia-identidad",
+            "/advertencia-verificacion",
             "/identidad",
             "/verificacion-humana",
             "/firmar"

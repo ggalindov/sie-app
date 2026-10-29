@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,36 +26,48 @@ public class DocumentIntegrityScanner {
 
     private final DocumentoFirmaRepository documentoFirmaRepository;
     private final DocumentIntegrityScanService scanService;
+    private final IntegridadBarridoRepository integridadBarridoRepository;
 
-    public DocumentIntegrityScanner(DocumentoFirmaRepository documentoFirmaRepository, DocumentIntegrityScanService scanService) {
+    public DocumentIntegrityScanner(DocumentoFirmaRepository documentoFirmaRepository, DocumentIntegrityScanService scanService,
+                                     IntegridadBarridoRepository integridadBarridoRepository) {
         this.documentoFirmaRepository = documentoFirmaRepository;
         this.scanService = scanService;
+        this.integridadBarridoRepository = integridadBarridoRepository;
     }
 
-    // Barrido completo: se espacia varias horas (a diferencia de los reintentos de sello
-    // RFC 3161, que reintentan condiciones transitorias) porque revisa la totalidad de
-    // los documentos sellados vigentes, no un lote pequeño de pendientes.
+    // Antes cada 6 horas; pedido explícito del usuario de "dejar el motor lo más perfecto":
+    // una alteración real queda sin detectar proactivamente hasta 6 horas, cada hora reduce
+    // esa ventana de forma sustancial sin ser tan agresivo como para competir por recursos
+    // con el resto de la aplicación (el escaneo de cada documento es barato: recalcular
+    // hashes, no I/O pesado).
     @Scheduled(initialDelayString = "${app.documento.integridad.escaneo-initial-delay-ms:900000}",
-            fixedDelayString = "${app.documento.integridad.escaneo-fixed-delay-ms:21600000}")
+            fixedDelayString = "${app.documento.integridad.escaneo-fixed-delay-ms:3600000}")
     public void escanear() {
+        long inicio = System.currentTimeMillis();
         List<UUID> documentosIds = documentoFirmaRepository.findIdsByEstadoDocumentoInAndEstadoIntegridad(
                 ESTADOS_SELLADOS, DocumentoFirma.INTEGRIDAD_VIGENTE);
-        if (documentosIds.isEmpty()) {
-            return;
-        }
-        log.info("Barrido de integridad: {} documento(s) sellado(s) y vigente(s) por revisar.", documentosIds.size());
 
         int alteradosNuevos = 0;
-        for (UUID documentoId : documentosIds) {
-            try {
-                if (scanService.escanearDocumento(documentoId)) {
-                    alteradosNuevos++;
+        if (!documentosIds.isEmpty()) {
+            log.info("Barrido de integridad: {} documento(s) sellado(s) y vigente(s) por revisar.", documentosIds.size());
+            for (UUID documentoId : documentosIds) {
+                try {
+                    if (scanService.escanearDocumento(documentoId)) {
+                        alteradosNuevos++;
+                    }
+                } catch (Exception ex) {
+                    log.warn("No se pudo escanear la integridad del documento {}: {}", documentoId, ex.getMessage());
                 }
-            } catch (Exception ex) {
-                log.warn("No se pudo escanear la integridad del documento {}: {}", documentoId, ex.getMessage());
             }
+            log.info("Barrido de integridad completado: {} documento(s) escaneado(s), {} quedaron ALTERADO en esta corrida.",
+                    documentosIds.size(), alteradosNuevos);
         }
-        log.info("Barrido de integridad completado: {} documento(s) escaneado(s), {} quedaron ALTERADO en esta corrida.",
-                documentosIds.size(), alteradosNuevos);
+
+        // Se registra SIEMPRE, incluso sin documentos por revisar: es la prueba de que el
+        // barrido estuvo activo en ese instante, no solo un registro de cuando algo falló
+        // (ver V52__integridad_barridos.sql).
+        long duracionMs = System.currentTimeMillis() - inicio;
+        integridadBarridoRepository.save(
+                new IntegridadBarrido(LocalDateTime.now(), documentosIds.size(), alteradosNuevos, duracionMs));
     }
 }

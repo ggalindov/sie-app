@@ -26,7 +26,11 @@ public enum TipoEnvio {
     DOCUMENTO_FIRMADO_FINAL("Documento firmado final"),
     RECORDATORIO_FIRMA("Recordatorio de firma pendiente"),
     ALERTA_INTEGRIDAD_DOCUMENTO("Alerta de integridad de documento"),
-    ALERTA_FIRMA_RECHAZADA("Alerta de firma rechazada");
+    ALERTA_FIRMA_RECHAZADA("Alerta de firma rechazada"),
+    // PQRS (Peticiones, Quejas, Reclamos y Sugerencias): mismo patrón que CODIGO_CASO (el
+    // radicado es la única forma de consultar el estado, sin cuenta ni login).
+    RADICADO_PQRS("Radicado de PQRS"),
+    RESPUESTA_PQRS("Respuesta a PQRS");
 
     private final String nombreVisible;
 

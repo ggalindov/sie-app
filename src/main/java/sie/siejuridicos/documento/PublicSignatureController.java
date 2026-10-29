@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import sie.siejuridicos.documento.dto.AdvertenciaSuplantacionRequest;
 import sie.siejuridicos.documento.dto.ConsentimientoRequest;
 import sie.siejuridicos.documento.dto.DocumentDownload;
 import sie.siejuridicos.documento.dto.FirmaResumenDto;
@@ -94,6 +95,20 @@ public class PublicSignatureController {
         return ResponseEntity.ok(publicSignatureService.resumen(token));
     }
 
+    @PostMapping("/{token}/advertencia-identidad")
+    public ResponseEntity<FirmaResumenDto> advertenciaSuplantacionIdentidad(@PathVariable String token,
+                                                                             @RequestBody AdvertenciaSuplantacionRequest request) {
+        publicSignatureService.aceptarAdvertenciaSuplantacionIdentidad(token, request.aceptar());
+        return ResponseEntity.ok(publicSignatureService.resumen(token));
+    }
+
+    @PostMapping("/{token}/advertencia-verificacion")
+    public ResponseEntity<FirmaResumenDto> advertenciaSuplantacionVerificacion(@PathVariable String token,
+                                                                                @RequestBody AdvertenciaSuplantacionRequest request) {
+        publicSignatureService.aceptarAdvertenciaSuplantacionVerificacion(token, request.aceptar());
+        return ResponseEntity.ok(publicSignatureService.resumen(token));
+    }
+
     @PostMapping(value = "/{token}/identidad", consumes = "multipart/form-data")
     public ResponseEntity<FirmaResumenDto> identidad(@PathVariable String token, @RequestParam("archivo") MultipartFile archivo) {
         publicSignatureService.registrarIdentidad(token, leerBytes(archivo), archivo.getContentType());
@@ -119,8 +134,9 @@ public class PublicSignatureController {
     }
 
     @GetMapping("/{token}/certificado-evidencia")
-    public ResponseEntity<byte[]> certificadoEvidencia(@PathVariable String token) {
-        byte[] pdf = publicSignatureService.certificadoEvidencia(token);
+    public ResponseEntity<byte[]> certificadoEvidencia(@PathVariable String token, HttpServletRequest httpRequest) {
+        byte[] pdf = publicSignatureService.certificadoEvidencia(token, ClientIpResolver.resolver(httpRequest),
+                httpRequest.getHeader("User-Agent"));
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -133,8 +149,12 @@ public class PublicSignatureController {
     // marca de agua (ver DocumentoVistaPreviaService). Mismos requisitos que antes:
     // identidad y código verificados.
     @GetMapping("/{token}/documento/paginas")
-    public ResponseEntity<Map<String, Integer>> paginasDelDocumento(@PathVariable String token) {
+    public ResponseEntity<Map<String, Integer>> paginasDelDocumento(@PathVariable String token, HttpServletRequest httpRequest) {
         DocumentDownload documento = publicSignatureService.documentoParaRevisar(token);
+        // Se registra aquí, no dentro de documentoParaRevisar: este endpoint es el primer
+        // paso de cada sesión de revisión (pide el conteo de páginas una sola vez), a
+        // diferencia de paginaDelDocumento (abajo), que se llama una vez POR página.
+        publicSignatureService.registrarRevisionConsultada(token, ClientIpResolver.resolver(httpRequest), httpRequest.getHeader("User-Agent"));
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(Map.of("paginas", documentoVistaPreviaService.contarPaginas(documento.contenido())));
@@ -151,8 +171,9 @@ public class PublicSignatureController {
     }
 
     @GetMapping("/{token}/documento-final")
-    public ResponseEntity<byte[]> documentoFinal(@PathVariable String token) {
-        DocumentDownload descarga = publicSignatureService.documentoFinal(token);
+    public ResponseEntity<byte[]> documentoFinal(@PathVariable String token, HttpServletRequest httpRequest) {
+        DocumentDownload descarga = publicSignatureService.documentoFinal(token, ClientIpResolver.resolver(httpRequest),
+                httpRequest.getHeader("User-Agent"));
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION,

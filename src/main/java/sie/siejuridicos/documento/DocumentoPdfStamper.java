@@ -60,8 +60,20 @@ public class DocumentoPdfStamper {
         }
     }
 
+    // Margen inferior ampliado a 110pt (en vez de 42pt): reserva a propósito una banda
+    // vacía al pie de CADA página de firma generada aquí, para que el aviso legal de margen
+    // (ver DocumentoMargenLegalStamper, que corre después sobre el PDF ya ensamblado) y el
+    // campo de firma digital visible/clickeable (ver PadesSigningService.setVisibleSignature,
+    // que se coloca en la última página) tengan dónde dibujarse sin solaparse nunca con el
+    // contenido real (nombre, rol, imagen de firma de cada firmante) que esta clase ya
+    // dibuja en flujo normal. Solo aplica a estas páginas PROPIAS; las páginas ORIGINALES
+    // que sube gerencia no se tocan ni se les cambia el margen.
+    // Visibilidad de paquete (no private): PadesSigningService la reutiliza para calcular
+    // el rectángulo del campo de firma visible sin duplicar el número mágico.
+    static final int MARGEN_INFERIOR_RESERVADO_PT = 110;
+
     private byte[] generarPaginasFirmas(DocumentoFirma documento, List<DocumentoFirmante> firmantes) throws Exception {
-        Document doc = new Document(PageSize.LETTER, 42, 42, 54, 42);
+        Document doc = new Document(PageSize.LETTER, 42, 42, 54, MARGEN_INFERIOR_RESERVADO_PT);
         ByteArrayOutputStream salida = new ByteArrayOutputStream();
         PdfWriter.getInstance(doc, salida);
         doc.open();

@@ -22,6 +22,8 @@ import {
   registrarGeolocalizacionFirma,
   registrarIdentidadFirma,
   registrarVerificacionHumanaFirma,
+  aceptarAdvertenciaSuplantacionIdentidadFirma,
+  aceptarAdvertenciaSuplantacionVerificacionFirma,
   firmarDocumento,
   urlCertificadoEvidenciaFirma,
   ApiError,
@@ -56,6 +58,16 @@ const TEXTO_CONSENTIMIENTO =
   "verificación y trazabilidad del dispositivo), queda registrada como evidencia de la autoría e integridad de " +
   "mi firma, y que SIE Jurídicos conservará dicha evidencia conforme a la normativa de protección de datos " +
   "aplicable (Ley 1581 de 2012).";
+
+// Redacción propia: NO se cita un número de artículo del Código Penal sin confirmarlo con
+// certeza (ver nota en el trabajo paralelo del backend sobre por qué es más seguro ser
+// impreciso en el número que citar mal un artículo en un documento legal real).
+const TEXTO_ADVERTENCIA_SUPLANTACION =
+  "Al continuar, declaras que la fotografía que vas a tomar corresponde a tu propia identidad y, si aplica, al " +
+  "documento que tienes físicamente en tus manos en este momento, tomada en vivo con la cámara de este " +
+  "dispositivo -- no una foto guardada, una captura de pantalla ni el documento o rostro de otra persona. " +
+  "Suplantar la identidad de otra persona en un trámite de firma electrónica puede constituir un delito conforme " +
+  "a la legislación penal colombiana. Esta aceptación queda registrada como parte de la evidencia del proceso.";
 
 function huellaDeDispositivo(): string {
   // No biométrico: combinación estable de características del navegador/pantalla, igual
@@ -112,6 +124,8 @@ export default function FirmarPage() {
   const [errorGeolocalizacion, setErrorGeolocalizacion] = useState<string | null>(null);
   const [fotoIdentidad, setFotoIdentidad] = useState<Blob | null>(null);
   const [fotoHumana, setFotoHumana] = useState<Blob | null>(null);
+  const [advertenciaIdentidadMarcada, setAdvertenciaIdentidadMarcada] = useState(false);
+  const [advertenciaVerificacionMarcada, setAdvertenciaVerificacionMarcada] = useState(false);
   const [firmaPng, setFirmaPng] = useState<Blob | null>(null);
   const [trazoVectorial, setTrazoVectorial] = useState<PuntoTrazo[] | null>(null);
 
@@ -258,12 +272,19 @@ export default function FirmarPage() {
   }
 
   async function onGuardarFotoIdentidad() {
+    if (!advertenciaIdentidadMarcada) {
+      toast.error("Marca la casilla de advertencia antes de continuar.");
+      return;
+    }
     if (!fotoIdentidad) {
       toast.error("Toma la foto de tu documento de identidad.");
       return;
     }
     setCargandoAccion(true);
     try {
+      if (!resumen?.advertenciaSuplantacionIdentidadAceptada) {
+        await aceptarAdvertenciaSuplantacionIdentidadFirma(token);
+      }
       const r = await registrarIdentidadFirma(token, fotoIdentidad);
       setResumen(r);
       setPaso("verificacion_humana");
@@ -275,12 +296,19 @@ export default function FirmarPage() {
   }
 
   async function onGuardarFotoHumana() {
+    if (!advertenciaVerificacionMarcada) {
+      toast.error("Marca la casilla de advertencia antes de continuar.");
+      return;
+    }
     if (!fotoHumana) {
       toast.error("Tómate la foto de verificación.");
       return;
     }
     setCargandoAccion(true);
     try {
+      if (!resumen?.advertenciaSuplantacionVerificacionAceptada) {
+        await aceptarAdvertenciaSuplantacionVerificacionFirma(token);
+      }
       const r = await registrarVerificacionHumanaFirma(token, fotoHumana);
       setResumen(r);
       setPaso("firmar");
@@ -458,6 +486,18 @@ export default function FirmarPage() {
                   evidencia; si no corresponde a un documento real tomado en el momento, la firma pierde su validez
                   legal.
                 </p>
+                <div className="mt-3 rounded-lg bg-[#faf6ea] p-3 text-xs text-[#6b5b2e]">
+                  {TEXTO_ADVERTENCIA_SUPLANTACION}
+                </div>
+                <label className="mt-3 flex items-start gap-2.5 text-sm text-[#1a1a1a]">
+                  <input
+                    type="checkbox"
+                    checked={advertenciaIdentidadMarcada}
+                    onChange={(e) => setAdvertenciaIdentidadMarcada(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  Entiendo y acepto lo anterior.
+                </label>
                 <div className="mt-4">
                   <CameraCapture
                     etiqueta="Enfoca tu cédula o documento de identidad, que se vea legible."
@@ -480,6 +520,18 @@ export default function FirmarPage() {
                   una imagen guardada. Si esta foto no corresponde a quien está firmando, la firma pierde su validez
                   legal.
                 </p>
+                <div className="mt-3 rounded-lg bg-[#faf6ea] p-3 text-xs text-[#6b5b2e]">
+                  {TEXTO_ADVERTENCIA_SUPLANTACION}
+                </div>
+                <label className="mt-3 flex items-start gap-2.5 text-sm text-[#1a1a1a]">
+                  <input
+                    type="checkbox"
+                    checked={advertenciaVerificacionMarcada}
+                    onChange={(e) => setAdvertenciaVerificacionMarcada(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  Entiendo y acepto lo anterior.
+                </label>
                 <div className="mt-4">
                   <CameraCapture etiqueta="Mira hacia la cámara." onCapturar={setFotoHumana} facingMode="user" />
                 </div>

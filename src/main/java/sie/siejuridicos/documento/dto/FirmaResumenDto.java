@@ -15,6 +15,8 @@ public record FirmaResumenDto(
         boolean geolocalizacionRegistrada,
         boolean identidadRegistrada,
         boolean verificacionHumanaRegistrada,
+        boolean advertenciaSuplantacionIdentidadAceptada,
+        boolean advertenciaSuplantacionVerificacionAceptada,
         boolean firmado
 ) {
     public static FirmaResumenDto from(DocumentoFirmante firmante) {
@@ -28,6 +30,8 @@ public record FirmaResumenDto(
                 firmante.getGeolocalizacionCapturadaEn() != null || firmante.isGeolocalizacionRechazada(),
                 firmante.getDocumentoIdentidadImagen() != null,
                 firmante.getFotoVerificacionHumana() != null,
+                firmante.getAdvertenciaSuplantacionIdentidadAceptadaEn() != null,
+                firmante.getAdvertenciaSuplantacionVerificacionAceptadaEn() != null,
                 DocumentoFirmante.ESTADO_FIRMADO.equals(firmante.getEstado())
         );
     }

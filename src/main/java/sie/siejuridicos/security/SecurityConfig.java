@@ -77,6 +77,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/marketing/suscriptores").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/faq").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/casos/consulta").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/pqrs").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/pqrs/consulta").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/analitica/visita").permitAll()
                         // Webhook de Meta (WhatsApp Cloud API): necesariamente público (Meta lo
                         // llama directo, sin JWT), protegido en su lugar por la verificación de

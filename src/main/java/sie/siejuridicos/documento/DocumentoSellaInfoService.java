@@ -26,6 +26,7 @@ public class DocumentoSellaInfoService {
     private final DocumentoFirmanteRepository documentoFirmanteRepository;
     private final DocumentoTimelineService documentoTimelineService;
     private final DocumentoPdfStamper documentoPdfStamper;
+    private final DocumentoMargenLegalStamper documentoMargenLegalStamper;
     private final EnvelopeEncryptionService envelopeEncryptionService;
     private final ApplicationSigningKeyService applicationSigningKeyService;
     private final Rfc3161TimestampClient rfc3161TimestampClient;
@@ -37,6 +38,7 @@ public class DocumentoSellaInfoService {
     public DocumentoSellaInfoService(DocumentoFirmanteRepository documentoFirmanteRepository,
                                       DocumentoTimelineService documentoTimelineService,
                                       DocumentoPdfStamper documentoPdfStamper,
+                                      DocumentoMargenLegalStamper documentoMargenLegalStamper,
                                       EnvelopeEncryptionService envelopeEncryptionService,
                                       ApplicationSigningKeyService applicationSigningKeyService,
                                       Rfc3161TimestampClient rfc3161TimestampClient,
@@ -47,6 +49,7 @@ public class DocumentoSellaInfoService {
         this.documentoFirmanteRepository = documentoFirmanteRepository;
         this.documentoTimelineService = documentoTimelineService;
         this.documentoPdfStamper = documentoPdfStamper;
+        this.documentoMargenLegalStamper = documentoMargenLegalStamper;
         this.envelopeEncryptionService = envelopeEncryptionService;
         this.applicationSigningKeyService = applicationSigningKeyService;
         this.rfc3161TimestampClient = rfc3161TimestampClient;
@@ -91,7 +94,10 @@ public class DocumentoSellaInfoService {
 
     private void sellar(DocumentoFirma documento, List<DocumentoFirmante> firmantes) {
         byte[] pdfConFirmas = documentoPdfStamper.estamparFirmas(documento.getContenidoPdf(), documento, firmantes);
-        documento.setContenidoPdf(pdfConFirmas);
+        // Aviso legal en el margen de CADA página (originales + páginas de firma), antes de
+        // la firma PAdES para que quede cubierto por ella -- ver DocumentoMargenLegalStamper.
+        byte[] pdfConMargenLegal = documentoMargenLegalStamper.estamparMargen(pdfConFirmas, documento.getCodigoVerificacion());
+        documento.setContenidoPdf(pdfConMargenLegal);
 
         firmarDigitalmente(documento);
         documento.setEstadoDocumento(DocumentoFirma.ESTADO_DOC_SELLADO);

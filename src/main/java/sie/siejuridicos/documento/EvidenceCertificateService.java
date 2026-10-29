@@ -77,7 +77,7 @@ public class EvidenceCertificateService {
                 && rfc3161TimestampClient.verificarToken(documento.getRfc3161Token(), HashUtil.hexToBytes(documento.getHashContenido()));
 
         List<EvidenceCertificateData.FirmanteData> firmantesData = firmantes.stream()
-                .map(this::construirFirmanteData)
+                .map(firmante -> construirFirmanteData(firmante, detalleTecnicoCompleto))
                 .toList();
 
         return new EvidenceCertificateData(
@@ -104,7 +104,7 @@ public class EvidenceCertificateService {
         );
     }
 
-    private EvidenceCertificateData.FirmanteData construirFirmanteData(DocumentoFirmante firmante) {
+    private EvidenceCertificateData.FirmanteData construirFirmanteData(DocumentoFirmante firmante, boolean detalleTecnicoCompleto) {
         boolean selloAplicado = firmante.getRfc3161Token() != null;
         boolean selloValido = selloAplicado && firmante.getHashEvidencia() != null
                 && rfc3161TimestampClient.verificarToken(firmante.getRfc3161Token(), HashUtil.hexToBytes(firmante.getHashEvidencia()));
@@ -124,7 +124,7 @@ public class EvidenceCertificateService {
                 firmante.getHuellaDispositivo(),
                 firmante.getSenalesProxyDetectadas(),
                 firmante.isGeolocalizacionRechazada(),
-                geolocalizacionTexto(firmante),
+                geolocalizacionTexto(firmante, detalleTecnicoCompleto),
                 firmante.getGeolocalizacionCapturadaEn(),
                 firmante.getConsentimientoTexto(),
                 firmante.getConsentimientoAceptadoEn(),
@@ -141,13 +141,23 @@ public class EvidenceCertificateService {
         );
     }
 
-    private static String geolocalizacionTexto(DocumentoFirmante firmante) {
+    // Punto 14 de las mejoras pedidas sobre el motor "hermano" (UCN): al firmante se le
+    // enmascara la geolocalización (redondeada a ~2 decimales, ~1 km de precisión, sin el
+    // radio de precisión exacto del GPS) en vez de las coordenadas exactas que SÍ recibe el
+    // staff autenticado -- es evidencia forense completa solo para una disputa real, no un
+    // dato que el propio firmante necesite ver con precisión de metros.
+    private static String geolocalizacionTexto(DocumentoFirmante firmante, boolean detalleTecnicoCompleto) {
         BigDecimal lat = firmante.getGeolocalizacionLat();
         BigDecimal lon = firmante.getGeolocalizacionLon();
         if (lat == null || lon == null) {
             return null;
         }
-        BigDecimal precision = firmante.getGeolocalizacionPrecisionM();
-        return lat + ", " + lon + (precision != null ? " (precisión +/-" + precision + " m)" : "");
+        if (detalleTecnicoCompleto) {
+            BigDecimal precision = firmante.getGeolocalizacionPrecisionM();
+            return lat + ", " + lon + (precision != null ? " (precisión +/-" + precision + " m)" : "");
+        }
+        BigDecimal latAprox = lat.setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal lonAprox = lon.setScale(2, java.math.RoundingMode.HALF_UP);
+        return latAprox + ", " + lonAprox + " (ubicación aproximada)";
     }
 }

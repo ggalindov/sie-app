@@ -1,5 +1,6 @@
 package sie.siejuridicos.documento;
 
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.caso.Caso;
@@ -45,6 +46,7 @@ public class DocumentoAdminService {
     private final UsuarioInternoRepository usuarioInternoRepository;
     private final ClienteCrmRepository clienteCrmRepository;
     private final CasoRepository casoRepository;
+    private final EntityManager entityManager;
 
     public DocumentoAdminService(DocumentoFirmaRepository documentoFirmaRepository,
                                   DocumentoFirmanteRepository documentoFirmanteRepository,
@@ -61,7 +63,8 @@ public class DocumentoAdminService {
                                   CodigoVerificacionCalculator codigoVerificacionCalculator,
                                   UsuarioInternoRepository usuarioInternoRepository,
                                   ClienteCrmRepository clienteCrmRepository,
-                                  CasoRepository casoRepository) {
+                                  CasoRepository casoRepository,
+                                  EntityManager entityManager) {
         this.documentoFirmaRepository = documentoFirmaRepository;
         this.documentoFirmanteRepository = documentoFirmanteRepository;
         this.documentoEventoRepository = documentoEventoRepository;
@@ -78,6 +81,7 @@ public class DocumentoAdminService {
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.clienteCrmRepository = clienteCrmRepository;
         this.casoRepository = casoRepository;
+        this.entityManager = entityManager;
     }
 
     @Transactional
@@ -242,6 +246,13 @@ public class DocumentoAdminService {
         if (!firmanteIds.isEmpty()) {
             documentoOtpRepository.deleteByFirmanteIdIn(firmanteIds);
         }
+        // documento_eventos es append-only a nivel de base de datos (ver
+        // V53__documento_eventos_append_only.sql): un UPDATE/DELETE normal lo rechaza. Esta
+        // es la única vía legítima del sistema para borrar eventos -- un documento que nunca
+        // llegó a completarse, nunca uno ya SELLADO/ENCRIPTADO (ver guard arriba) -- así que
+        // se marca explícitamente con SET LOCAL, que vive solo dentro de esta transacción y
+        // se resetea solo al terminar, sin dejar ninguna puerta abierta permanente.
+        entityManager.createNativeQuery("SET LOCAL app.documento_eventos.permitir_borrado = 'on'").executeUpdate();
         documentoEventoRepository.deleteByDocumentoId(documentoId);
         documentoCambioSolicitudRepository.deleteByDocumentoId(documentoId);
         documentoVersionRepository.deleteByDocumentoId(documentoId);

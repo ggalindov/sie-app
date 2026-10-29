@@ -143,6 +143,18 @@ public class DocumentoFirmante {
     @Column(name = "consentimiento_aceptado_en")
     private LocalDateTime consentimientoAceptadoEn;
 
+    // Punto 2 de las mejoras pedidas sobre el motor "hermano" (UCN): a diferencia del
+    // consentimiento general del documento (consentimientoAceptadoEn, sobre el contenido
+    // que se firma), estas dos aceptaciones son específicas de la advertencia legal de
+    // suplantación de identidad, una antes de cada foto sensible del wizard -- el backend
+    // las exige (ver PublicSignatureService.registrarIdentidad/registrarVerificacionHumana)
+    // antes de aceptar la foto correspondiente.
+    @Column(name = "advertencia_suplantacion_identidad_aceptada_en")
+    private LocalDateTime advertenciaSuplantacionIdentidadAceptadaEn;
+
+    @Column(name = "advertencia_suplantacion_verificacion_aceptada_en")
+    private LocalDateTime advertenciaSuplantacionVerificacionAceptadaEn;
+
     @Column(name = "hash_evidencia")
     private String hashEvidencia;
 
@@ -459,6 +471,22 @@ public class DocumentoFirmante {
     public void registrarConsentimiento(String textoAceptado) {
         this.consentimientoTexto = textoAceptado;
         this.consentimientoAceptadoEn = LocalDateTime.now();
+    }
+
+    public LocalDateTime getAdvertenciaSuplantacionIdentidadAceptadaEn() {
+        return advertenciaSuplantacionIdentidadAceptadaEn;
+    }
+
+    public void registrarAdvertenciaSuplantacionIdentidadAceptada() {
+        this.advertenciaSuplantacionIdentidadAceptadaEn = LocalDateTime.now();
+    }
+
+    public LocalDateTime getAdvertenciaSuplantacionVerificacionAceptadaEn() {
+        return advertenciaSuplantacionVerificacionAceptadaEn;
+    }
+
+    public void registrarAdvertenciaSuplantacionVerificacionAceptada() {
+        this.advertenciaSuplantacionVerificacionAceptadaEn = LocalDateTime.now();
     }
 
     public String getHashEvidencia() {

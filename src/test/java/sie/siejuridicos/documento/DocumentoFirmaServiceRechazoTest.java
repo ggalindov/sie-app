@@ -125,7 +125,7 @@ class DocumentoFirmaServiceRechazoTest {
                 .thenReturn(List.of(firmado, rechazado));
 
         new DocumentoSellaInfoService(documentoFirmanteRepository, documentoTimelineService, null, null, null, null,
-                null, eventPublisher, null, "https://siejuridicos.com").intentarSellarYRemitir(documento);
+                null, null, eventPublisher, null, "https://siejuridicos.com").intentarSellarYRemitir(documento);
 
         // Nada cambió: ni se estampó, ni se firmó digitalmente, ni se cambió el estado.
         assertEquals(DocumentoFirma.ESTADO_DOC_EN_FIRMA_PARTES, documento.getEstadoDocumento());

@@ -21,10 +21,10 @@ import java.util.Locale;
 // Ajuste de seguridad (ver IdentidadInvalidaException): antes de poder pedir el código OTP,
 // quien abrió el link debe demostrar que conoce el número de documento (cédula/NIT)
 // registrado para esa parte -- segundo factor independiente del canal por el que llegó el
-// link. A diferencia del motor de referencia (que exige completar todo el flujo desde un
-// teléfono celular), SIE no restringe el dispositivo -- un representante de empresa puede
-// razonablemente firmar desde su computador de oficina (ver decisión del plan de
-// adaptación).
+// link. Comentario corregido (estaba desactualizado): a diferencia de lo que decía antes,
+// SIE SÍ restringe el dispositivo, con el mismo criterio que el motor de referencia (UCN) --
+// ver MobileOnlySignatureFilter, que bloquea en SERVIDOR (no solo en la UI) cualquier paso
+// sensible del wizard de firma que no venga de un User-Agent móvil.
 @Service
 public class PublicSignatureService {
 
@@ -50,6 +50,7 @@ public class PublicSignatureService {
     private final DocumentoFirmaService documentoFirmaService;
     private final EnvelopeEncryptionService envelopeEncryptionService;
     private final EvidenceCertificateService evidenceCertificateService;
+    private final DocumentoTimelineService documentoTimelineService;
     private final ApplicationEventPublisher eventPublisher;
     private final int identidadIntentosMaximos;
 
@@ -59,6 +60,7 @@ public class PublicSignatureService {
                                    DocumentoFirmaService documentoFirmaService,
                                    EnvelopeEncryptionService envelopeEncryptionService,
                                    EvidenceCertificateService evidenceCertificateService,
+                                   DocumentoTimelineService documentoTimelineService,
                                    ApplicationEventPublisher eventPublisher,
                                    @Value("${app.documento.otp.intentos-identidad-maximos:5}") int identidadIntentosMaximos) {
         this.signerTokenService = signerTokenService;
@@ -67,6 +69,7 @@ public class PublicSignatureService {
         this.documentoFirmaService = documentoFirmaService;
         this.envelopeEncryptionService = envelopeEncryptionService;
         this.evidenceCertificateService = evidenceCertificateService;
+        this.documentoTimelineService = documentoTimelineService;
         this.eventPublisher = eventPublisher;
         this.identidadIntentosMaximos = identidadIntentosMaximos;
     }
@@ -144,6 +147,28 @@ public class PublicSignatureService {
         evidenceCaptureService.registrarConsentimiento(firmante, request.textoAceptado());
     }
 
+    // Punto 2 de las mejoras pedidas sobre el motor "hermano" (UCN): aceptación EXPLÍCITA
+    // (checkbox, no solo un texto leído) antes de CADA una de las dos fotos sensibles del
+    // wizard -- ver registrarIdentidad/registrarVerificacionHumana, que exigen esta
+    // aceptación antes de aceptar la foto correspondiente.
+    @Transactional
+    public void aceptarAdvertenciaSuplantacionIdentidad(String token, boolean aceptar) {
+        DocumentoFirmante firmante = verificarPrerrequisitoOtp(token);
+        if (!aceptar) {
+            throw new EntidadInvalidaException("Debes aceptar la advertencia para continuar con la foto de tu documento.");
+        }
+        firmante.registrarAdvertenciaSuplantacionIdentidadAceptada();
+    }
+
+    @Transactional
+    public void aceptarAdvertenciaSuplantacionVerificacion(String token, boolean aceptar) {
+        DocumentoFirmante firmante = verificarPrerrequisitoOtp(token);
+        if (!aceptar) {
+            throw new EntidadInvalidaException("Debes aceptar la advertencia para continuar con tu foto de verificación.");
+        }
+        firmante.registrarAdvertenciaSuplantacionVerificacionAceptada();
+    }
+
     @Transactional
     public void registrarGeolocalizacion(String token, GeolocalizacionRequest request) {
         DocumentoFirmante firmante = verificarPrerrequisitoOtp(token);
@@ -157,6 +182,9 @@ public class PublicSignatureService {
     @Transactional
     public void registrarIdentidad(String token, byte[] imagen, String contentType) {
         DocumentoFirmante firmante = verificarPrerrequisitoOtp(token);
+        if (firmante.getAdvertenciaSuplantacionIdentidadAceptadaEn() == null) {
+            throw new EntidadInvalidaException("Debes aceptar la advertencia de suplantación antes de subir tu documento de identidad.");
+        }
         validarImagen(imagen, "El documento de identidad debe ser una foto JPEG o PNG.");
         evidenceCaptureService.registrarIdentidad(firmante, imagen, contentType);
     }
@@ -167,6 +195,9 @@ public class PublicSignatureService {
     @Transactional
     public void registrarVerificacionHumana(String token, byte[] imagen, String contentType) {
         DocumentoFirmante firmante = verificarPrerrequisitoOtp(token);
+        if (firmante.getAdvertenciaSuplantacionVerificacionAceptadaEn() == null) {
+            throw new EntidadInvalidaException("Debes aceptar la advertencia de suplantación antes de tomarte la foto de verificación.");
+        }
         validarImagen(imagen, "La foto de verificación debe ser una imagen JPEG o PNG.");
         evidenceCaptureService.registrarVerificacionHumana(firmante, imagen, contentType);
     }
@@ -205,8 +236,8 @@ public class PublicSignatureService {
         documentoFirmaService.registrarFirmaDeParte(firmante, firmaPng, trazoVectorialJson);
     }
 
-    @Transactional(readOnly = true)
-    public DocumentDownload documentoFinal(String token) {
+    @Transactional
+    public DocumentDownload documentoFinal(String token, String ip, String userAgent) {
         DocumentoFirmante firmante = signerTokenService.resolverParaConsulta(token);
         DocumentoFirma documento = firmante.getDocumento();
         boolean disponible = DocumentoFirma.ESTADO_DOC_REMITIDO.equals(documento.getEstadoDocumento())
@@ -214,30 +245,51 @@ public class PublicSignatureService {
         if (!disponible) {
             throw new ConflictoNegocioException("El documento aún no está disponible: faltan firmas de otras partes.");
         }
+        documentoTimelineService.registrar(documento, DocumentoEvento.TIPO_DOCUMENTO_FINAL_DESCARGADO,
+                DocumentoEvento.ACTOR_PARTE, null, firmante, "Documento final descargado por el firmante.", ip, userAgent);
         return new DocumentDownload(envelopeEncryptionService.leerContenido(documento), documento.getNombre(), "application/pdf");
     }
 
     // El documento tal como va a quedar firmado, para que la parte lo LEA antes de
-    // firmarlo: el consentimiento que acepta dice "declaro que firmo este documento".
+    // firmarlo: el consentimiento que acepta dice "declaro que firmo este documento". Se
+    // llama una vez por cada página renderizada (ver PublicSignatureController), así que a
+    // propósito NO deja rastro en la línea de tiempo aquí -- dejaría decenas de eventos por
+    // cada revisión y saturaría la cadena de custodia sin aportar nada nuevo. El acceso en
+    // sí queda registrado UNA vez por sesión de revisión en registrarRevisionConsultada,
+    // llamado solo al pedir el conteo de páginas (el primer paso de la revisión).
     @Transactional(readOnly = true)
     public DocumentDownload documentoParaRevisar(String token) {
+        DocumentoFirmante firmante = verificarIdentidadVerificadaOFirmado(token);
+        DocumentoFirma documento = firmante.getDocumento();
+        return new DocumentDownload(envelopeEncryptionService.leerContenido(documento), documento.getNombre(), "application/pdf");
+    }
+
+    @Transactional
+    public void registrarRevisionConsultada(String token, String ip, String userAgent) {
+        DocumentoFirmante firmante = verificarIdentidadVerificadaOFirmado(token);
+        documentoTimelineService.registrar(firmante.getDocumento(), DocumentoEvento.TIPO_DOCUMENTO_REVISION_CONSULTADA,
+                DocumentoEvento.ACTOR_PARTE, null, firmante, "El firmante consultó el documento a revisar antes de firmar.", ip, userAgent);
+    }
+
+    private DocumentoFirmante verificarIdentidadVerificadaOFirmado(String token) {
         DocumentoFirmante firmante = signerTokenService.resolverParaConsulta(token);
         boolean verificado = DocumentoFirmante.ESTADO_OTP_VERIFICADO.equals(firmante.getEstado())
                 || DocumentoFirmante.ESTADO_FIRMADO.equals(firmante.getEstado());
         if (!verificado) {
             throw new TokenFirmaInvalidoException("Primero debes verificar tu identidad y el código enviado.");
         }
-        DocumentoFirma documento = firmante.getDocumento();
-        return new DocumentDownload(envelopeEncryptionService.leerContenido(documento), documento.getNombre(), "application/pdf");
+        return firmante;
     }
 
     // Certificado de evidencia del PROPIO firmante -- nunca expone datos de otros firmantes del mismo documento.
-    @Transactional(readOnly = true)
-    public byte[] certificadoEvidencia(String token) {
+    @Transactional
+    public byte[] certificadoEvidencia(String token, String ip, String userAgent) {
         DocumentoFirmante firmante = signerTokenService.resolverParaConsulta(token);
         if (!DocumentoFirmante.ESTADO_FIRMADO.equals(firmante.getEstado())) {
             throw new ConflictoNegocioException("Tu certificado de evidencia estará disponible una vez completes tu firma.");
         }
+        documentoTimelineService.registrar(firmante.getDocumento(), DocumentoEvento.TIPO_CERTIFICADO_EVIDENCIA_DESCARGADO,
+                DocumentoEvento.ACTOR_PARTE, null, firmante, "Certificado de evidencia descargado por el firmante.", ip, userAgent);
         return evidenceCertificateService.generarPorFirmante(firmante.getId());
     }
 

@@ -43,6 +43,8 @@ export type FirmaResumen = {
   identidadRegistrada: boolean;
   verificacionHumanaRegistrada: boolean;
   firmado: boolean;
+  advertenciaSuplantacionIdentidadAceptada: boolean;
+  advertenciaSuplantacionVerificacionAceptada: boolean;
 };
 
 export function obtenerResumenFirma(token: string): Promise<FirmaResumen> {
@@ -88,6 +90,20 @@ export function registrarGeolocalizacionFirma(
   return pedido<FirmaResumen>(`/api/v1/firmas/${token}/geolocalizacion`, {
     method: "POST",
     body: JSON.stringify(datos),
+  });
+}
+
+export function aceptarAdvertenciaSuplantacionIdentidadFirma(token: string): Promise<FirmaResumen> {
+  return pedido<FirmaResumen>(`/api/v1/firmas/${token}/advertencia-identidad`, {
+    method: "POST",
+    body: JSON.stringify({ aceptar: true }),
+  });
+}
+
+export function aceptarAdvertenciaSuplantacionVerificacionFirma(token: string): Promise<FirmaResumen> {
+  return pedido<FirmaResumen>(`/api/v1/firmas/${token}/advertencia-verificacion`, {
+    method: "POST",
+    body: JSON.stringify({ aceptar: true }),
   });
 }
 

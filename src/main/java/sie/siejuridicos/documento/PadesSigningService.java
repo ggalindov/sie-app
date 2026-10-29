@@ -1,5 +1,6 @@
 package sie.siejuridicos.documento;
 
+import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.PdfDate;
 import com.lowagie.text.pdf.PdfDictionary;
 import com.lowagie.text.pdf.PdfName;
@@ -150,6 +151,7 @@ public class PadesSigningService {
         apariencia.setReason(razon);
         apariencia.setLocation(ubicacion);
         apariencia.setCertificationLevel(PdfSignatureAppearance.NOT_CERTIFIED);
+        apariencia.setVisibleSignature(campoFirmaVisible(reader), reader.getNumberOfPages(), null);
 
         Calendar fechaFirma = apariencia.getSignDateNullSafe();
         PdfSignature diccionarioFirma = new PdfSignature(PdfName.ADOBE_PPKLITE, PdfName.ADBE_PKCS7_DETACHED);
@@ -241,6 +243,34 @@ public class PadesSigningService {
             log.warn("No se pudo incrustar el sello de tiempo en la firma PAdES (queda B-B): {}", ex.getMessage());
             return cmsBase;
         }
+    }
+
+    // Campo de firma VISIBLE/clickeable: sin esto (confirmado por auditoría previa: cero
+    // llamadas a setVisibleSignature en el código anterior), la firma PAdES es
+    // criptográficamente válida pero invisible en el contenido -- Adobe Reader la muestra
+    // solo en el panel lateral de firmas, nunca como un recuadro sobre el que se pueda
+    // hacer clic directamente en la página para abrir sus propiedades. La última página del
+    // PDF final siempre es una de las páginas de firma propias que genera DocumentoPdfStamper
+    // (nunca una página ORIGINAL subida por gerencia, esas siempre van primero), así que es
+    // seguro asumir tamaño carta y el margen inferior reservado de esa clase
+    // (DocumentoPdfStamper.MARGEN_INFERIOR_RESERVADO_PT) -- el rectángulo se ubica dentro de
+    // esa banda, a la derecha y por encima de la línea del aviso legal de margen (ver
+    // DocumentoMargenLegalStamper, que dibuja cerca del borde inferior), así ninguno de los
+    // dos se solapa.
+    // Paquete-privado (no private) a propósito: así un test puede verificar la geometría
+    // del campo sin tener que montar el pipeline completo de firma PKCS#7 + TSA (llave
+    // RSA real, cliente RFC3161, repositorio de FirmaPadesClave) solo para esto.
+    Rectangle campoFirmaVisible(PdfReader reader) {
+        Rectangle pagina = reader.getPageSizeWithRotation(reader.getNumberOfPages());
+        float margenDerecho = 42f;
+        float ancho = 170f;
+        float alturaDesdeBorde = 25f;
+        float alturaCampo = 60f;
+        float urx = pagina.getRight() - margenDerecho;
+        float llx = urx - ancho;
+        float lly = pagina.getBottom() + alturaDesdeBorde;
+        float ury = lly + alturaCampo;
+        return new Rectangle(llx, lly, urx, ury);
     }
 
     public FirmaPadesClave obtenerPorKid(String kid) {
