@@ -159,16 +159,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  /* Red de seguridad contra scroll horizontal en móvil: varios elementos del sitio se
-     posicionan deliberadamente un poco más grandes o corridos que su contenedor (el video
-     del Hero con inset[-8%] para dar espacio a un leve zoom, el carrusel de "Con la
-     confianza de", el brillo diagonal de las tarjetas al pasar el mouse) confiando en que
-     el contenedor que los envuelve recorta el sobrante -- pero sin este tope global en
-     html/body, cualquiera de ellos corre el ancho real de la página y aparece una barra de
-     scroll horizontal fantasma en pantallas angostas (confirmado con scrollWidth > ancho de
-     viewport en celular real). No afecta el scroll-snap vertical del Home, son ejes
-     independientes. */
-  overflow-x: hidden;
 }
 
 /* Scrollbar a medida del sitio: pedido explícito del usuario -- la barra gris/blanca por
@@ -181,7 +171,6 @@ body {
    scrollbar clásico de Windows, esos vienen del navegador/SO, no se pueden estilar ni
    quitar por CSS. */
 html {
-  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-gold) 55%, transparent) #0e0d0b;
 }
