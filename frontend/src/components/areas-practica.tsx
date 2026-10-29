@@ -10,6 +10,7 @@ import {
   ArrowRight,
   WhatsappLogo,
   X,
+  CheckCircle,
 } from "@phosphor-icons/react";
 import { areasPractica, type AreaPractica } from "@/lib/content";
 import { siteConfig } from "@/lib/site-config";
@@ -208,8 +209,9 @@ export function AreasPractica() {
                   </Dialog.Description>
 
                   {/* Casos de Referencia Atendidos (Casuística) */}
-                  <div className="rounded-2xl bg-surface p-5 border border-line/80 shadow-xs">
-                    <h4 className="text-xs font-bold uppercase tracking-[0.14em] text-gold-deep mb-3.5">
+                  <div className="rounded-2xl bg-gradient-to-br from-surface to-paper p-5 sm:p-6 border border-line/80 shadow-xs">
+                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-gold-deep mb-4">
+                      <span className="h-px w-5 shrink-0 bg-gold-deep/50" />
                       Casos y situaciones de referencia atendidos
                     </h4>
 
@@ -217,8 +219,12 @@ export function AreasPractica() {
                       {seleccionada.casosReferencia.map((caso, idx) => (
                         <div
                           key={idx}
-                          className="rounded-xl bg-paper/80 px-3.5 py-2.5 border border-line/60"
+                          className="group flex items-start gap-2.5 rounded-xl bg-paper/70 px-3.5 py-3 border border-line/50 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:bg-paper hover:shadow-[0_10px_24px_-14px_rgba(217,169,37,0.5)]"
                         >
+                          <CheckCircle
+                            weight="fill"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-gold-deep/60 transition-colors duration-300 group-hover:text-gold-deep"
+                          />
                           <span className="text-xs sm:text-sm font-medium text-ink leading-snug">
                             {caso}
                           </span>

@@ -250,9 +250,9 @@ export function SiteNav() {
         <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 sm:block">
           <Link
             href="/cuida-tu-marca"
-            className="btn-sweep flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full bg-gold/45 py-2.5 pl-3.5 pr-4 text-sm font-medium text-ink-fixed shadow-[0_8px_20px_-10px_rgba(169,124,22,0.6)] backdrop-blur-sm active:scale-[0.98]"
+            className="btn-sweep flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full bg-white py-2 pl-3 pr-3.5 text-xs font-medium text-ink-fixed shadow-[0_8px_20px_-10px_rgba(0,0,0,0.3)] ring-1 ring-black/5 active:scale-[0.98]"
           >
-            <SealCheck weight="fill" className="h-4 w-4 shrink-0" />
+            <SealCheck weight="fill" className="h-3.5 w-3.5 shrink-0" />
             Protege tu marca
           </Link>
         </div>
