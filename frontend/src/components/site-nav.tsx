@@ -67,7 +67,10 @@ export function SiteNav() {
       <motion.header
         ref={headerRef}
         style={{ "--nav-alpha": navAlpha, "--nav-border": navBorder, "--nav-ink": esInicio ? navInkScroll : 100 } as CSSProperties}
-        className="nav-bar fixed inset-x-0 top-0 z-40 backdrop-blur-xl"
+        // z-50 (no z-40): debe quedar SIEMPRE por encima del panel del menú móvil a
+        // pantalla completa (ver más abajo) para que el botón de cerrar (la X) del propio
+        // header nunca quede tapado cuando el menú está abierto.
+        className="nav-bar fixed inset-x-0 top-0 z-50 backdrop-blur-xl"
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link
@@ -262,7 +265,13 @@ export function SiteNav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="fixed inset-0 z-30 flex flex-col justify-center overflow-y-auto bg-night/95 px-8 py-20 backdrop-blur-2xl md:hidden"
+            // z-45, no z-30: este panel es una toma de pantalla completa del menú -- con
+            // z-30 quedaba POR DEBAJO de los botones flotantes (WhatsApp, Consulta tu caso,
+            // chatbot, todos z-40), así que seguían visibles encima del menú abierto en vez
+            // de quedar tapados por él (confirmado en 501px de ancho real). Por debajo del
+            // header (z-50, ver arriba) para que la X de cerrar del propio header se siga
+            // viendo encima de este panel.
+            className="fixed inset-0 z-[45] flex flex-col justify-center overflow-y-auto bg-night/95 px-8 py-20 backdrop-blur-2xl md:hidden"
           >
             <nav className="flex flex-col gap-2">
               {navLinks.map((link, i) => (

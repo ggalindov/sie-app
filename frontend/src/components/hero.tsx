@@ -38,7 +38,13 @@ export function Hero({ media }: { media: ReactNode }) {
       <div className="absolute inset-0 bg-gradient-to-b from-night/75 via-night/45 to-night/85" />
       <div className="absolute inset-0 bg-gradient-to-t from-night via-night/10 to-transparent" />
 
-      <div className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-6 pb-16 pt-32 text-center md:pt-24">
+      {/* pb-40 en móvil (no pb-16): el botón flotante de WhatsApp vive en bottom-24 (ver
+          whatsapp-float.tsx), un espacio fijo de ~96-150px desde el borde inferior -- con
+          menos aire abajo, el CTA "Ver áreas de práctica" quedaba debajo del botón
+          flotante en pantallas angostas/bajas (confirmado con scrollWidth/overlap real en
+          501px de ancho). A partir de sm: el stack flotante y el layout del hero dejan
+          suficiente margen natural, así que vuelve al valor original. */}
+      <div className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-6 pb-40 pt-32 text-center sm:pb-16 md:pt-24">
         <motion.div
           {...entry(0)}
           className="relative flex h-36 w-36 items-center justify-center rounded-full bg-night-ink/10 ring-1 ring-night-ink/25 backdrop-blur-md sm:h-44 sm:w-44 md:h-52 md:w-52"
