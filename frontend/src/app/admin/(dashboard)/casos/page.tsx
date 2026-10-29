@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import { ArrowsClockwise, Bell, CheckSquare, EnvelopeSimple, FileText, HourglassMedium, MagnifyingGlass, PhoneSlash, Plus, Spinner, WhatsappLogo, X } from "@phosphor-icons/react";
@@ -35,13 +36,17 @@ const FUENTES_FILTRO: { valor: FuenteCaso | "TODOS"; label: string }[] = [
 ];
 
 export default function CasosAdminPage() {
+  // Llega prellenado desde el buscador total del panel (ver buscador-global.tsx, navega a
+  // /admin/casos?q=...) -- reusa el filtro 100% local que esta página ya tenía, no abre
+  // ningún caso en concreto (no hay ruta [id] en este módulo, es de una sola página).
+  const qInicial = useSearchParams().get("q") ?? "";
   const [casos, setCasos] = useState<CasoAdmin[] | null>(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoPendientes, setEnviandoPendientes] = useState(false);
   const [enviandoReporteSemanal, setEnviandoReporteSemanal] = useState(false);
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(qInicial);
   const [casoConTareasAbierto, setCasoConTareasAbierto] = useState<ObjetivoTareas | null>(null);
   const [casoConDocumentosAbierto, setCasoConDocumentosAbierto] = useState<CasoParaDocumentos | null>(null);
   const [tareasPendientesPorCaso, setTareasPendientesPorCaso] = useState<Record<string, number>>({});

@@ -26,4 +26,9 @@ public interface DocumentoFirmanteRepository extends JpaRepository<DocumentoFirm
 
     // Eliminación en cascada manual de un documento (ver DocumentoAdminService#eliminar).
     void deleteByDocumentoId(UUID documentoId);
+
+    // Buscador total del panel (ver sie.siejuridicos.busqueda.BusquedaService):
+    // nombreCapturado es plano (no cifrado, a diferencia de ClienteCrm.nombre de donde se
+    // copió originalmente -- ver comentario de la clase), LIKE/ILIKE directo en SQL.
+    List<DocumentoFirmante> findByNombreCapturadoContainingIgnoreCase(String nombre);
 }

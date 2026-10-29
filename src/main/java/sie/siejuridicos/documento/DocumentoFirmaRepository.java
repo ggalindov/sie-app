@@ -33,6 +33,10 @@ public interface DocumentoFirmaRepository extends JpaRepository<DocumentoFirma, 
 
     List<DocumentoFirma> findTop200ByOrderByFechaCreacionDesc();
 
+    // Buscador total del panel (ver sie.siejuridicos.busqueda.BusquedaService): nombre es
+    // plano (no cifrado), LIKE/ILIKE directo en SQL.
+    List<DocumentoFirma> findByNombreContainingIgnoreCase(String nombre);
+
     // Ids de los documentos que siguen EMITIDO esperando que se complete la compuerta de
     // firma de staff (ver DocumentoFirmaStaffRetryListener, disparado cuando un usuario
     // interno sube/cambia su firma). Solo ids, para no cargar en memoria el contenido de

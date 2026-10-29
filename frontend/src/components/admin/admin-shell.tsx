@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
 import { NotificacionesPanel } from "@/components/admin/notificaciones-panel";
+import { BuscadorGlobal } from "@/components/admin/buscador-global";
 
 type Rol = "ADMIN_GENERAL" | "ABOGADO";
 
@@ -176,6 +177,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+
+        {/* Buscador total del panel: una sola fila compartida entre mobile y desktop (no
+            existía un topbar común antes de esto -- en desktop solo había el header interno
+            del sidebar, sin espacio de sobra) para no duplicar el input en dos lugares. */}
+        <div className="flex shrink-0 items-center border-b border-line bg-surface px-4 py-3 sm:px-8">
+          <BuscadorGlobal />
+        </div>
 
         <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-8 sm:px-8 lg:py-10">
           {children}

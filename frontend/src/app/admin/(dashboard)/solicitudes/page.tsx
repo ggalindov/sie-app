@@ -10,6 +10,7 @@ import {
   ChatCircleText,
   DownloadSimple,
   EnvelopeSimple,
+  MagnifyingGlass,
   PaperPlaneTilt,
   Phone,
   Trash,
@@ -66,6 +67,11 @@ export default function SolicitudesPage() {
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoSolicitud | "">(
     (searchParams.get("estado") as EstadoSolicitud) ?? "",
   );
+  // Esta página no tenía búsqueda por texto (solo estado/fechas) -- vacío que el propio
+  // buscador total del panel expuso. Llega prellenado desde ahí (?q=...) igual que el
+  // filtro de estado ya existente. 100% client-side sobre lo ya cargado, mismo criterio que
+  // el buscador de /admin/casos (lista corta, no justifica un parámetro nuevo en el backend).
+  const [busquedaNombre, setBusquedaNombre] = useState(searchParams.get("q") ?? "");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [modalCitaId, setModalCitaId] = useState<number | null>(null);
@@ -119,6 +125,11 @@ export default function SolicitudesPage() {
     }
   }
 
+  const nombreNormalizado = busquedaNombre.trim().toLowerCase();
+  const solicitudesFiltradas = nombreNormalizado
+    ? solicitudes?.filter((s) => s.nombre.toLowerCase().includes(nombreNormalizado)) ?? null
+    : solicitudes;
+
   const solicitudCita = solicitudes?.find((s) => s.id === modalCitaId) ?? null;
   const solicitudResponder = solicitudes?.find((s) => s.id === modalResponderId) ?? null;
   const solicitudEliminar = solicitudes?.find((s) => s.id === modalEliminarId) ?? null;
@@ -164,6 +175,15 @@ export default function SolicitudesPage() {
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" weight="bold" />
+          <input
+            value={busquedaNombre}
+            onChange={(e) => setBusquedaNombre(e.target.value)}
+            placeholder="Buscar por nombre..."
+            className="rounded-full border border-line bg-surface py-2 pl-9 pr-4 text-sm text-ink focus:border-gold-deep focus:outline-none"
+          />
+        </div>
         <select
           value={estadoFiltro}
           onChange={(e) => setEstadoFiltro(e.target.value as EstadoSolicitud | "")}
@@ -191,13 +211,13 @@ export default function SolicitudesPage() {
         />
       </div>
 
-      {solicitudes === null ? (
+      {solicitudesFiltradas === null ? (
         <AdminLoader />
-      ) : solicitudes.length === 0 ? (
+      ) : solicitudesFiltradas.length === 0 ? (
         <EmptyState title="No hay solicitudes" description="Ajusta los filtros o espera a que lleguen nuevas." />
       ) : (
         <div className="space-y-3">
-          {solicitudes.map((s) => (
+          {solicitudesFiltradas.map((s) => (
             <AdminCard key={s.id} className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

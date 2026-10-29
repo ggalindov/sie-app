@@ -40,4 +40,8 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long>, Jpa
     List<Solicitud> findByClienteCrmId(Long clienteCrmId);
 
     List<Solicitud> findAllByOrderByFechaCreacionDesc();
+
+    // Buscador total del panel (ver sie.siejuridicos.busqueda.BusquedaService): nombre es
+    // plano (no cifrado), LIKE/ILIKE directo en SQL.
+    List<Solicitud> findByNombreContainingIgnoreCase(String nombre);
 }

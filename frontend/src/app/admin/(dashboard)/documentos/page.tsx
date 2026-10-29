@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
-import { Plus, FileText, ShieldCheck, WarningCircle } from "@phosphor-icons/react";
+import { Plus, FileText, ShieldCheck, WarningCircle, Trash } from "@phosphor-icons/react";
 import {
   listarDocumentosFirma,
+  eliminarDocumentoFirma,
+  ApiError,
   type DocumentoFirmaListado,
   type EstadoDocumentoFirma,
 } from "@/lib/admin-api";
@@ -44,6 +46,11 @@ function tonoEstado(estado: EstadoDocumentoFirma): "neutral" | "gold" | "success
   return "neutral";
 }
 
+// Mismas dos condiciones que ya exige el backend (DocumentoAdminService.eliminar) y que
+// repite la vista de detalle (ver [id]/page.tsx, ESTADOS_ELIMINABLES): solo se puede
+// eliminar un documento que ya esté Cancelado o Anulado, nunca uno con firmantes activos.
+const ESTADOS_ELIMINABLES = ["ANULADO", "CANCELADO"];
+
 const filtros: { label: string; estado?: EstadoDocumentoFirma }[] = [
   { label: "Todos" },
   { label: "Pendientes de firma staff", estado: "EMITIDO" },
@@ -57,6 +64,7 @@ export default function DocumentosPage() {
   const { sesion } = useAuth();
   const [documentos, setDocumentos] = useState<DocumentoFirmaListado[] | null>(null);
   const [filtroActivo, setFiltroActivo] = useState(0);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
   useEffect(() => {
     cargar(filtros[filtroActivo].estado);
@@ -68,6 +76,31 @@ export default function DocumentosPage() {
     listarDocumentosFirma(estado)
       .then(setDocumentos)
       .catch(() => toast.error("No se pudieron cargar los documentos."));
+  }
+
+  // Mismo texto de confirmación que ya usa la vista de detalle ([id]/page.tsx, onEliminar)
+  // -- un solo estilo de confirmación en todo el módulo, esto es solo un acceso rápido
+  // desde el listado, no una acción distinta.
+  async function onEliminar(e: MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (
+      !window.confirm(
+        "¿Eliminar este documento por completo del sistema? Esta acción no se puede deshacer -- se borran el archivo, los firmantes y toda la línea de tiempo.",
+      )
+    ) {
+      return;
+    }
+    setEliminandoId(id);
+    try {
+      await eliminarDocumentoFirma(id);
+      toast.success("Documento eliminado.");
+      setDocumentos((actual) => actual?.filter((d) => d.id !== id) ?? actual);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo eliminar el documento.");
+    } finally {
+      setEliminandoId(null);
+    }
   }
 
   return (
@@ -139,6 +172,17 @@ export default function DocumentosPage() {
                     </p>
                   </div>
                 </div>
+                {sesion?.rol === "ADMIN_GENERAL" && ESTADOS_ELIMINABLES.includes(d.estadoDocumento) && (
+                  <button
+                    type="button"
+                    onClick={(e) => onEliminar(e, d.id)}
+                    disabled={eliminandoId === d.id}
+                    aria-label="Eliminar documento"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center self-end rounded-lg text-ink-soft transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-40 sm:self-auto"
+                  >
+                    <Trash className="h-4 w-4" weight={eliminandoId === d.id ? "fill" : "light"} />
+                  </button>
+                )}
               </AdminCard>
             </Link>
           ))}

@@ -1383,3 +1383,22 @@ export function rechazarCambioSolicitudDocumento(id: string, motivo: string): Pr
 export function ejecutarCambioSolicitudDocumento(id: string): Promise<DocumentoCambioSolicitud> {
   return pedido<DocumentoCambioSolicitud>(`/api/admin/documentos/cambios/${id}/ejecutar`, { method: "POST" });
 }
+
+// =========================================================================
+// BUSCADOR TOTAL DEL PANEL (visible para ADMIN_GENERAL y ABOGADO)
+// =========================================================================
+
+export type TipoResultadoBusqueda = "CASO" | "CLIENTE" | "SOLICITUD" | "DOCUMENTO";
+
+export type ResultadoBusqueda = {
+  tipo: TipoResultadoBusqueda;
+  id: string;
+  titulo: string;
+  subtitulo: string;
+  ruta: string;
+};
+
+export function buscarGlobal(q: string): Promise<ResultadoBusqueda[]> {
+  const parametros = new URLSearchParams({ q });
+  return pedido<ResultadoBusqueda[]>(`/api/admin/busqueda?${parametros.toString()}`);
+}

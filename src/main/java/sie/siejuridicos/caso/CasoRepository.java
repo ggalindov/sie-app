@@ -18,6 +18,11 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     @Query("SELECT c FROM Caso c WHERE c.radicadoId LIKE CONCAT(:codigo, ' (%') OR c.radicadoId LIKE CONCAT(:codigo, '(%')")
     List<Caso> buscarPorRadicadoPrefijo(@Param("codigo") String codigo);
 
+    // Buscador total del panel (ver sie.siejuridicos.busqueda.BusquedaService): radicadoId y
+    // numeroCaso son planos (no cifrados, a diferencia del nombre del cliente), así que un
+    // LIKE/ILIKE directo en SQL funciona sin tener que cargar nada en memoria.
+    List<Caso> findByRadicadoIdContainingIgnoreCaseOrNumeroCasoContainingIgnoreCase(String radicadoId, String numeroCaso);
+
     // Llave de la sincronización automática (ver CasoService.sincronizarDesdeHoja()): decide
     // si una fila de la hoja ya existe localmente o hay que crearla. Por fuente, no solo por
     // número: el mismo número puede repetirse entre hojas distintas sin ser el mismo caso

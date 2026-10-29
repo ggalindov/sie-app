@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   AddressBook,
@@ -109,8 +110,14 @@ function iniciales(nombre: string): string {
 
 export default function CrmAdminPage() {
   const { sesion } = useAuth();
+  // Llega prellenado desde el buscador total del panel (ver buscador-global.tsx, navega a
+  // /admin/crm?q=...) -- el resultado de un CLIENTE solo tiene sentido viendo el
+  // Directorio, no el Pipeline (tab por defecto), así que si viene con "q" se abre ahí.
+  const qInicial = useSearchParams().get("q") ?? "";
 
-  const [tabActiva, setTabActiva] = useState<"pipeline" | "directorio" | "dashboard">("pipeline");
+  const [tabActiva, setTabActiva] = useState<"pipeline" | "directorio" | "dashboard">(
+    qInicial ? "directorio" : "pipeline",
+  );
 
   // Estado Pipeline
   const [pipelineItems, setPipelineItems] = useState<ItemPipeline[] | null>(null);
@@ -123,8 +130,8 @@ export default function CrmAdminPage() {
   // Estado Directorio
   const [clientes, setClientes] = useState<ClienteCrm[] | null>(null);
   const [cargandoClientes, setCargandoClientes] = useState(false);
-  const [inputBusqueda, setInputBusqueda] = useState("");
-  const [busqueda, setBusqueda] = useState("");
+  const [inputBusqueda, setInputBusqueda] = useState(qInicial);
+  const [busqueda, setBusqueda] = useState(qInicial);
   const [filtroTipo, setFiltroTipo] = useState<TipoClienteCrm | "TODOS">("TODOS");
   const [filtroEstado, setFiltroEstado] = useState<EstadoClienteCrm | "TODOS">("TODOS");
   const [filtroCobro, setFiltroCobro] = useState<"TODOS" | "AL_DIA" | "PENDIENTE">("TODOS");
