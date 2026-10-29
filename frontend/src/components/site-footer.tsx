@@ -96,6 +96,12 @@ export function SiteFooter() {
               >
                 Consultar mi caso
               </Link>
+              {/* Oculto temporalmente: el backend del módulo PQRS todavía no está
+                  desplegado en producción (esta subida es solo de frontend, a pedido
+                  explícito del usuario). Reactivar este Link en cuanto el backend con
+                  /api/pqrs y /api/admin/pqrs esté en el servidor -- el código de la
+                  página /pqrs y del panel admin ya está completo y probado en local,
+                  solo falta el enlace público mientras el backend no responde. */}
             </nav>
           </div>
 

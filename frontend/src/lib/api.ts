@@ -241,6 +241,56 @@ export async function consultarCaso(radicadoId: string): Promise<CasoConsulta> {
   return res.json();
 }
 
+// ---------- PQRS (Peticiones, Quejas, Reclamos y Sugerencias) ----------
+
+export type TipoPqrs = "PETICION" | "QUEJA" | "RECLAMO" | "SUGERENCIA";
+export type EstadoPqrs = "RECIBIDO" | "EN_TRAMITE" | "RESUELTO" | "CERRADO";
+
+export type CrearPqrsInput = {
+  tipo: TipoPqrs;
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  asunto: string;
+  descripcion: string;
+  // Honeypot, ver CrearSolicitudInput.sitioWeb.
+  sitioWeb?: string;
+};
+
+export type PqrsCreada = {
+  radicado: string;
+  fechaCreacion: string;
+  fechaLimiteRespuesta: string;
+};
+
+export async function crearPqrs(input: CrearPqrsInput): Promise<PqrsCreada> {
+  const res = await fetch(`${API_URL}/api/pqrs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+  return res.json();
+}
+
+export type PqrsConsulta = {
+  radicado: string;
+  tipo: TipoPqrs;
+  asunto: string;
+  descripcion: string;
+  estado: EstadoPqrs;
+  respuesta: string | null;
+  fechaCreacion: string;
+  fechaLimiteRespuesta: string;
+  fechaRespuesta: string | null;
+};
+
+export async function consultarPqrs(radicado: string): Promise<PqrsConsulta> {
+  const res = await fetch(`${API_URL}/api/pqrs/consulta?radicado=${encodeURIComponent(radicado)}`);
+  if (!res.ok) throw new ApiError(await parseErrorMessage(res), res.status);
+  return res.json();
+}
+
 export async function registrarVisita(visitanteId: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/analitica/visita`, {
     method: "POST",

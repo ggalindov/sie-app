@@ -51,12 +51,14 @@ export function Testimonios({ media }: { media: ReactNode }) {
   ];
 
   return (
-    <section id="testimonios" className="snap-slide section-seam relative overflow-hidden py-20 md:py-28">
+    <section id="testimonios" className="snap-slide section-seam frame-fixed relative">
       <div className="absolute inset-0">{media}</div>
       <div className="absolute inset-0 bg-gradient-to-b from-night/93 via-night/88 to-night/93" />
 
-      <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
-        <CarruselTestimonios testimonios={todos} onAbrirModal={() => setModalAbierto(true)} />
+      <div className="relative z-10 md:h-full md:overflow-hidden">
+        <div className="mx-auto max-w-7xl px-6 py-20 md:flex md:h-full md:flex-col md:justify-center md:py-16 lg:px-8">
+          <CarruselTestimonios testimonios={todos} onAbrirModal={() => setModalAbierto(true)} />
+        </div>
       </div>
 
       <TestimonioFormModal open={modalAbierto} onClose={() => setModalAbierto(false)} />
@@ -258,36 +260,38 @@ function CarruselTestimonios({
           {testimonios.map((t, idx) => (
             <blockquote
               key={`${t.nombre}-${idx}`}
-              className="card-edged flex h-full min-h-[300px] w-full flex-none flex-col justify-between bg-surface/97 p-6 sm:w-[calc(50%-0.75rem)] sm:p-7 lg:w-[calc(33.333%-1rem)] lg:p-8"
+              className="relative flex h-full min-h-[300px] w-full flex-none flex-col justify-between border-t border-gold/25 bg-surface/60 pt-7 pr-6 pb-6 pl-1 sm:w-[calc(50%-0.75rem)] sm:pr-7 lg:w-[calc(33.333%-1rem)] lg:pr-8"
             >
-              <div>
-                <div className="flex items-center justify-between">
-                  <Quotes weight="fill" className="h-7 w-7 text-gold" />
-                  <div className="flex gap-0.5" aria-label={`${t.calificacion} de 5 estrellas`}>
-                    {[1, 2, 3, 4, 5].map((v) => (
-                      <Star
-                        key={v}
-                        weight={v <= t.calificacion ? "fill" : "regular"}
-                        className={`h-3.5 w-3.5 ${v <= t.calificacion ? "text-gold" : "text-ink-soft/30"}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <p className="mt-4 font-display text-base leading-relaxed text-ink line-clamp-6 sm:text-lg">
-                  &ldquo;{t.cita}&rdquo;
+              {/* Pull-quote editorial: filo vertical dorado delgado a la izquierda en vez de
+                  una caja completa con borde y sombra -- se lee como una cita de revista, no
+                  como una tarjeta de producto SaaS. */}
+              <span aria-hidden="true" className="absolute inset-y-1 left-0 w-px bg-gradient-to-b from-gold/60 via-gold/20 to-transparent" />
+
+              <div className="pl-5">
+                <Quotes weight="fill" className="h-8 w-8 text-gold/70" />
+                <p className="mt-4 font-display text-lg leading-relaxed text-ink line-clamp-6 sm:text-xl">
+                  {t.cita}
                 </p>
               </div>
 
-              <footer className="mt-6 flex items-center gap-3 border-t border-line/40 pt-4">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold/30 bg-gold/15 font-display text-sm font-semibold text-gold-deep"
-                  aria-hidden="true"
-                >
-                  {obtenerIniciales(t.nombre)}
+              <footer className="mt-6 flex items-center justify-between gap-3 pl-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-pale/70 to-gold/20 font-display text-sm font-semibold text-gold-deep ring-1 ring-gold/30">
+                    {obtenerIniciales(t.nombre)}
+                  </div>
+                  <div className="min-w-0 text-sm">
+                    <p className="truncate font-medium text-ink">{t.nombre}</p>
+                    <p className="truncate text-xs text-ink-soft sm:text-sm">{t.cargo || "Cliente verificado"}</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1 text-sm">
-                  <p className="truncate font-medium text-ink">{t.nombre}</p>
-                  <p className="truncate text-xs text-ink-soft sm:text-sm">{t.cargo || "Cliente verificado"}</p>
+                <div className="flex shrink-0 gap-0.5" aria-label={`${t.calificacion} de 5 estrellas`}>
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <Star
+                      key={v}
+                      weight={v <= t.calificacion ? "fill" : "regular"}
+                      className={`h-3 w-3 ${v <= t.calificacion ? "text-gold" : "text-ink-soft/25"}`}
+                    />
+                  ))}
                 </div>
               </footer>
             </blockquote>
@@ -295,20 +299,25 @@ function CarruselTestimonios({
         </div>
       </motion.div>
 
-      {/* Indicadores de progreso / puntos de salto */}
+      {/* Indicador de progreso: contador + línea delgada en vez de una fila de puntos que
+          crece sin límite con el número real de testimonios aprobados (se veía desbordada
+          con muchos testimonios, ver captura de referencia) -- escala a cualquier cantidad
+          sin perder elegancia. */}
       {maxIndice > 0 && (
-        <div className="mt-8 flex items-center justify-center gap-2" aria-hidden="true">
-          {Array.from({ length: maxIndice + 1 }).map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setIndice(i)}
-              aria-label={`Ver testimonios grupo ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === indice ? "w-6 bg-gold" : "w-1.5 bg-night-ink/25 hover:bg-night-ink/50"
-              }`}
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <span className="font-mono text-xs tabular-nums text-ink-soft/70">
+            {String(indice + 1).padStart(2, "0")}
+          </span>
+          <div className="relative h-px w-24 overflow-hidden rounded-full bg-night-ink/15 sm:w-32">
+            <motion.span
+              className="absolute inset-y-0 left-0 bg-gold"
+              animate={{ width: `${((indice + 1) / (maxIndice + 1)) * 100}%` }}
+              transition={{ duration: 0.5, ease: EASE }}
             />
-          ))}
+          </div>
+          <span className="font-mono text-xs tabular-nums text-ink-soft/70">
+            {String(maxIndice + 1).padStart(2, "0")}
+          </span>
         </div>
       )}
     </div>

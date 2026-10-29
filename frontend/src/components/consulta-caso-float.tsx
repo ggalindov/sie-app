@@ -1,59 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { FileMagnifyingGlass } from "@phosphor-icons/react";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-// Acceso directo a "Consulta tu caso", visible en cualquier página sin tener que abrir el
-// menú de ayuda primero (antes solo vivía dentro de HelpMenu, a dos clics de distancia).
-// Pedido explícito del usuario: mismo lenguaje visual que los otros dos flotantes de la
-// esquina inferior derecha (WhatsappFloat, CuidaMarcaFloat) -- circular en reposo, con
-// etiqueta que se revela al pasar el mouse -- después de probar una pestaña lateral que
-// resultaba menos reconocible. Apilado arriba de los otros dos (ver bottom-44) y más
-// pequeño que ambos (h-12, no h-14): es una acción de autoservicio secundaria, no la vía
-// principal de contacto.
+// Acceso directo a "Consulta tu caso", visible en cualquier página. Pedido explícito del
+// usuario (segunda vuelta de ajustes):
+// 1. Va DEBAJO de todo el resto de la pila flotante (WhatsApp, Cuida tu marca), no encima
+//    -- es la acción de autoservicio más usada por clientes que ya tienen un radicado, así
+//    que debe ser la más fácil de encontrar con la vista, pegada a la esquina.
+// 2. En escritorio queda SIEMPRE expandida mostrando el texto completo "Consulta tu caso"
+//    -- nunca depende de pasar el mouse para que alguien sepa qué es. Muchos de quienes
+//    usan esto son personas mayores que no van a "descubrir" un ícono con hover.
+// 3. En celular (sin hover posible) se revela sola una vez, poco después de aparecer, para
+//    enseñar qué es, y luego se repliega a un ícono discreto -- animada pero sin exagerar
+//    ni repetirse en bucle, que terminaría siendo molesto.
 export function ConsultaCasoFloat() {
-  const [hover, setHover] = useState(false);
+  const [expandidoMovil, setExpandidoMovil] = useState(false);
+
+  useEffect(() => {
+    const abrir = window.setTimeout(() => setExpandidoMovil(true), 2600);
+    const cerrar = window.setTimeout(() => setExpandidoMovil(false), 6200);
+    return () => {
+      window.clearTimeout(abrir);
+      window.clearTimeout(cerrar);
+    };
+  }, []);
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, delay: 1.15, ease: EASE }}
-      // right-7, no right-6 como los otros dos flotantes: este botón mide 48px de
-      // diámetro (h-12) contra los 56px (h-14) de WhatsApp/Cuida tu marca, así que con el
-      // mismo "right" sus CENTROS quedan 4px desalineados entre sí (el radio es distinto
-      // aunque el borde derecho coincida) -- el corrimiento que se veía en la captura. 4px
-      // extra de margen compensa exactamente esa diferencia de radio para que los tres
-      // círculos queden perfectamente centrados en el mismo eje vertical.
-      // En celular (<sm): bottom-22 lo ubica directamente encima de WhatsApp (bottom-6).
-      // En escritorio (>=sm): sm:bottom-44 lo mantiene encima de Cuida tu marca (sm:bottom-24).
-      className="fixed bottom-22 right-5 sm:bottom-44 sm:right-7 z-40"
+      // La pila flotante completa, de abajo hacia arriba: Consulta tu caso (bottom-6, el
+      // más cercano al borde), WhatsApp (bottom-22/24), Cuida tu marca solo en escritorio
+      // (sm:bottom-44). right-5/sm:right-6 para alinear el borde derecho con los demás
+      // círculos (48px de diámetro en reposo en móvil, 56px alto fijo en escritorio).
+      className="fixed bottom-5 right-5 z-40 sm:right-6"
     >
-      {/* onHoverStart/onHoverEnd viven en un div normal aparte, nunca en el mismo
-          motion.div que anima la entrada con delay -- bug real encontrado en vivo: con
-          ambas cosas juntas, la animación de entrada se quedaba congelada a mitad de
-          camino (opacity/scale nunca llegaban al valor final, se veía "torcido"/a medio
-          tamaño) tanto aquí como en CuidaMarcaFloat, que tiene el mismo patrón. Separar
-          el hover a un elemento sin animación propia lo resuelve sin perder el efecto. */}
-      <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div>
         <Link
           href="/consulta-caso"
           aria-label="Consulta el estado de tu caso"
-          className="btn-sweep flex h-12 items-center gap-2 overflow-hidden rounded-full bg-night pl-3.5 pr-3.5 text-night-ink shadow-[0_10px_26px_-10px_rgba(0,0,0,0.5)] ring-1 ring-gold/25"
+          className="btn-sweep flex h-12 items-center gap-2 overflow-hidden rounded-full bg-night pl-3.5 pr-3.5 text-night-ink shadow-[0_10px_26px_-10px_rgba(0,0,0,0.5)] ring-1 ring-gold/25 sm:h-14 sm:pl-4 sm:pr-4"
         >
-          <FileMagnifyingGlass weight="bold" className="h-5 w-5 shrink-0 text-gold" />
+          <FileMagnifyingGlass weight="bold" className="h-5 w-5 shrink-0 text-gold sm:h-6 sm:w-6" />
+
+          {/* Escritorio: siempre expandido, sin AnimatePresence -- el texto es parte
+              permanente del botón, no una revelación. */}
+          <span className="hidden overflow-hidden whitespace-nowrap text-sm font-medium sm:inline">
+            Consulta tu caso
+          </span>
+
+          {/* Móvil: revelación única, suave, breve -- ver useEffect de arriba. */}
           <AnimatePresence initial={false}>
-            {hover && (
+            {expandidoMovil && (
               <motion.span
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: "auto", opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: EASE }}
-                className="overflow-hidden whitespace-nowrap text-sm font-medium"
+                transition={{ duration: 0.4, ease: EASE }}
+                className="overflow-hidden whitespace-nowrap text-sm font-medium sm:hidden"
               >
                 Consulta tu caso
               </motion.span>

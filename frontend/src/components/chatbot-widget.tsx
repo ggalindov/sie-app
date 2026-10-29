@@ -8,7 +8,6 @@ import {
   PaperPlaneTilt,
   ArrowClockwise,
   WhatsappLogo,
-  Sparkle,
   CalendarCheck,
 } from "@phosphor-icons/react";
 import { enviarMensajeChatbot, type TurnoChat } from "@/lib/api";
@@ -339,7 +338,10 @@ export function ChatbotWidget() {
 
   return (
     <>
-      {/* Botón flotante para abrir/cerrar (Modo Claro) */}
+      {/* Botón flotante: anillo dorado en degradado giratorio lento (mismo lenguaje que el
+          halo del logo en el nav) en vez de un ring estático -- marca el chat como "vivo"
+          sin necesitar texto. El retrato de Siebot queda protagonista, sin competir con el
+          anillo por atención. */}
       <motion.button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -349,8 +351,20 @@ export function ChatbotWidget() {
         transition={{ duration: 0.5, delay: 0.9, ease: EASE }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="fixed bottom-5 left-3 sm:left-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-surface text-ink shadow-[0_12px_30px_-8px_rgba(20,19,15,0.25)] ring-2 ring-gold/60 border border-gold/30 hover:border-gold cursor-pointer"
+        className="fixed bottom-5 left-3 sm:left-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-surface text-ink shadow-[0_14px_34px_-10px_rgba(20,19,15,0.35)]"
       >
+        <motion.span
+          aria-hidden="true"
+          className="absolute -inset-[3px] rounded-full opacity-80"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          style={{
+            backgroundImage:
+              "conic-gradient(from 0deg, var(--color-gold-deep), var(--color-gold), var(--color-gold-pale), var(--color-gold-deep))",
+          }}
+        />
+        <span className="absolute inset-[3px] rounded-full bg-surface" />
+
         <AnimatePresence initial={false} mode="wait">
           {open ? (
             <motion.span
@@ -359,6 +373,7 @@ export function ChatbotWidget() {
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: 90, opacity: 0 }}
               transition={{ duration: 0.2 }}
+              className="relative"
             >
               <X className="h-6 w-6 text-ink" weight="bold" />
             </motion.span>
@@ -371,7 +386,7 @@ export function ChatbotWidget() {
               transition={{ duration: 0.25 }}
               className="relative"
             >
-              <div className="relative h-11 w-11 sm:h-13 sm:w-13 rounded-full overflow-hidden ring-1.5 ring-gold/60">
+              <div className="relative h-11 w-11 sm:h-13 sm:w-13 rounded-full overflow-hidden">
                 <Image
                   src="/chatbot/siebot-vendedor.png"
                   alt="Siebot Asesor Virtual"
@@ -389,48 +404,60 @@ export function ChatbotWidget() {
         </AnimatePresence>
       </motion.button>
 
-      {/* Ventana de chat responsiva (Completamente en Modo Claro y Optimizada a Venta) */}
+      {/* Ventana de chat: tercera pasada de rediseño, pedido explícito del usuario de "algo
+          nuevo, más elegante y directo" -- en vez de burbujas con tarjeta/borde pesado
+          (la versión anterior), el asistente habla en texto corrido sin caja, como un
+          asistente de IA moderno (estilo Claude/ChatGPT), no como un widget de soporte
+          genérico. En negro (pedido explícito, cuarta vuelta de ajustes): hereda la
+          paleta oscura del sitio en vez de forzar modo claro -- ya no hay ningún otro
+          momento claro en el sitio desde que se quitó el toggle de tema, así que un chat
+          claro desentonaba más de lo que destacaba. */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.96 }}
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.96 }}
+            exit={{ opacity: 0, y: 24, scale: 0.97 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="fixed inset-x-2 bottom-3 sm:bottom-24 sm:inset-x-auto sm:left-6 z-50 flex max-h-[88vh] sm:max-h-[640px] w-auto sm:w-[420px] flex-col overflow-hidden rounded-2xl sm:rounded-3xl bg-surface shadow-[0_25px_60px_-15px_rgba(20,18,15,0.25)] ring-1 ring-line border border-gold/30"
+            className="fixed inset-x-2 bottom-3 sm:bottom-24 sm:inset-x-auto sm:left-6 z-50 flex max-h-[88vh] sm:max-h-[660px] w-auto sm:w-[420px] flex-col overflow-hidden rounded-[1.5rem] sm:rounded-[1.75rem] bg-surface shadow-[0_36px_80px_-16px_rgba(0,0,0,0.6)] ring-1 ring-gold/15"
           >
-            {/* Header del Chatbot (Modo Claro) */}
-            <div className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4 text-ink">
-              <div className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden ring-2 ring-gold/60 shadow-xs">
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 top-0 h-[3px] z-10"
+              style={{ backgroundImage: "linear-gradient(90deg, var(--color-gold-deep), var(--color-gold) 55%, var(--color-gold-pale))" }}
+            />
+
+            {/* Cabecera: compacta, un solo renglón de estado en vez de dos líneas de texto
+                redundante ("Siebot" + "En línea · ..."). */}
+            <div className="relative flex items-center gap-2.5 px-4 py-3.5 sm:px-4.5">
+              <div className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/40">
                 <Image
                   src="/chatbot/siebot-vendedor.png"
                   alt="Siebot"
                   fill
-                  sizes="40px"
+                  sizes="36px"
                   className="object-cover object-top scale-110"
                 />
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-1.5 ring-surface" />
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold tracking-tight text-ink">Siebot</p>
-                <p className="text-xs text-ink-soft truncate flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shadow-2xs" />
-                  En línea • Asesoría y Agendamiento SIE
+                <p className="flex items-center gap-1 text-[13px] font-semibold tracking-tight text-ink">
+                  Siebot
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  <span className="truncate text-[11px] font-normal text-ink-soft">En línea ahora</span>
                 </p>
               </div>
 
-              {/* Botones de acción rápida en header */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <a
                   href="https://wa.me/573243668845?text=Hola%2C%20quisiera%20agendar%20una%20asesor%C3%ADa%20jur%C3%ADdica%20con%20un%20abogado%20de%20SIE%20Jur%C3%ADdicos"
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Agendar por WhatsApp con un abogado"
                   aria-label="Agendar por WhatsApp con un abogado"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-emerald-500 hover:bg-emerald-500/15 transition-colors"
                 >
-                  <WhatsappLogo className="h-4.5 w-4.5" weight="fill" />
+                  <WhatsappLogo className="h-4 w-4" weight="fill" />
                 </a>
 
                 <button
@@ -438,9 +465,9 @@ export function ChatbotWidget() {
                   onClick={reiniciarChat}
                   title="Reiniciar conversación"
                   aria-label="Reiniciar conversación"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors"
                 >
-                  <ArrowClockwise className="h-4 w-4" />
+                  <ArrowClockwise className="h-3.5 w-3.5" />
                 </button>
 
                 <button
@@ -448,17 +475,18 @@ export function ChatbotWidget() {
                   onClick={() => setOpen(false)}
                   title="Cerrar chat"
                   aria-label="Cerrar chat"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors"
                 >
-                  <X className="h-4 w-4" weight="bold" />
+                  <X className="h-3.5 w-3.5" weight="bold" />
                 </button>
               </div>
             </div>
+            <div className="h-px bg-line" />
 
-            {/* Área de mensajes con scroll suave */}
+            {/* Área de mensajes */}
             <div
               ref={scrollRef}
-              className="flex-1 space-y-3.5 overflow-y-auto px-3.5 py-4 sm:px-4 sm:py-4 bg-paper/50"
+              className="flex-1 space-y-3.5 overflow-y-auto px-3.5 py-4 sm:px-4 sm:py-4 bg-paper"
             >
               {mensajes.map((m, i) => (
                 <div
@@ -468,8 +496,8 @@ export function ChatbotWidget() {
                   }`}
                 >
                   {m.rol === "ASISTENTE" ? (
-                    <div className="flex items-start gap-2.5 max-w-[92%] sm:max-w-[88%]">
-                      <div className="relative h-7 w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/40 mt-0.5 shadow-2xs">
+                    <div className="flex items-start gap-2.5 max-w-[94%] sm:max-w-[92%]">
+                      <div className="relative h-7 w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/30 mt-0.5">
                         <Image
                           src="/chatbot/siebot-vendedor.png"
                           alt="Siebot"
@@ -478,56 +506,57 @@ export function ChatbotWidget() {
                           className="object-cover object-top scale-110"
                         />
                       </div>
-                      <div className="rounded-2xl rounded-tl-xs bg-surface border border-line px-3.5 py-3 sm:px-4 text-ink shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)]">
+                      {/* Sin tarjeta ni borde: el asistente habla en texto corrido, como un
+                          asistente de IA moderno, no como una burbuja de soporte genérica. */}
+                      <div className="min-w-0 flex-1 pt-0.5 text-ink">
                         <FormatoTexto texto={m.contenido} rol="ASISTENTE" />
 
-                        {/* Botones de Agendamiento Directo */}
-                        <div className="mt-3 pt-2.5 border-t border-line/70 flex flex-col sm:flex-row gap-1.5">
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
                           <a
                             href="/#agendar"
                             onClick={irAAgendar}
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gold px-3 py-2 text-xs font-semibold text-ink-fixed shadow-2xs hover:bg-gold-deep active:scale-95 transition-all text-center cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-1.5 text-xs font-semibold text-ink-fixed hover:bg-gold-deep active:scale-95 transition-all cursor-pointer"
                           >
-                            <CalendarCheck weight="bold" className="h-4 w-4 shrink-0" />
-                            <span>Agendar asesoría</span>
+                            <CalendarCheck weight="bold" className="h-3.5 w-3.5 shrink-0" />
+                            Agendar asesoría
                           </a>
                           <a
                             href="https://wa.me/573243668845?text=Hola%2C%20quisiera%20agendar%20una%20asesor%C3%ADa%20jur%C3%ADdica%20con%20un%20abogado%20de%20SIE%20Jur%C3%ADdicos"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 active:scale-95 transition-all text-center cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
                           >
-                            <WhatsappLogo weight="fill" className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            <span>Por WhatsApp</span>
+                            <WhatsappLogo weight="fill" className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                            Por WhatsApp
                           </a>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="max-w-[85%] rounded-2xl rounded-tr-xs bg-gold text-ink-fixed px-4 py-2.5 shadow-xs font-medium">
+                    <div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-gold text-ink-fixed px-3.5 py-2.5 font-medium">
                       <FormatoTexto texto={m.contenido} rol="USUARIO" />
                     </div>
                   )}
                 </div>
               ))}
 
-              {/* Sugerencias Rápidas al inicio de la conversación orientadas a venta */}
+              {/* Sugerencias rápidas: píldoras minimalistas, una sola fila por renglón de
+                  texto en vez de la grilla de tarjetas con ícono de antes -- más directo. */}
               {mensajes.length <= 2 && (
-                <div className="pt-2 pb-1">
-                  <p className="text-[11.5px] font-medium text-ink-soft mb-2 px-1 flex items-center gap-1">
-                    <Sparkle weight="fill" className="h-3 w-3 text-gold-deep" />
-                    Consultas frecuentes que atendemos:
+                <div className="pt-1 pb-1 pl-9">
+                  <p className="text-[11px] font-medium text-ink-soft/80 mb-2">
+                    Consultas frecuentes que atendemos
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <div className="flex flex-col gap-1.5">
                     {SUGERENCIAS.map((sug, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => ejecutarEnvio(sug.mensaje)}
                         disabled={cargando}
-                        className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-xs text-ink hover:border-gold hover:bg-gold/5 active:scale-[0.98] transition-all disabled:opacity-50 shadow-2xs"
+                        className="group flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-left text-xs text-ink hover:border-gold-deep hover:bg-gold/5 active:scale-[0.98] transition-all disabled:opacity-50"
                       >
-                        <span className="text-sm shrink-0">{sug.icono}</span>
+                        <span className="text-sm leading-none">{sug.icono}</span>
                         <span className="truncate font-medium">{sug.etiqueta}</span>
                       </button>
                     ))}
@@ -535,10 +564,9 @@ export function ChatbotWidget() {
                 </div>
               )}
 
-              {/* Indicador de carga interactivo */}
               {cargando && (
                 <div className="flex items-start gap-2.5">
-                  <div className="relative h-7 w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/40 mt-0.5">
+                  <div className="relative h-7 w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/30 mt-0.5">
                     <Image
                       src="/chatbot/siebot-vendedor.png"
                       alt="Siebot pensando"
@@ -547,8 +575,7 @@ export function ChatbotWidget() {
                       className="object-cover object-top scale-110"
                     />
                   </div>
-                  <div className="flex items-center gap-2 rounded-2xl rounded-tl-xs bg-surface border border-line px-4 py-3 shadow-xs">
-                    <span className="text-xs text-ink-soft">Siebot está preparando la orientación</span>
+                  <div className="flex items-center gap-2 pt-1.5">
                     <div className="flex gap-1 items-center">
                       {[0, 1, 2].map((i) => (
                         <motion.span
@@ -568,7 +595,7 @@ export function ChatbotWidget() {
               )}
             </div>
 
-            {/* Input y formulario de envío */}
+            {/* Input */}
             <form
               onSubmit={enviar}
               className="border-t border-line bg-surface p-2.5 sm:p-3"
@@ -586,7 +613,7 @@ export function ChatbotWidget() {
                   type="submit"
                   disabled={cargando || !texto.trim()}
                   aria-label="Enviar consulta"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed shadow-sm transition-all hover:bg-gold-deep hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep text-ink-fixed shadow-[0_6px_16px_-6px_rgba(169,124,22,0.6)] transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <PaperPlaneTilt weight="fill" className="h-4 w-4" />
                 </button>

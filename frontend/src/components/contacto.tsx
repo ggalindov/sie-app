@@ -39,7 +39,8 @@ const canales = [
 // y con su propio flujo, a pedido explícito del usuario).
 export function Contacto() {
   return (
-    <section id="contacto" className="snap-slide section-seam bg-surface/90 py-20 md:py-28">
+    <section id="contacto" className="snap-slide section-seam frame-fixed bg-surface/90">
+      <div className="py-20 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-14">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-14 md:grid-cols-12 md:gap-16">
           <motion.div
@@ -163,6 +164,7 @@ export function Contacto() {
             })}
           </div>
         </div>
+      </div>
       </div>
     </section>
   );

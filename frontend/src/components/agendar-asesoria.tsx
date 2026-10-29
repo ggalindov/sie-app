@@ -85,11 +85,12 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
   }
 
   return (
-    <section id="agendar" className="snap-slide section-seam relative overflow-hidden py-24 md:py-32">
+    <section id="agendar" className="snap-slide section-seam frame-fixed relative">
       <div className="absolute inset-0">{media}</div>
       <div className="absolute inset-0 bg-gradient-to-r from-night/92 via-night/85 to-night/60" />
 
-      <div className="relative mx-auto max-w-7xl px-6">
+      <div className="relative z-10 md:h-full md:overflow-hidden">
+      <div className="mx-auto max-w-7xl px-6 py-24 md:flex md:h-full md:flex-col md:justify-center md:py-10">
         <div className="grid gap-14 md:grid-cols-12 md:gap-12">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -313,6 +314,7 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
             </div>
           </motion.div>
         </div>
+      </div>
       </div>
     </section>
   );

@@ -410,6 +410,49 @@ export function moderarTestimonio(id: number, nuevoEstado: EstadoTestimonio) {
   });
 }
 
+// ---------- PQRS (Peticiones, Quejas, Reclamos y Sugerencias) ----------
+// Mismo nivel de acceso que Solicitudes (ADMIN_GENERAL o ABOGADO) -- ver PqrsAdminController
+// en el backend. A diferencia de Testimonios, responder una PQRS es atención al cliente con
+// plazo legal de referencia, no moderación de contenido de marketing.
+
+export type TipoPqrs = "PETICION" | "QUEJA" | "RECLAMO" | "SUGERENCIA";
+export type EstadoPqrs = "RECIBIDO" | "EN_TRAMITE" | "RESUELTO" | "CERRADO";
+
+export type PqrsAdmin = {
+  id: number;
+  radicado: string;
+  tipo: TipoPqrs;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  asunto: string;
+  descripcion: string;
+  estado: EstadoPqrs;
+  respuesta: string | null;
+  respondidoPor: string | null;
+  fechaCreacion: string;
+  fechaLimiteRespuesta: string;
+  fechaRespuesta: string | null;
+};
+
+export function listarPqrs(): Promise<PqrsAdmin[]> {
+  return pedido<PqrsAdmin[]>("/api/admin/pqrs");
+}
+
+export function cambiarEstadoPqrs(id: number, nuevoEstado: EstadoPqrs): Promise<PqrsAdmin> {
+  return pedido<PqrsAdmin>(`/api/admin/pqrs/${id}/estado`, {
+    method: "PATCH",
+    body: JSON.stringify({ nuevoEstado }),
+  });
+}
+
+export function responderPqrs(id: number, respuesta: string): Promise<PqrsAdmin> {
+  return pedido<PqrsAdmin>(`/api/admin/pqrs/${id}/responder`, {
+    method: "PATCH",
+    body: JSON.stringify({ respuesta }),
+  });
+}
+
 // ---------- Estadísticas ----------
 
 export type Estadisticas = {

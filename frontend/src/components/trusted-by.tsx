@@ -20,12 +20,13 @@ export function TrustedBy() {
 
   return (
     <section
-      className="snap-slide section-seam gradient-animate relative overflow-hidden py-24 md:py-32 lg:py-36"
+      className="snap-slide section-seam gradient-animate frame-fixed relative"
       style={{
         backgroundImage:
           "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.22), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.18), transparent 55%), linear-gradient(160deg, #0a0906 0%, #1c1811 55%, #0a0906 100%)",
       }}
     >
+      <div className="py-24 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-16 lg:py-20">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-10 md:grid-cols-12 md:items-end">
           <motion.div
@@ -114,6 +115,7 @@ export function TrustedBy() {
             </motion.div>
           ))}
         </div>
+      </div>
       </div>
     </section>
   );

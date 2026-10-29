@@ -319,13 +319,27 @@ export function NavItemConPanel({
       <AnimatePresence>
         {abierto && (
           <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.22, ease: EASE }}
+            // Cortina real, no blur+escala no-uniforme (esa combinación causaba un glitch
+            // visual real en Chrome: texto fantasma/doble cuando el panel y su contenido
+            // interno con stagger animaban filter+transform al mismo tiempo -- dos sistemas
+            // de animación encima del mismo elemento componiendo mal). clip-path es seguro:
+            // revela el panel de arriba hacia abajo como una cortina que sube, sin tocar
+            // filter ni deformar el texto con un scale no-uniforme.
+            initial={{ opacity: 0, y: -8, clipPath: "inset(0% 0% 100% 0% round 1rem)" }}
+            animate={{ opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0% round 1rem)" }}
+            exit={{ opacity: 0, y: -6, clipPath: "inset(0% 0% 100% 0% round 1rem)" }}
+            transition={{ duration: 0.42, ease: EASE, opacity: { duration: 0.25 } }}
             style={{ transformOrigin: origen }}
-            className={`absolute top-full z-30 mt-3 overflow-hidden rounded-2xl bg-surface shadow-[0_30px_60px_-20px_rgba(20,19,15,0.4)] ring-1 ring-line ${alineacion}`}
+            className={`absolute top-full z-30 mt-4 rounded-2xl bg-surface shadow-[0_34px_70px_-22px_rgba(20,19,15,0.45)] ring-1 ring-ink/[0.06] ${alineacion}`}
           >
+            {/* Filo superior en degradado dorado: mismo lenguaje de "sello" que ya usan
+                AdminPageHeader y las plantillas de correo, para que el panel se lea como una
+                extensión con peso propio del nav, no un <div> genérico con sombra. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[2.5px]"
+              style={{ backgroundImage: "linear-gradient(90deg, var(--color-gold-deep), var(--color-gold) 55%, var(--color-gold-pale))" }}
+            />
             {Panel()}
           </motion.div>
         )}

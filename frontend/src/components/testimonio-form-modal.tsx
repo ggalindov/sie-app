@@ -2,8 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { Dialog } from "@base-ui/react/dialog";
-import { Star, X } from "@phosphor-icons/react";
+import { motion } from "motion/react";
+import { Quotes, Star, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
+
+const EASE = [0.16, 1, 0.3, 1] as const;
 import { crearTestimonio, ApiError } from "@/lib/api";
 import { CampoTrampa } from "@/components/campo-trampa";
 import { CasillaConsentimiento } from "@/components/casilla-consentimiento";
@@ -76,8 +79,13 @@ export function TestimonioFormModal({
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && cerrar()}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-night/70 backdrop-blur-sm transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 max-h-[90dvh] overflow-y-auto rounded-2xl sm:rounded-[1.75rem] bg-paper p-5 sm:p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-line transition-all duration-300 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-night/75 backdrop-blur-md transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-2xl sm:rounded-[1.75rem] bg-paper p-5 sm:p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-line transition-all duration-300 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
+            style={{ backgroundImage: "linear-gradient(90deg, var(--color-gold-deep), var(--color-gold) 55%, var(--color-gold-pale))" }}
+          />
           <Dialog.Close
             aria-label="Cerrar"
             className="absolute right-3.5 top-3.5 sm:right-5 sm:top-5 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5 hover:text-ink transition-colors"
@@ -86,24 +94,52 @@ export function TestimonioFormModal({
           </Dialog.Close>
 
           {estado === "enviado" ? (
-            <div className="flex min-h-[220px] sm:min-h-[260px] flex-col items-center justify-center text-center p-2 sm:p-4">
-              <Dialog.Title className="font-display text-xl sm:text-2xl">Gracias por tu testimonio</Dialog.Title>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex min-h-[220px] sm:min-h-[260px] flex-col items-center justify-center text-center p-2 sm:p-4"
+            >
+              <motion.span
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5, ease: EASE }}
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-gold-pale/60 ring-1 ring-gold/30"
+              >
+                <svg viewBox="0 0 24 24" className="h-6 w-6 text-gold-deep" fill="none">
+                  <motion.path
+                    d="M4 12.5L9.5 18L20 6"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.5, delay: 0.25, ease: EASE }}
+                  />
+                </svg>
+              </motion.span>
+              <Dialog.Title className="mt-5 font-display text-xl sm:text-2xl">Gracias por tu testimonio</Dialog.Title>
               <Dialog.Description className="mt-2 sm:mt-3 max-w-xs text-xs sm:text-sm leading-relaxed text-ink-soft">
                 Lo revisaremos y, una vez aprobado, se mostrará en nuestro sitio.
               </Dialog.Description>
               <Dialog.Close className="mt-5 sm:mt-6 text-sm font-medium text-gold-deep underline underline-offset-4">
                 Cerrar
               </Dialog.Close>
-            </div>
+            </motion.div>
           ) : (
             <>
-              <div className="pr-6">
-                <Dialog.Title className="font-display text-xl sm:text-2xl leading-snug">
-                  Cuéntanos tu experiencia
-                </Dialog.Title>
-                <Dialog.Description className="mt-1 sm:mt-2 text-xs sm:text-sm leading-relaxed text-ink-soft">
-                  Tu testimonio se publica luego de una breve revisión de nuestro equipo.
-                </Dialog.Description>
+              <div className="flex items-start gap-3.5 pr-6">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gold/10 text-gold">
+                  <Quotes weight="fill" className="h-5 w-5" />
+                </span>
+                <div>
+                  <Dialog.Title className="font-display text-xl sm:text-2xl leading-snug">
+                    Cuéntanos tu experiencia
+                  </Dialog.Title>
+                  <Dialog.Description className="mt-1 text-xs sm:text-sm leading-relaxed text-ink-soft">
+                    Tu testimonio se publica luego de una breve revisión de nuestro equipo.
+                  </Dialog.Description>
+                </div>
               </div>
 
               <form onSubmit={onSubmit} className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
@@ -141,7 +177,7 @@ export function TestimonioFormModal({
                       name="nombre"
                       required
                       maxLength={150}
-                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none focus:ring-4 focus:ring-gold/10 transition-all duration-200"
                     />
                   </div>
                   <div className="col-span-2 sm:col-span-1 space-y-1 sm:space-y-1.5">
@@ -153,7 +189,7 @@ export function TestimonioFormModal({
                       name="correo"
                       type="email"
                       required
-                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none focus:ring-4 focus:ring-gold/10 transition-all duration-200"
                     />
                   </div>
                   <div className="col-span-1 space-y-1 sm:space-y-1.5">
@@ -164,7 +200,7 @@ export function TestimonioFormModal({
                       id="t-empresa"
                       name="empresa"
                       maxLength={150}
-                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none focus:ring-4 focus:ring-gold/10 transition-all duration-200"
                     />
                   </div>
                   <div className="col-span-1 space-y-1 sm:space-y-1.5">
@@ -175,7 +211,7 @@ export function TestimonioFormModal({
                       id="t-cargo"
                       name="cargo"
                       maxLength={150}
-                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none"
+                      className="w-full rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none focus:ring-4 focus:ring-gold/10 transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -190,7 +226,7 @@ export function TestimonioFormModal({
                     required
                     rows={3}
                     maxLength={600}
-                    className="w-full resize-none rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none"
+                    className="w-full resize-none rounded-lg sm:rounded-xl border border-line bg-surface px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink focus:border-gold-deep focus:outline-none focus:ring-4 focus:ring-gold/10 transition-all duration-200"
                     placeholder="Cuéntanos cómo fue tu experiencia con SIE Jurídicos"
                   />
                 </div>

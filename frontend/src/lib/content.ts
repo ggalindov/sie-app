@@ -136,6 +136,13 @@ export type MiembroEquipo = {
   cargo: string;
   foto: string;
   bio?: string;
+  // Línea corta para la tarjeta de la grilla (no una biografía completa): para quien
+  // tiene bio real (Tatiana, Jorge Mario, Juan David) es un extracto fiel de esa misma
+  // bio, nunca un dato nuevo. Para el resto del equipo, sin bio publicada todavía, es
+  // solo su cargo redactado como frase -- cero datos inventados (años, universidades,
+  // especialidades que no se han confirmado), ver CLAUDE.md sobre no fabricar contenido
+  // del equipo.
+  descripcionBreve: string;
   // encuadre por foto: las fotos reales del equipo vienen con zoom y
   // encuadre distintos entre sí (algunas muy cerca de rostro, otras con
   // mucho fondo, una descentrada). No hay herramienta de recorte/edición de
@@ -156,12 +163,14 @@ export const equipo: MiembroEquipo[] = [
     cargo: "Socia Fundadora",
     foto: "/equipo/tatiana-bustos.jpg",
     bio: "Especialista en Derecho Administrativo y Probatorio, Magíster en Administración Estratégica de Recursos Humanos. Más de 20 años de experiencia en el sector público y privado, con cargos como Directora de Conciliación en la Personería de Bogotá y asesora jurídica en la Contraloría General de la República.",
+    descripcionBreve: "Derecho Administrativo y Probatorio.",
     posicion: "50% 32%",
   },
   {
     nombre: "Antonio Farfán Barrero",
     cargo: "Abogado Socio",
     foto: "/equipo/antonio-farfan.jpg",
+    descripcionBreve: "Socio del equipo jurídico de la firma.",
     posicion: "48% 22%",
   },
   {
@@ -169,6 +178,7 @@ export const equipo: MiembroEquipo[] = [
     cargo: "Abogado Senior",
     foto: "/equipo/jorge-mario.png",
     bio: "Especialista en Derecho Administrativo, Conciliador en Derecho. Experto en Derecho Laboral, Seguridad Social, Tributario, Contractual y procesos de insolvencia, reestructuración y liquidación, con más de 20 años de experiencia en el sector público y privado.",
+    descripcionBreve: "Derecho Administrativo, Laboral y Seguridad Social.",
     posicion: "50% 30%",
     zoom: 0.94,
   },
@@ -176,6 +186,7 @@ export const equipo: MiembroEquipo[] = [
     nombre: "Oscar Fernando Rincón",
     cargo: "Abogado Senior",
     foto: "/equipo/oscar-rincon.jpg",
+    descripcionBreve: "Abogado senior del equipo litigante.",
     posicion: "50% 28%",
     zoom: 0.94,
   },
@@ -183,6 +194,7 @@ export const equipo: MiembroEquipo[] = [
     nombre: "Natalia Cárdenas Triviño",
     cargo: "Abogada",
     foto: "/equipo/natalia-cardenas.jpg",
+    descripcionBreve: "Abogada del equipo jurídico de la firma.",
     posicion: "62% 30%",
     zoom: 1.18,
   },
@@ -190,12 +202,14 @@ export const equipo: MiembroEquipo[] = [
     nombre: "Karen Yalena Cantillo Martínez",
     cargo: "Abogada",
     foto: "/equipo/karen-cantillo.jpg",
+    descripcionBreve: "Abogada del equipo jurídico de la firma.",
     posicion: "50% 30%",
   },
   {
     nombre: "Valentina Castañeda",
     cargo: "Abogada",
     foto: "/equipo/valentina-castaneda.jpg",
+    descripcionBreve: "Abogada del equipo jurídico de la firma.",
     posicion: "50% 22%",
     zoom: 1.05,
   },
@@ -203,6 +217,7 @@ export const equipo: MiembroEquipo[] = [
     nombre: "Iris Edelmira Pinzón",
     cargo: "Gestora Jurídica",
     foto: "/equipo/iris-pinzon.png",
+    descripcionBreve: "Gestión y seguimiento jurídico de casos.",
     posicion: "50% 26%",
     zoom: 1.12,
   },
@@ -210,6 +225,7 @@ export const equipo: MiembroEquipo[] = [
     nombre: "Alejandra Villate",
     cargo: "Practicante",
     foto: "/equipo/alejandra-villate.jpg",
+    descripcionBreve: "Practicante en formación jurídica.",
     posicion: "48% 28%",
     zoom: 1.02,
   },
@@ -218,6 +234,7 @@ export const equipo: MiembroEquipo[] = [
     cargo: "Líder de Gestión",
     foto: "/equipo/juan-david-galindo.jpg",
     bio: "Ingeniero de Sistemas de la Universidad El Bosque.",
+    descripcionBreve: "Ingeniero de Sistemas, liderazgo de gestión.",
     posicion: "50% 20%",
   },
 ];

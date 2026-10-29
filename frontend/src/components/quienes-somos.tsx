@@ -15,10 +15,12 @@ const stats = [
 
 export function QuienesSomos({ media }: { media: ReactNode }) {
   return (
-    <section
-      id="quienes-somos"
-      className="snap-slide section-seam py-16 md:py-24 flex flex-col justify-center"
-    >
+    <section id="quienes-somos" className="snap-slide section-seam frame-fixed">
+      {/* frame-fixed: la sección mide exactamente un viewport bajo el nav, con scroll
+          interno propio si el contenido no cabe -- antes esta sección (texto + imagen +
+          anillos de estadísticas) se salía del viewport en pantallas bajas y los anillos
+          quedaban apretados contra el borde inferior (ver captura de referencia). */}
+      <div className="py-16 md:h-full md:overflow-hidden md:py-20 flex flex-col md:justify-center">
       <div className="mx-auto flex w-full max-w-7xl flex-col px-6 md:justify-center">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}
@@ -109,6 +111,7 @@ export function QuienesSomos({ media }: { media: ReactNode }) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </section>
   );

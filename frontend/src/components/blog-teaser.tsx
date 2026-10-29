@@ -12,7 +12,8 @@ export async function BlogTeaser() {
   }
 
   return (
-    <section id="blog" className="snap-slide section-seam relative py-12 md:py-16 lg:py-20 xl:py-24 flex flex-col justify-center">
+    <section id="blog" className="snap-slide section-seam frame-fixed relative">
+      <div className="py-12 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-10 lg:py-12">
       <div className="mx-auto flex w-full max-w-7xl xl:max-w-[1440px] 2xl:max-w-[1580px] flex-col justify-center px-6 lg:px-10 xl:px-12">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -51,6 +52,7 @@ export async function BlogTeaser() {
             <ArrowRight weight="bold" className="h-3.5 w-3.5" />
           </Link>
         </div>
+      </div>
       </div>
     </section>
   );

@@ -1,50 +1,41 @@
 "use client";
 
 import { useEffect } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-gsap.registerPlugin(ScrollTrigger);
-
-// Pedido explícito del usuario: que el paso de una sección a la siguiente en la home
-// no se sienta como diapositivas cortadas, sino como un solo recorrido. Un degradado de
-// color estático (section-seam) ayuda, pero no "desenfoca" nada de verdad. Esto sí: cada
-// sección de scroll-snap nace desenfocada y atenuada mientras entra desde abajo, y se
-// aclara justo cuando termina de encajar en su lugar -- como si la cámara enfocara al
-// llegar. Es un componente GSAP puro, sin nada de Motion (regla del proyecto: nunca
-// mezclar ambas librerías en el mismo árbol), aislado del contenido interno de cada
-// sección -- no le importa qué haya adentro, solo opera sobre el contenedor .snap-slide.
+// Cuarta vuelta de este componente. Las dos primeras versiones (GSAP scrub, luego GSAP
+// ScrollTrigger onEnter/onEnterBack con duración fija) seguían sin notarse en la práctica
+// -- en ambos casos GSAP calcula la posición del "trigger" en coordenadas de scroll
+// absolutas al montar, y con scroll-snap "mandatory" el navegador puede reflowar/ajustar
+// el scroll por su cuenta de formas que GSAP no vuelve a medir sin un refresh explícito,
+// así que el disparo quedaba desalineado o simplemente no ocurría ("de momento no hay
+// nada", reporte real del usuario, dos veces).
+//
+// Esta versión no depende de ninguna coordenada de scroll calculada de antemano: usa
+// IntersectionObserver, que por diseño reacciona a la visibilidad REAL del elemento en
+// cada momento, sin importar cómo se movió el scroll para llegar ahí. Cuando una sección
+// cruza el umbral de visibilidad se le agrega la clase "seccion-vista" (ver globals.css,
+// la transición de filter/opacity/transform vive ahí, no en JS) -- y se le quita cuando
+// deja de ser visible, así que tanto la que entra como la que sale animan, en cualquier
+// dirección del scroll.
 export function ScrollSectionBlur() {
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) return;
 
-    const ctx = gsap.context(() => {
-      const secciones = gsap.utils.toArray<HTMLElement>(".snap-slide");
-      secciones.forEach((seccion, i) => {
-        // La primera sección (el Hero) ya está a la vista al cargar la página --
-        // desenfocarla de entrada se sentiría como un error de carga, no como un
-        // recorrido, así que empieza directo desde la segunda.
-        if (i === 0) return;
-        gsap.fromTo(
-          seccion,
-          { filter: "blur(16px)", opacity: 0.45 },
-          {
-            filter: "blur(0px)",
-            opacity: 1,
-            ease: "none",
-            scrollTrigger: {
-              trigger: seccion,
-              start: "top bottom",
-              end: "top center",
-              scrub: true,
-            },
-          },
-        );
-      });
-    });
+    const secciones = Array.from(document.querySelectorAll<HTMLElement>(".snap-slide"));
+    if (secciones.length === 0) return;
 
-    return () => ctx.revert();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          entry.target.classList.toggle("seccion-vista", entry.isIntersecting);
+        }
+      },
+      { threshold: 0.45 },
+    );
+    secciones.forEach((seccion) => observer.observe(seccion));
+
+    return () => observer.disconnect();
   }, []);
 
   return null;

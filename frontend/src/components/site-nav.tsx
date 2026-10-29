@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
-import { List, X, WhatsappLogo, Lock, FacebookLogo, InstagramLogo, LinkedinLogo } from "@phosphor-icons/react";
+import { List, X, WhatsappLogo, Lock, FacebookLogo, InstagramLogo, LinkedinLogo, SealCheck } from "@phosphor-icons/react";
 import { navLinks, siteConfig } from "@/lib/site-config";
 import { MagneticButton } from "@/components/magnetic-button";
 import { NavItemConPanel } from "@/components/nav-dropdown";
@@ -232,6 +232,27 @@ export function SiteNav() {
             </button>
           </div>
         </div>
+
+        {/* "Protege tu marca": pedido explícito del usuario de dejarla "literalmente al
+            borde derecho" -- posicionada aparte, pegada al borde real del header (no
+            dentro de la fila con el padding px-6/px-10 que respeta todo lo demás), así
+            que no vive en el flex de arriba y no le cambia la posición a nada de "como
+            estaba". Mismo botón que ya existe flotante; este es un acceso adicional.
+
+            El posicionamiento absoluto vive en este <div> envoltorio, no en el <Link> de
+            adentro: .btn-sweep (ver globals.css) ya fija su propio position:relative fuera
+            de cualquier @layer de Tailwind, así que le gana a la utilidad "absolute" sin
+            importar el orden de clases -- bug real encontrado en vivo, el botón colapsaba
+            a flujo normal y se veía como una barra de ancho completo debajo del nav. */}
+        <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 sm:block">
+          <Link
+            href="/cuida-tu-marca"
+            className="btn-sweep flex shrink-0 items-center gap-1.5 overflow-hidden rounded-full bg-gold/45 py-2.5 pl-3.5 pr-4 text-sm font-medium text-ink-fixed shadow-[0_8px_20px_-10px_rgba(169,124,22,0.6)] backdrop-blur-sm active:scale-[0.98]"
+          >
+            <SealCheck weight="fill" className="h-4 w-4 shrink-0" />
+            Protege tu marca
+          </Link>
+        </div>
       </motion.header>
 
       <AnimatePresence>
@@ -280,7 +301,18 @@ export function SiteNav() {
                   <span className="relative z-10">{siteConfig.ctaPrincipal}</span>
                 </Link>
               </div>
-              <div className="mt-8 flex items-center gap-4">
+              <div className="mt-6">
+                <Link
+                  href="/cuida-tu-marca"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-4 py-2 text-xs font-medium text-gold ring-1 ring-gold/30"
+                >
+                  <SealCheck weight="fill" className="h-3.5 w-3.5 shrink-0" />
+                  Protege tu marca
+                </Link>
+              </div>
+
+              <div className="mt-5 flex items-center gap-4">
                 <HelpMenu
                   align="left"
                   direction="up"

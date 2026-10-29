@@ -12,7 +12,6 @@ import { ScrollSectionBlur } from "@/components/scroll-section-blur";
 import { SlideNav } from "@/components/slide-nav";
 import { NewsletterPopup } from "@/components/newsletter-popup";
 import { VisitorTracker } from "@/components/visitor-tracker";
-import { CuidaMarcaFloat } from "@/components/cuida-marca-float";
 import { ConsultaCasoFloat } from "@/components/consulta-caso-float";
 import { LoadingScreen } from "@/components/loading-screen";
 
@@ -78,7 +77,6 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         {children}
         <SiteFooter />
         <SlideNav />
-        {esInicio && <CuidaMarcaFloat />}
         {!esConsultaCaso && <ConsultaCasoFloat />}
         <WhatsappFloat />
         <ChatbotWidget />

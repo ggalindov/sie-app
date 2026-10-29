@@ -10,7 +10,8 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 export function TalentoHumano({ media }: { media: ReactNode }) {
   return (
-    <section className="snap-slide section-seam py-24 md:py-32">
+    <section className="snap-slide section-seam frame-fixed">
+      <div className="py-24 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-16">
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 md:grid-cols-2 md:gap-16">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -50,6 +51,7 @@ export function TalentoHumano({ media }: { media: ReactNode }) {
             />
           </Link>
         </motion.div>
+      </div>
       </div>
     </section>
   );

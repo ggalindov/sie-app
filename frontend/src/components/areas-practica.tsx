@@ -68,13 +68,19 @@ export function AreasPractica() {
   return (
     <section
       id="areas"
-      className="snap-slide section-seam relative py-14 md:py-20 lg:py-24 flex flex-col justify-center"
+      className="snap-slide section-seam frame-fixed relative"
       style={{
         backgroundImage:
           "radial-gradient(90% 70% at 88% 0%, rgba(217,169,37,0.1), transparent 55%), linear-gradient(175deg, var(--color-surface) 0%, var(--color-paper) 100%)",
       }}
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-col px-4 sm:px-6 lg:px-8">
+      {/* frame-fixed mide la sección a exactamente un viewport bajo el nav (ver
+          globals.css): esta capa es la que de verdad se desplaza si la grilla no cabe
+          completa, para que el punto de encaje del scroll-snap sea siempre exacto --
+          "un solo scroll" nunca deja la sección a medio recortar ni exige un segundo
+          scroll por fuera del snap para ver el resto. */}
+      <div className="py-14 md:h-full md:overflow-hidden md:py-20 lg:py-24 flex flex-col md:justify-center">
+        <div className="mx-auto flex w-full max-w-7xl flex-col px-4 sm:px-6 lg:px-8">
         {/* Cabecera Limpia */}
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <motion.h2
@@ -118,7 +124,7 @@ export function AreasPractica() {
               transition={{ duration: 0.6, delay: 0.05 * i, ease: EASE }}
               whileHover={{ y: -6 }}
               whileTap={{ scale: 0.98 }}
-              className="group relative flex w-full flex-col rounded-2xl sm:rounded-3xl bg-surface border border-line hover:border-gold/60 p-3 sm:p-3.5 shadow-xs hover:shadow-[0_20px_45px_-12px_rgba(217,169,37,0.22)] transition-all duration-500 text-left cursor-pointer overflow-hidden"
+              className="group relative flex w-full flex-col rounded-2xl sm:rounded-3xl bg-surface border border-line p-3 sm:p-3.5 shadow-xs transition-all duration-500 text-left cursor-pointer overflow-hidden hover:border-gold/40 hover:shadow-[0_0_38px_-8px_rgba(217,169,37,0.45)]"
             >
               {/* Portada Fotográfica Limpia y Garantizada en Móvil */}
               <div className="relative aspect-[16/10] w-full min-h-[200px] xs:min-h-[220px] sm:min-h-[210px] shrink-0 overflow-hidden rounded-xl sm:rounded-2xl bg-night">
@@ -132,6 +138,10 @@ export function AreasPractica() {
                 />
                 {/* Sutil viñeta degradada */}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-night/40 via-transparent to-night/20" />
+                {/* Mismo brillo diagonal que la grilla de Equipo -- un solo lenguaje de
+                    "hover elegante" repetido en todo el sitio, en vez de que cada sección
+                    invente su propio efecto. */}
+                <div className="pointer-events-none absolute inset-y-0 -left-2/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:left-[130%] group-hover:opacity-100" />
               </div>
 
               {/* Título Totalmente Limpio */}
@@ -146,6 +156,7 @@ export function AreasPractica() {
               </div>
             </motion.div>
           ))}
+        </div>
         </div>
       </div>
 

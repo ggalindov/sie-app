@@ -20,7 +20,7 @@ export function Criterio({ media }: { media: ReactNode }) {
   const y = useTransform(scrollYProgress, [0, 1], ["-8%", "8%"]);
 
   return (
-    <section ref={ref} className="snap-slide relative overflow-hidden py-28 md:py-40">
+    <section ref={ref} className="snap-slide frame-fixed relative">
       <motion.div style={{ y }} className="absolute inset-[-8%]">
         {media}
       </motion.div>
@@ -34,7 +34,8 @@ export function Criterio({ media }: { media: ReactNode }) {
         }}
       />
 
-      <div className="relative mx-auto max-w-5xl px-6 text-center">
+      <div className="relative z-10 md:h-full md:overflow-hidden">
+      <div className="mx-auto max-w-5xl px-6 py-28 text-center md:flex md:h-full md:flex-col md:justify-center md:py-16">
         <motion.h2
           initial={{ opacity: 0, y: 28 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -82,6 +83,7 @@ export function Criterio({ media }: { media: ReactNode }) {
           reales y el seguimiento constante de un equipo que conoce el
           sistema.
         </motion.p>
+      </div>
       </div>
     </section>
   );
