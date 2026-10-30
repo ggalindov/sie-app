@@ -33,7 +33,7 @@ export function Equipo() {
   const [seleccionado, setSeleccionado] = useState<MiembroEquipo | null>(null);
 
   return (
-    <section id="equipo" className="snap-slide section-seam frame-fixed overflow-hidden">
+    <section id="equipo" className="snap-slide frame-fixed overflow-hidden">
       {/* frame-fixed mide la sección a exactamente un viewport bajo el nav (ver
           globals.css): esta capa es la que de verdad se desplaza si la grilla de 10
           personas no cabe completa en una pantalla baja, en vez de estirar la sección

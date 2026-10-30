@@ -387,15 +387,8 @@ html[data-theme="dark"] .ambient-field {
   position: absolute;
   inset: 0 0 auto 0;
   height: 1px;
-  z-index: 1;
+  z-index: 10;
   background: linear-gradient(90deg, transparent, rgba(217, 169, 37, 0.4), transparent);
-}
-
-/* En móvil se oculta la línea divisoria para evitar cortes rígidos y favorecer el flujo suave */
-@media (max-width: 767px) {
-  .section-seam::before {
-    display: none;
-  }
 }
 
 .section-seam::after {
