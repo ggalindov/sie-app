@@ -33,13 +33,13 @@ export function Equipo() {
   const [seleccionado, setSeleccionado] = useState<MiembroEquipo | null>(null);
 
   return (
-    <section id="equipo" className="snap-slide section-seam frame-fixed">
+    <section id="equipo" className="snap-slide section-seam frame-fixed overflow-hidden">
       {/* frame-fixed mide la sección a exactamente un viewport bajo el nav (ver
           globals.css): esta capa es la que de verdad se desplaza si la grilla de 10
           personas no cabe completa en una pantalla baja, en vez de estirar la sección
           más allá de un viewport -- así el scroll-snap siempre encaja exacto, "ni más ni
           menos", sin depender de ajustar tamaños a mano por rango de alto de pantalla. */}
-      <div className="py-14 md:h-full md:overflow-hidden md:py-7 lg:py-8 flex flex-col md:justify-center">
+      <div className="py-12 sm:py-14 md:h-full md:overflow-hidden md:py-7 lg:py-8 flex flex-col md:justify-center">
         {/* max-w-[1680px], no max-w-7xl (1280px): en monitores anchos sobraba mucho
             margen vacío a los lados mientras las tarjetas se quedaban chicas (pedido
             explícito: "acomodadas perfectamente al espacio"). En pantallas de hasta
@@ -54,7 +54,7 @@ export function Equipo() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.4 }}
               transition={{ duration: 0.7, ease: EASE }}
-              className="max-w-xl font-display text-5xl leading-tight tracking-tight md:text-6xl"
+              className="max-w-xl font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight tracking-tight"
             >
               Nuestro equipo
             </motion.h2>
@@ -93,7 +93,7 @@ export function Equipo() {
                 // sobre por qué se pasó a cuadrado). El resto de la sección se recortó
                 // (padding, margen de la grilla) para que las 2 filas sigan cabiendo
                 // completas sin scroll con esta altura extra.
-                className="group relative aspect-[11/12] w-[calc(50%-0.4375rem)] shrink-0 overflow-hidden rounded-2xl text-left ring-1 ring-gold/25 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15),inset_0_0_26px_10px_rgba(0,0,0,0.22)] transition-shadow duration-500 hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15),inset_0_0_26px_10px_rgba(0,0,0,0.22),0_0_38px_-6px_rgba(217,169,37,0.55)] sm:w-[calc(33.333%-0.67rem)] md:w-[calc(19%-0.8rem)]"
+                className="group relative aspect-[4/5] sm:aspect-[11/12] w-[calc(50%-0.4375rem)] shrink-0 overflow-hidden rounded-2xl text-left ring-1 ring-gold/25 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15),inset_0_0_26px_10px_rgba(0,0,0,0.22)] transition-shadow duration-500 hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.15),inset_0_0_26px_10px_rgba(0,0,0,0.22),0_0_38px_-6px_rgba(217,169,37,0.55)] sm:w-[calc(33.333%-0.67rem)] md:w-[calc(19%-0.8rem)]"
               >
                 {/* A color siempre, con exposición pareja (contrast+brightness fijos,
                     iguales en las 10). El brillo diagonal al pasar el mouse es lo que
@@ -115,13 +115,13 @@ export function Equipo() {
                 {/* Brillo diagonal: franja clara que barre la tarjeta de izquierda a
                     derecha al pasar el mouse, como el "shine" de una superficie pulida. */}
                 <div className="pointer-events-none absolute inset-y-0 -left-2/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent opacity-0 transition-all duration-700 ease-out group-hover:left-[130%] group-hover:opacity-100" />
-                <div className="absolute inset-x-0 bottom-0 p-3 sm:p-3.5">
-                  <p className="font-display text-sm leading-snug text-night-ink sm:text-base">{persona.nombre}</p>
-                  <span className="mt-1 inline-flex items-center gap-1.5 text-[10px] font-medium tracking-wide text-gold sm:text-[11px]">
+                <div className="absolute inset-x-0 bottom-0 p-2.5 sm:p-3.5">
+                  <p className="font-display text-xs sm:text-base leading-snug text-night-ink truncate sm:whitespace-normal">{persona.nombre}</p>
+                  <span className="mt-0.5 sm:mt-1 inline-flex items-center gap-1 text-[9px] sm:text-[11px] font-medium tracking-wide text-gold">
                     <span className="h-1 w-1 shrink-0 rounded-full bg-gold" />
                     {persona.cargo}
                   </span>
-                  <p className="mt-1 text-[10px] leading-snug text-night-ink/65 sm:text-[11px]">
+                  <p className="mt-0.5 sm:mt-1 text-[9px] sm:text-[11px] leading-tight text-night-ink/65 line-clamp-1 sm:line-clamp-2">
                     {persona.descripcionBreve}
                   </p>
                 </div>

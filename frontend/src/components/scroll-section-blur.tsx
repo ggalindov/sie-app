@@ -25,13 +25,22 @@ export function ScrollSectionBlur() {
     const secciones = Array.from(document.querySelectorAll<HTMLElement>(".snap-slide"));
     if (secciones.length === 0) return;
 
+    const esMovil = typeof window !== "undefined" && window.innerWidth < 768;
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           entry.target.classList.toggle("seccion-vista", entry.isIntersecting);
         }
       },
-      { threshold: 0.45 },
+      {
+        // En móvil, threshold: 0 con rootMargin de -20px garantiza que cualquier sección
+        // (especialmente Áreas de práctica, que al medir ~1800px requería 180px para alcanzar
+        // un threshold porcentual) comience a desenfocarse y elevarse de inmediato apenas asoma
+        // 20px en la parte inferior de la pantalla, sin quedarse pegada al bajar del Hero.
+        threshold: esMovil ? 0 : 0.45,
+        rootMargin: esMovil ? "0px 0px -20px 0px" : "0px",
+      },
     );
     secciones.forEach((seccion) => observer.observe(seccion));
 

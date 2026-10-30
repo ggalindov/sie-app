@@ -102,7 +102,7 @@ export function BlogTeaserContenido({
       <motion.div variants={staggerItem} className="lg:col-span-7">
         <Link
           href={`/blog/${destacado.slug}`}
-          className="group relative flex h-[380px] sm:h-[420px] lg:h-[500px] xl:h-[550px] 2xl:h-[580px] flex-col justify-end overflow-hidden rounded-3xl bg-night ring-1 ring-line/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_28px_60px_-24px_rgba(20,19,15,0.45)] hover:ring-gold/60"
+          className="group relative flex min-h-[340px] sm:h-[420px] lg:h-[500px] xl:h-[550px] 2xl:h-[580px] flex-col justify-end overflow-hidden rounded-2xl sm:rounded-3xl bg-night ring-1 ring-line/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_28px_60px_-24px_rgba(20,19,15,0.45)] hover:ring-gold/60"
         >
           {destacado.imagenUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- enlace externo arbitrario pegado por el admin
@@ -123,7 +123,7 @@ export function BlogTeaserContenido({
           <div className="absolute inset-0 bg-gradient-to-t from-night/95 via-night/60 to-night/15" />
 
           {/* Contenido de la tarjeta destacada */}
-          <div className="relative z-10 flex flex-col justify-end p-5 sm:p-7 md:p-8 xl:p-10">
+          <div className="relative z-10 flex flex-col justify-end p-4 sm:p-7 md:p-8 xl:p-10">
             <div className="flex flex-wrap items-center gap-2 xl:gap-2.5">
               <span className="rounded-full bg-gold px-3 py-0.5 xl:px-3.5 xl:py-1 text-[11px] xl:text-xs font-semibold uppercase tracking-wider text-ink-fixed shadow-xs">
                 {destacado.categoria.nombre}
@@ -141,7 +141,7 @@ export function BlogTeaserContenido({
               )}
             </div>
 
-            <h3 className="mt-3 xl:mt-4 font-display text-xl sm:text-2xl lg:text-3xl xl:text-4xl leading-snug text-night-ink transition-colors duration-300 group-hover:text-gold line-clamp-2">
+            <h3 className="mt-2.5 sm:mt-3 xl:mt-4 font-display text-lg sm:text-2xl lg:text-3xl xl:text-4xl leading-snug text-night-ink transition-colors duration-300 group-hover:text-gold line-clamp-2">
               {destacado.titulo}
             </h3>
 
@@ -178,7 +178,7 @@ export function BlogTeaserContenido({
                 href={`/blog/${articulo.slug}`}
                 className="group flex gap-3.5 xl:gap-4 rounded-2xl xl:rounded-3xl border border-line bg-surface p-3 xl:p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:bg-surface/80 hover:shadow-xs"
               >
-                <div className="relative h-16 w-16 sm:h-18 sm:w-18 xl:h-22 xl:w-22 shrink-0 overflow-hidden rounded-xl xl:rounded-2xl bg-night">
+                <div className="relative h-14 w-14 sm:h-18 sm:w-18 xl:h-22 xl:w-22 shrink-0 overflow-hidden rounded-xl xl:rounded-2xl bg-night">
                   {articulo.imagenUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- enlace externo arbitrario pegado por el admin
                     <img
@@ -244,7 +244,7 @@ export function BlogTeaserContenido({
 
         {/* Tarjeta Directa de Conversión Legal (Convierte lectores en clientes) */}
         <motion.div variants={staggerItem}>
-          <div className="group relative overflow-hidden rounded-2xl xl:rounded-3xl border border-gold/35 bg-gradient-to-br from-gold/15 via-surface to-gold/5 p-4 xl:p-5 shadow-xs ring-1 ring-gold/20 transition-all duration-300 hover:shadow-sm hover:ring-gold/40">
+          <div className="group relative overflow-hidden rounded-2xl xl:rounded-3xl border border-gold/35 bg-gradient-to-br from-gold/15 via-surface to-gold/5 p-3.5 sm:p-4 xl:p-5 shadow-xs ring-1 ring-gold/20 transition-all duration-300 hover:shadow-sm hover:ring-gold/40">
             <div className="flex items-start gap-3.5 xl:gap-4">
               <div className="flex h-10 w-10 xl:h-12 xl:w-12 shrink-0 items-center justify-center rounded-xl xl:rounded-2xl bg-gold text-ink-fixed shadow-xs transition-transform duration-300 group-hover:scale-105">
                 <Scales weight="fill" className="h-5 w-5 xl:h-6 xl:w-6" />

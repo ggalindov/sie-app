@@ -20,7 +20,7 @@ export function Criterio({ media }: { media: ReactNode }) {
   const y = useTransform(scrollYProgress, [0, 1], ["-8%", "8%"]);
 
   return (
-    <section ref={ref} className="snap-slide frame-fixed relative">
+    <section ref={ref} className="snap-slide frame-fixed relative overflow-hidden">
       {/* top-[-8%] + h-[116dvh], no inset-[-8%]: en escritorio frame-fixed deja esta
           sección a exactamente un viewport, así que antes daba igual -- pero en móvil
           frame-fixed NO fija altura a propósito (las secciones fluyen con su contenido
@@ -36,7 +36,7 @@ export function Criterio({ media }: { media: ReactNode }) {
       <motion.div style={{ y }} className="absolute inset-x-[-8%] top-[-8%] h-[116dvh]">
         {media}
       </motion.div>
-      <div className="absolute inset-0 bg-gradient-to-b from-night/90 via-night/80 to-night/90" />
+      <div className="absolute inset-0 bg-gradient-to-b from-paper via-night/85 to-paper" />
       <div
         aria-hidden="true"
         className="absolute inset-0"
@@ -45,9 +45,24 @@ export function Criterio({ media }: { media: ReactNode }) {
             "radial-gradient(60% 50% at 50% 45%, rgba(217,169,37,0.14), transparent 70%)",
         }}
       />
+      {/* Viñeta radial perimetral para suavizar bordes laterales y esquinas */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_30%,var(--color-paper)_100%)] opacity-80"
+      />
+      {/* Desvanecimiento superior profundo para fundir suavemente con la sección anterior */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-32 sm:h-44 md:h-56 bg-gradient-to-b from-paper via-paper/75 to-transparent"
+      />
+      {/* Desvanecimiento inferior profundo para fundir suavemente hacia la sección siguiente */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 sm:h-44 md:h-56 bg-gradient-to-t from-paper via-paper/75 to-transparent"
+      />
 
-      <div className="relative z-10 md:h-full md:overflow-hidden">
-      <div className="mx-auto max-w-5xl px-6 py-28 text-center md:flex md:h-full md:flex-col md:justify-center md:py-16">
+      <div className="relative z-20 md:h-full md:overflow-hidden">
+      <div className="mx-auto max-w-5xl px-6 py-18 sm:py-24 md:flex md:h-full md:flex-col md:justify-center md:py-16">
         <motion.h2
           initial={{ opacity: 0, y: 28 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -60,10 +75,10 @@ export function Criterio({ media }: { media: ReactNode }) {
           </span>
 
           <span className="mt-4 sm:mt-6 flex flex-wrap items-baseline justify-center gap-x-4 gap-y-2">
-            <span className="font-display text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-medium tracking-tight text-gold drop-shadow-[0_8px_36px_rgba(217,169,37,0.45)]">
+            <span className="font-display text-4xl sm:text-7xl md:text-8xl lg:text-9xl font-medium tracking-tight text-gold drop-shadow-[0_8px_36px_rgba(217,169,37,0.45)]">
               veinte años
             </span>
-            <span className="font-display text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal tracking-tight text-night-ink">
+            <span className="font-display text-3xl sm:text-6xl md:text-7xl lg:text-8xl font-normal tracking-tight text-night-ink">
               de experiencia.
             </span>
           </span>
@@ -75,13 +90,13 @@ export function Criterio({ media }: { media: ReactNode }) {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.8, delay: 0.12, ease: EASE }}
-          className="my-7 sm:my-10 flex max-w-full items-center justify-center gap-2 sm:gap-4 overflow-hidden"
+          className="my-6 sm:my-10 flex max-w-full items-center justify-center gap-2 sm:gap-4 overflow-hidden"
         >
-          <div className="h-px w-10 sm:w-28 md:w-32 shrink bg-gradient-to-r from-transparent via-gold/60 to-gold/20" />
-          <span className="shrink-0 text-[10px] sm:text-xs font-serif uppercase tracking-[0.16em] sm:tracking-[0.25em] text-gold/90 select-none">
+          <div className="h-px w-6 sm:w-28 md:w-32 shrink bg-gradient-to-r from-transparent via-gold/60 to-gold/20" />
+          <span className="shrink-0 text-[9px] sm:text-xs font-serif uppercase tracking-[0.1em] sm:tracking-[0.25em] text-gold/90 select-none">
             Jurisprudencia · Precedentes · Rigor
           </span>
-          <div className="h-px w-10 sm:w-28 md:w-32 shrink bg-gradient-to-l from-transparent via-gold/60 to-gold/20" />
+          <div className="h-px w-6 sm:w-28 md:w-32 shrink bg-gradient-to-l from-transparent via-gold/60 to-gold/20" />
         </motion.div>
 
         <motion.p
@@ -89,7 +104,7 @@ export function Criterio({ media }: { media: ReactNode }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.8, delay: 0.2, ease: EASE }}
-          className="mx-auto max-w-2xl text-balance text-lg font-light leading-relaxed text-night-ink/85 sm:text-xl md:text-2xl"
+          className="mx-auto max-w-2xl text-balance text-base font-light leading-relaxed text-night-ink/85 sm:text-xl md:text-2xl"
         >
           No improvisamos. Cada estrategia se construye sobre precedentes
           reales y el seguimiento constante de un equipo que conoce el

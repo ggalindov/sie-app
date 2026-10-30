@@ -39,9 +39,9 @@ const canales = [
 // y con su propio flujo, a pedido explícito del usuario).
 export function Contacto() {
   return (
-    <section id="contacto" className="snap-slide section-seam frame-fixed bg-surface/90">
-      <div className="py-20 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-14">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="contacto" className="snap-slide section-seam frame-fixed bg-surface/90 overflow-hidden">
+      <div className="py-14 sm:py-20 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-14">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid gap-14 md:grid-cols-12 md:gap-16">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -50,7 +50,7 @@ export function Contacto() {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-5"
           >
-            <h2 className="font-display text-4xl leading-tight tracking-tight md:text-5xl">
+            <h2 className="font-display text-3xl sm:text-4xl leading-tight tracking-tight md:text-5xl">
               Contacto
             </h2>
             <p className="mt-4 max-w-md text-base leading-relaxed text-ink-soft">
@@ -124,8 +124,8 @@ export function Contacto() {
               const Icono = canal.icono;
               const esInterno = canal.href.startsWith("/");
               const contenido = (
-                <div className="card-edged flex w-full items-center gap-4 sm:gap-5 px-5 py-5 sm:px-7 sm:py-6 transition-transform duration-300 group-hover:-translate-x-1">
-                  <span className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
+                <div className="card-edged flex w-full items-center gap-3 sm:gap-5 px-4 py-3.5 sm:px-7 sm:py-6 transition-transform duration-300 group-hover:-translate-x-1">
+                  <span className="flex h-11 w-11 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-full bg-gold-pale/60 text-gold-deep transition-transform duration-300 group-hover:scale-105">
                     <Icono weight="light" className="h-5 w-5 sm:h-6 sm:w-6" />
                   </span>
                   <div className="min-w-0 flex-1">

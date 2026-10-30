@@ -85,12 +85,12 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
   }
 
   return (
-    <section id="agendar" className="snap-slide section-seam frame-fixed relative">
+    <section id="agendar" className="snap-slide section-seam frame-fixed relative overflow-hidden">
       <div className="absolute inset-0">{media}</div>
       <div className="absolute inset-0 bg-gradient-to-r from-night/92 via-night/85 to-night/60" />
 
       <div className="relative z-10 md:h-full md:overflow-hidden">
-      <div className="mx-auto max-w-7xl px-6 py-24 md:flex md:h-full md:flex-col md:justify-center md:py-10">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-14 sm:py-24 md:flex md:h-full md:flex-col md:justify-center md:py-10">
         <div className="grid gap-14 md:grid-cols-12 md:gap-12">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -99,7 +99,7 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
             transition={{ duration: 0.7, ease: EASE }}
             className="md:col-span-4 md:self-center"
           >
-            <h2 className="font-display text-4xl leading-tight tracking-tight text-night-ink md:text-5xl">
+            <h2 className="font-display text-3xl sm:text-4xl leading-tight tracking-tight text-night-ink md:text-5xl">
               Agendar asesoría
             </h2>
             <p className="mt-4 max-w-sm text-base leading-relaxed text-night-ink/70">
@@ -131,9 +131,9 @@ export function AgendarAsesoria({ media }: { media: ReactNode }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
-            className="rounded-[1.75rem] sm:rounded-[2rem] bg-ink/5 p-1.5 sm:p-2 ring-1 ring-ink/5 md:col-span-8"
+            className="rounded-2xl sm:rounded-[2rem] bg-ink/5 p-1 sm:p-2 ring-1 ring-ink/5 md:col-span-8"
           >
-            <div className="rounded-[1.4rem] sm:rounded-[1.6rem] bg-paper p-5 sm:p-7 ring-1 ring-line md:p-10">
+            <div className="rounded-[0.95rem] sm:rounded-[1.6rem] bg-paper p-4 sm:p-7 ring-1 ring-line md:p-10">
               <AnimatePresence mode="wait">
                 {estado === "enviado" ? (
                   <motion.div

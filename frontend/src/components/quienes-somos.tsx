@@ -15,19 +15,19 @@ const stats = [
 
 export function QuienesSomos({ media }: { media: ReactNode }) {
   return (
-    <section id="quienes-somos" className="snap-slide section-seam frame-fixed">
+    <section id="quienes-somos" className="snap-slide section-seam frame-fixed overflow-hidden">
       {/* frame-fixed: la sección mide exactamente un viewport bajo el nav, con scroll
           interno propio si el contenido no cabe -- antes esta sección (texto + imagen +
           anillos de estadísticas) se salía del viewport en pantallas bajas y los anillos
           quedaban apretados contra el borde inferior (ver captura de referencia). */}
-      <div className="py-16 md:h-full md:overflow-hidden md:py-20 flex flex-col md:justify-center">
+      <div className="py-12 sm:py-16 md:h-full md:overflow-hidden md:py-20 flex flex-col md:justify-center">
       <div className="mx-auto flex w-full max-w-7xl flex-col px-6 md:justify-center">
         <motion.h2
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="max-w-3xl shrink-0 text-balance font-display text-3xl sm:text-4xl leading-[1.08] tracking-tight md:text-5xl lg:text-6xl"
+          className="max-w-3xl shrink-0 text-balance font-display text-2xl sm:text-4xl leading-[1.12] tracking-tight md:text-5xl lg:text-6xl"
         >
           Más que abogados: aliados en cada decisión importante.
         </motion.h2>
@@ -97,7 +97,7 @@ export function QuienesSomos({ media }: { media: ReactNode }) {
                 WhatsApp a la derecha), tapando el número. Centrados con gap
                 fijo, los tres quedan lejos de ambos bordes sin importar el
                 ancho de pantalla. */}
-            <div className="flex items-start justify-center gap-5 border-t border-line pt-7 sm:justify-start sm:gap-8">
+            <div className="flex items-start justify-center gap-2.5 sm:justify-start sm:gap-8 border-t border-line pt-6 sm:pt-7">
               {stats.map((stat, i) => (
                 <AnilloEstadistica
                   key={stat.etiqueta}

@@ -12,7 +12,7 @@ import { AgendarAsesoria } from "@/components/agendar-asesoria";
 
 export default function Home() {
   return (
-    <main className="flex-1">
+    <main className="flex-1 w-full max-w-full overflow-x-clip">
       {/* 1. Veinte años de experiencia legal, a tu lado */}
       <Hero
         media={

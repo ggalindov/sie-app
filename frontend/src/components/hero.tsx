@@ -44,7 +44,7 @@ export function Hero({ media }: { media: ReactNode }) {
           flotante en pantallas angostas/bajas (confirmado con scrollWidth/overlap real en
           501px de ancho). A partir de sm: el stack flotante y el layout del hero dejan
           suficiente margen natural, así que vuelve al valor original. */}
-      <div className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-6 pb-40 pt-32 text-center sm:pb-16 md:pt-24">
+      <div className="relative mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-6 pb-28 pt-24 text-center sm:pb-16 sm:pt-28 md:pt-24">
         <motion.div
           {...entry(0)}
           className="relative flex h-36 w-36 items-center justify-center rounded-full bg-night-ink/10 ring-1 ring-night-ink/25 backdrop-blur-md sm:h-44 sm:w-44 md:h-52 md:w-52"
@@ -64,20 +64,20 @@ export function Hero({ media }: { media: ReactNode }) {
 
         <motion.h1
           {...entry(0.12)}
-          className="mt-8 sm:mt-9 text-balance font-display text-4xl sm:text-6xl md:text-7xl lg:text-8xl leading-[1.06] sm:leading-[1.04] tracking-tight text-night-ink"
+          className="mt-6 sm:mt-9 text-balance font-display text-3xl xs:text-4xl sm:text-6xl md:text-7xl lg:text-8xl leading-[1.08] sm:leading-[1.04] tracking-tight text-night-ink"
         >
           Veinte años de experiencia legal, a tu lado.
         </motion.h1>
 
         <motion.p
           {...entry(0.24)}
-          className="mt-5 sm:mt-6 max-w-xl text-balance text-base sm:text-lg leading-relaxed text-night-ink/75 md:text-xl"
+          className="mt-4 sm:mt-6 max-w-xl text-balance text-sm sm:text-lg leading-relaxed text-night-ink/75 md:text-xl"
         >
           Asesoría jurídica clara y cercana para personas y empresas, con
           más de 800 casos ganados.
         </motion.p>
 
-        <motion.div {...entry(0.34)} className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3.5 sm:gap-x-8 sm:gap-y-4">
+        <motion.div {...entry(0.34)} className="mt-7 sm:mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3.5 sm:gap-x-8 sm:gap-y-4">
           <MagneticButton strength={0.4}>
             <Link
               href="#agendar"

@@ -61,18 +61,18 @@ export function AnilloEstadistica({
       transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col items-center text-center"
     >
-      <div className="relative flex h-24 w-24 shrink-0 items-center justify-center sm:h-28 sm:w-28">
+      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center sm:h-28 sm:w-28">
         <div
           aria-hidden="true"
           className="absolute inset-[6px] rounded-full opacity-70"
           style={{ background: "radial-gradient(circle, var(--color-gold-pale) 0%, transparent 72%)" }}
         />
         <AnilloSeal trigger={contenedorRef} />
-        <p className="relative font-display text-2xl leading-none text-ink sm:text-[1.75rem]">
+        <p className="relative font-display text-xl sm:text-[1.75rem] leading-none text-ink">
           <Contador numero={numero} prefijo={prefijo} sufijo={sufijo} />
         </p>
       </div>
-      <p className="mt-3.5 max-w-[7rem] text-[11px] font-medium uppercase leading-tight tracking-[0.1em] text-ink-soft">
+      <p className="mt-2.5 sm:mt-3.5 max-w-[5.5rem] sm:max-w-[7rem] text-[10px] sm:text-[11px] font-medium uppercase leading-tight tracking-[0.08em] sm:tracking-[0.1em] text-ink-soft">
         {etiqueta}
       </p>
     </motion.div>

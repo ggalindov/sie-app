@@ -19,7 +19,20 @@
   }
 }
 
+/* Red de seguridad contra scroll horizontal en móvil:
+   En móvil (< 768px), ningún scroll-snap existe (scroll-snap es solo min-width: 768px).
+   html y body con overflow-x: clip evitan cualquier desborde horizontal accidental sin
+   crear contenedores de scroll secundario en escritorio ni romper la posición de elementos fixed. */
+@media (max-width: 767px) {
+  html,
+  body {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+}
+
 .snap-slide {
+  max-width: 100%;
   scroll-snap-align: start;
   /* --nav-height lo mide site-nav.tsx en vivo (ResizeObserver) y lo publica
      en <html>: el encaje del scroll-snap queda exacto sin importar cuánto
@@ -51,26 +64,45 @@
    fija, disparada por una clase, siempre se reproduce completa sin importar qué tan rápido
    se mueva el scroll nativo. Solo en desktop (scroll-snap tipo slide es solo desktop) y
    solo si el usuario no pidió menos movimiento. */
-@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
-  .snap-slide:not(:first-of-type) {
-    /* Afinado tras confirmar que el efecto ya se veía (el usuario tenía "reducir
-       movimiento" activo en Windows, ver nota en el chat): más largo y con menos
-       desplazamiento/blur que la primera versión, para que se sienta como un
-       respiro entre secciones, no como un golpe. */
-    opacity: 0.4;
-    filter: blur(14px);
-    transform: translateY(2.5%);
-    transition:
-      filter 1200ms cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 1200ms cubic-bezier(0.16, 1, 0.3, 1),
-      transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: filter, opacity, transform;
+@media (prefers-reduced-motion: no-preference) {
+  /* Transición suave con blur en móvil: optimizada para GPU con translate3d, blur sutil y curva sedosa */
+  @media (max-width: 767px) {
+    .snap-slide:not(:first-of-type) {
+      opacity: 0.5;
+      filter: blur(7px);
+      transform: translate3d(0, 16px, 0);
+      transition:
+        filter 750ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 750ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 750ms cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: filter, opacity, transform;
+    }
+
+    .snap-slide.seccion-vista {
+      opacity: 1;
+      filter: blur(0px);
+      transform: translate3d(0, 0, 0);
+    }
   }
 
-  .snap-slide.seccion-vista {
-    opacity: 1;
-    filter: blur(0px);
-    transform: translateY(0);
+  /* Transición en escritorio: blur más amplio de 14px */
+  @media (min-width: 768px) {
+    .snap-slide:not(:first-of-type) {
+      opacity: 0.4;
+      filter: blur(14px);
+      transform: translateY(2.5%);
+      transition:
+        filter 1200ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 1200ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: filter, opacity, transform;
+    }
+
+    .snap-slide.seccion-vista {
+      opacity: 1;
+      filter: blur(0px);
+      transform: translateY(0);
+    }
   }
 }
 
@@ -357,6 +389,13 @@ html[data-theme="dark"] .ambient-field {
   height: 1px;
   z-index: 1;
   background: linear-gradient(90deg, transparent, rgba(217, 169, 37, 0.4), transparent);
+}
+
+/* En móvil se oculta la línea divisoria para evitar cortes rígidos y favorecer el flujo suave */
+@media (max-width: 767px) {
+  .section-seam::before {
+    display: none;
+  }
 }
 
 .section-seam::after {

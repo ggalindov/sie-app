@@ -20,13 +20,13 @@ export function TrustedBy() {
 
   return (
     <section
-      className="snap-slide section-seam gradient-animate frame-fixed relative"
+      className="snap-slide section-seam gradient-animate frame-fixed relative overflow-hidden"
       style={{
         backgroundImage:
           "radial-gradient(120% 90% at 12% -10%, rgba(217,169,37,0.22), transparent 55%), radial-gradient(100% 90% at 90% 110%, rgba(217,169,37,0.18), transparent 55%), linear-gradient(160deg, #0a0906 0%, #1c1811 55%, #0a0906 100%)",
       }}
     >
-      <div className="py-24 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-16 lg:py-20">
+      <div className="py-14 sm:py-20 md:flex md:h-full md:flex-col md:justify-center md:overflow-hidden md:py-16 lg:py-20">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-10 md:grid-cols-12 md:items-end">
           <motion.div
@@ -37,7 +37,7 @@ export function TrustedBy() {
             className="md:col-span-7 lg:col-span-7"
           >
             {/* Titular monumental con 'confianza' más grande y animada */}
-            <h2 className="font-display text-3xl min-[400px]:text-4xl leading-[1.08] tracking-tight text-night-ink sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl">
+            <h2 className="font-display text-3xl min-[360px]:text-4xl leading-[1.1] tracking-tight text-night-ink sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl">
               La{" "}
               <motion.span
                 className="relative inline-block font-serif italic text-gold lg:text-[1.12em] tracking-normal"
@@ -68,7 +68,7 @@ export function TrustedBy() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-3 gap-2 min-[400px]:gap-4 sm:gap-6 md:gap-8 md:col-span-5 lg:col-span-5">
+          <div className="grid grid-cols-3 gap-1.5 min-[360px]:gap-2 min-[400px]:gap-4 sm:gap-6 md:gap-8 md:col-span-5 lg:col-span-5">
             {cifras.map((c, i) => (
               <motion.div
                 key={c.etiqueta}
@@ -78,10 +78,10 @@ export function TrustedBy() {
                 transition={{ duration: 0.6, delay: 0.08 * i, ease: EASE }}
                 className="text-center md:text-right"
               >
-                <p className="font-display text-3xl min-[400px]:text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl text-gold drop-shadow-[0_2px_16px_rgba(217,169,37,0.3)]">
+                <p className="font-display text-2xl min-[360px]:text-3xl min-[400px]:text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl text-gold drop-shadow-[0_2px_16px_rgba(217,169,37,0.3)]">
                   {c.valor}
                 </p>
-                <p className="mt-1.5 sm:mt-2 text-[11px] min-[400px]:text-xs sm:text-sm lg:text-base leading-snug text-night-ink/65 font-medium">
+                <p className="mt-1 sm:mt-2 text-[10px] min-[400px]:text-xs sm:text-sm lg:text-base leading-snug text-night-ink/65 font-medium">
                   {c.etiqueta}
                 </p>
               </motion.div>
@@ -91,7 +91,7 @@ export function TrustedBy() {
       </div>
 
       {/* Marquee de logotipos sustancialmente más grande para PC y móvil */}
-      <div className="mt-12 sm:mt-20 md:mt-24 lg:mt-28 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+      <div className="mt-8 sm:mt-16 md:mt-24 lg:mt-28 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
         <div className="flex w-max animate-marquee items-center gap-6 min-[400px]:gap-10 sm:gap-14 md:gap-16 lg:gap-20 hover:[animation-play-state:paused]">
           {logos.map((empresa, i) => (
             <motion.div

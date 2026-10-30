@@ -51,12 +51,12 @@ export function Testimonios({ media }: { media: ReactNode }) {
   ];
 
   return (
-    <section id="testimonios" className="snap-slide section-seam frame-fixed relative">
+    <section id="testimonios" className="snap-slide section-seam frame-fixed relative overflow-hidden">
       <div className="absolute inset-0">{media}</div>
       <div className="absolute inset-0 bg-gradient-to-b from-night/93 via-night/88 to-night/93" />
 
       <div className="relative z-10 md:h-full md:overflow-hidden">
-        <div className="mx-auto max-w-7xl px-6 py-20 md:flex md:h-full md:flex-col md:justify-center md:py-16 lg:px-8">
+        <div className="mx-auto max-w-7xl px-5 sm:px-6 py-14 sm:py-20 md:flex md:h-full md:flex-col md:justify-center md:py-16 lg:px-8">
           <CarruselTestimonios testimonios={todos} onAbrirModal={() => setModalAbierto(true)} />
         </div>
       </div>
@@ -260,7 +260,7 @@ function CarruselTestimonios({
           {testimonios.map((t, idx) => (
             <blockquote
               key={`${t.nombre}-${idx}`}
-              className="relative flex h-full min-h-[300px] w-full flex-none flex-col justify-between border-t border-gold/25 bg-surface/60 pt-7 pr-6 pb-6 pl-1 sm:w-[calc(50%-0.75rem)] sm:pr-7 lg:w-[calc(33.333%-1rem)] lg:pr-8"
+              className="relative flex h-full min-h-[260px] sm:min-h-[300px] w-full flex-none flex-col justify-between border-t border-gold/25 bg-surface/60 pt-6 pr-5 pb-5 pl-1 sm:pt-7 sm:pr-7 sm:pb-6 sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] lg:pr-8"
             >
               {/* Pull-quote editorial: filo vertical dorado delgado a la izquierda en vez de
                   una caja completa con borde y sombra -- se lee como una cita de revista, no
@@ -269,7 +269,7 @@ function CarruselTestimonios({
 
               <div className="pl-5">
                 <Quotes weight="fill" className="h-8 w-8 text-gold/70" />
-                <p className="mt-4 font-display text-lg leading-relaxed text-ink line-clamp-6 sm:text-xl">
+                <p className="mt-3 sm:mt-4 font-display text-base sm:text-xl leading-relaxed text-ink line-clamp-5 sm:line-clamp-6">
                   {t.cita}
                 </p>
               </div>
