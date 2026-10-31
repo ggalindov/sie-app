@@ -199,13 +199,13 @@ function FormatoTexto({
   flushParrafo();
 
   return (
-    <div className="space-y-2 text-[13.5px] sm:text-sm leading-relaxed">
+    <div className="space-y-1.5 sm:space-y-2 text-[12.5px] sm:text-sm leading-snug sm:leading-relaxed">
       {elementos.map((elem, idx) => {
         if (elem.tipo === "encabezado") {
           return (
             <p
               key={idx}
-              className="font-semibold text-ink text-[13.5px] sm:text-sm mt-2 mb-1 flex items-center gap-1.5"
+              className="font-semibold text-ink text-[12.5px] sm:text-sm mt-1.5 sm:mt-2 mb-0.5 sm:mb-1 flex items-center gap-1.5"
             >
               {renderInline(elem.texto)}
             </p>
@@ -214,19 +214,19 @@ function FormatoTexto({
 
         if (elem.tipo === "lista") {
           return (
-            <ul key={idx} className="space-y-1.5 my-1.5 pl-0.5">
+            <ul key={idx} className="space-y-1 sm:space-y-1.5 my-1 sm:my-1.5 pl-0.5">
               {elem.items.map((item, itemIdx) => (
                 <li key={itemIdx} className="flex items-start gap-2">
                   <span
                     className={
                       rol === "USUARIO"
-                        ? "text-ink-fixed font-bold mt-0.5 text-xs select-none shrink-0"
-                        : "text-gold-deep font-bold mt-0.5 text-xs select-none shrink-0"
+                        ? "text-ink-fixed font-bold mt-0.5 text-[10px] sm:text-xs select-none shrink-0"
+                        : "text-gold-deep font-bold mt-0.5 text-[10px] sm:text-xs select-none shrink-0"
                     }
                   >
                     •
                   </span>
-                  <span className="flex-1 min-w-0 leading-relaxed">
+                  <span className="flex-1 min-w-0 leading-snug sm:leading-relaxed">
                     {renderInline(item)}
                   </span>
                 </li>
@@ -423,7 +423,7 @@ export function ChatbotWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}
             transition={{ duration: 0.3, ease: EASE }}
-            className="fixed inset-x-2 bottom-3 sm:bottom-24 sm:inset-x-auto sm:left-6 z-50 flex max-h-[88vh] sm:max-h-[660px] w-auto sm:w-[420px] flex-col overflow-hidden rounded-[1.5rem] sm:rounded-[1.75rem] bg-surface shadow-[0_36px_80px_-16px_rgba(0,0,0,0.6)] ring-1 ring-gold/15"
+            className="fixed inset-x-3 bottom-3 sm:bottom-24 sm:inset-x-auto sm:left-6 z-50 flex max-h-[74vh] sm:max-h-[660px] w-auto sm:w-[420px] max-w-[390px] sm:max-w-[420px] mx-auto sm:mx-0 flex-col overflow-hidden rounded-2xl sm:rounded-[1.75rem] bg-surface shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65)] ring-1 ring-gold/15"
           >
             <div
               aria-hidden="true"
@@ -433,8 +433,8 @@ export function ChatbotWidget() {
 
             {/* Cabecera: compacta, un solo renglón de estado en vez de dos líneas de texto
                 redundante ("Siebot" + "En línea · ..."). */}
-            <div className="relative flex items-center gap-2.5 px-4 py-3.5 sm:px-4.5">
-              <div className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/40">
+            <div className="relative flex items-center gap-2 sm:gap-2.5 px-3 py-2.5 sm:px-4.5 sm:py-3.5">
+              <div className="relative h-7.5 w-7.5 sm:h-9 sm:w-9 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/40">
                 <Image
                   src="/chatbot/siebot-vendedor.png"
                   alt="Siebot"
@@ -445,10 +445,10 @@ export function ChatbotWidget() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="flex items-center gap-1 text-[13px] font-semibold tracking-tight text-ink">
+                <p className="flex items-center gap-1 text-xs sm:text-[13px] font-semibold tracking-tight text-ink">
                   Siebot
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                  <span className="truncate text-[11px] font-normal text-ink-soft">En línea ahora</span>
+                  <span className="truncate text-[10px] sm:text-[11px] font-normal text-ink-soft">En línea ahora</span>
                 </p>
               </div>
 
@@ -461,7 +461,7 @@ export function ChatbotWidget() {
                   aria-label="Agendar por WhatsApp con un abogado"
                   className="flex h-7 w-7 items-center justify-center rounded-full text-emerald-500 hover:bg-emerald-500/15 transition-colors"
                 >
-                  <WhatsappLogo className="h-4 w-4" weight="fill" />
+                  <WhatsappLogo className="h-3.5 w-3.5 sm:h-4 sm:w-4" weight="fill" />
                 </a>
 
                 <button
@@ -490,7 +490,7 @@ export function ChatbotWidget() {
             {/* Área de mensajes */}
             <div
               ref={scrollRef}
-              className="flex-1 space-y-3.5 overflow-y-auto px-3.5 py-4 sm:px-4 sm:py-4 bg-paper"
+              className="flex-1 space-y-2.5 sm:space-y-3.5 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 bg-paper"
             >
               {mensajes.map((m, i) => (
                 <div
@@ -500,8 +500,8 @@ export function ChatbotWidget() {
                   }`}
                 >
                   {m.rol === "ASISTENTE" ? (
-                    <div className="flex items-start gap-2.5 max-w-[94%] sm:max-w-[92%]">
-                      <div className="relative h-7 w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/30 mt-0.5">
+                    <div className="flex items-start gap-2 sm:gap-2.5 max-w-[96%] sm:max-w-[92%]">
+                      <div className="relative h-6 w-6 sm:h-7 sm:w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/30 mt-0.5">
                         <Image
                           src="/chatbot/siebot-vendedor.png"
                           alt="Siebot"
@@ -515,29 +515,29 @@ export function ChatbotWidget() {
                       <div className="min-w-0 flex-1 pt-0.5 text-ink">
                         <FormatoTexto texto={m.contenido} rol="ASISTENTE" />
 
-                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        <div className="mt-2 sm:mt-2.5 flex flex-wrap gap-1.5">
                           <a
                             href="/#agendar"
                             onClick={irAAgendar}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-1.5 text-xs font-semibold text-ink-fixed hover:bg-gold-deep active:scale-95 transition-all cursor-pointer"
+                            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full bg-gold px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-ink-fixed hover:bg-gold-deep active:scale-95 transition-all cursor-pointer"
                           >
-                            <CalendarCheck weight="bold" className="h-3.5 w-3.5 shrink-0" />
+                            <CalendarCheck weight="bold" className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                             Agendar asesoría
                           </a>
                           <a
                             href="https://wa.me/573243668845?text=Hola%2C%20quisiera%20agendar%20una%20asesor%C3%ADa%20jur%C3%ADdica%20con%20un%20abogado%20de%20SIE%20Jur%C3%ADdicos"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+                            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
                           >
-                            <WhatsappLogo weight="fill" className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                            <WhatsappLogo weight="fill" className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400 shrink-0" />
                             Por WhatsApp
                           </a>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="max-w-[82%] rounded-2xl rounded-tr-sm bg-gold text-ink-fixed px-3.5 py-2.5 font-medium">
+                    <div className="max-w-[85%] sm:max-w-[82%] rounded-xl sm:rounded-2xl rounded-tr-sm bg-gold text-ink-fixed px-3 py-1.5 sm:px-3.5 sm:py-2.5 font-medium">
                       <FormatoTexto texto={m.contenido} rol="USUARIO" />
                     </div>
                   )}
@@ -547,20 +547,20 @@ export function ChatbotWidget() {
               {/* Sugerencias rápidas: píldoras minimalistas, una sola fila por renglón de
                   texto en vez de la grilla de tarjetas con ícono de antes -- más directo. */}
               {mensajes.length <= 2 && (
-                <div className="pt-1 pb-1 pl-9">
-                  <p className="text-[11px] font-medium text-ink-soft/80 mb-2">
+                <div className="pt-1 pb-1 pl-1 sm:pl-9">
+                  <p className="text-[10.5px] sm:text-[11px] font-medium text-ink-soft/80 mb-1.5 sm:mb-2">
                     Consultas frecuentes que atendemos
                   </p>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1 sm:gap-1.5">
                     {SUGERENCIAS.map((sug, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => ejecutarEnvio(sug.mensaje)}
                         disabled={cargando}
-                        className="group flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-left text-xs text-ink hover:border-gold-deep hover:bg-gold/5 active:scale-[0.98] transition-all disabled:opacity-50"
+                        className="group flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-full border border-line bg-surface px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-left text-[11.5px] sm:text-xs text-ink hover:border-gold-deep hover:bg-gold/5 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
                       >
-                        <span className="text-sm leading-none">{sug.icono}</span>
+                        <span className="text-xs sm:text-sm leading-none shrink-0">{sug.icono}</span>
                         <span className="truncate font-medium">{sug.etiqueta}</span>
                       </button>
                     ))}
@@ -569,8 +569,8 @@ export function ChatbotWidget() {
               )}
 
               {cargando && (
-                <div className="flex items-start gap-2.5">
-                  <div className="relative h-7 w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/30 mt-0.5">
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <div className="relative h-6 w-6 sm:h-7 sm:w-7 shrink-0 rounded-full overflow-hidden ring-1 ring-gold/30 mt-0.5">
                     <Image
                       src="/chatbot/siebot-vendedor.png"
                       alt="Siebot pensando"
@@ -602,24 +602,24 @@ export function ChatbotWidget() {
             {/* Input */}
             <form
               onSubmit={enviar}
-              className="border-t border-line bg-surface p-2.5 sm:p-3"
+              className="border-t border-line bg-surface p-2 sm:p-3"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <input
                   ref={inputRef}
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
                   aria-label="Escribe tu consulta legal"
                   placeholder="Cuéntame tu caso para agendar asesoría..."
-                  className="flex-1 rounded-full border border-line bg-paper px-4 py-2.5 text-base sm:text-sm text-ink placeholder:text-ink-soft/60 focus:border-gold-deep focus:bg-surface focus:outline-none focus:ring-1 focus:ring-gold-deep transition-all shadow-inner"
+                  className="flex-1 rounded-full border border-line bg-paper px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-ink placeholder:text-ink-soft/60 focus:border-gold-deep focus:bg-surface focus:outline-none focus:ring-1 focus:ring-gold-deep transition-all shadow-inner"
                 />
                 <button
                   type="submit"
                   disabled={cargando || !texto.trim()}
                   aria-label="Enviar consulta"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep text-ink-fixed shadow-[0_6px_16px_-6px_rgba(169,124,22,0.6)] transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex h-8.5 w-8.5 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep text-ink-fixed shadow-[0_6px_16px_-6px_rgba(169,124,22,0.6)] transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <PaperPlaneTilt weight="fill" className="h-4 w-4" />
+                  <PaperPlaneTilt weight="fill" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
               </div>
             </form>
