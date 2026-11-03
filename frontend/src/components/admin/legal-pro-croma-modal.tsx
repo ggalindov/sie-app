@@ -42,6 +42,7 @@ import {
   type CromaMemoriaResumen,
 } from "@/lib/admin-api";
 import { AdminButton, Badge } from "@/components/admin/ui";
+import { LegalProWalkingLoader } from "@/components/admin/legal-pro-walking-loader";
 import { formatearFechaBogota, formatearFechaHoraBogota } from "@/lib/fecha";
 
 function limpiarPartes(sujetosProcesales: string | null): string[] {
@@ -458,19 +459,16 @@ export function LegalProCromaModal({
                 )}
               </div>
 
-              {/* Estado de Carga o Informe Resultado */}
+              {/* Estado de Carga o Informe Resultado con Personita y Maletín */}
               {cargandoInforme || cargandoMemoria ? (
-                <div className="my-auto py-16 text-center">
-                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-                  <p className="mt-3 text-sm font-medium text-ink">
-                    {cargandoInforme
-                      ? "Consultando Croma API, sincronizando actuaciones y verificando boletines judiciales..."
-                      : "Verificando memoria de 7 días de Croma..."}
-                  </p>
-                  <p className="mt-1 text-xs text-ink-soft">
-                    Esto rescata todas las notificaciones, correos del juzgado y metadatos e inyecta los datos faltantes en SIE.
-                  </p>
-                </div>
+                <LegalProWalkingLoader
+                  titulo={cargandoInforme ? "Auditoría Legal-Pro en marcha" : "Verificando memoria de 7 días"}
+                  subtitulo={
+                    cargandoInforme
+                      ? "Consultando Croma API, sincronizando actuaciones y extrayendo boletines y correos oficiales..."
+                      : "Comprobando si existe un informe previamente rescatado para este radicado..."
+                  }
+                />
               ) : !resultado ? (
                 <div className="my-auto py-14 text-center">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold/15 text-gold-deep">

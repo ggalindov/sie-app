@@ -206,29 +206,29 @@ body {
   html,
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-gold) #ffffff;
+    scrollbar-color: var(--color-gold) #0e0d0b;
   }
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: #0e0d0b;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-gold);
+  background-color: color-mix(in srgb, var(--color-gold) 75%, transparent);
   border-radius: 999px;
-  border: 2px solid #ffffff;
+  border: 2px solid #0e0d0b;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-gold-deep);
+  background-color: var(--color-gold);
 }
 
 ::-webkit-scrollbar-button {
@@ -238,7 +238,7 @@ body {
 }
 
 ::-webkit-scrollbar-corner {
-  background: #ffffff;
+  background: #0e0d0b;
 }
 
 /* Aceleración por hardware para capas dinámicas */

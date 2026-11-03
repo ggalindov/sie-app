@@ -48,6 +48,7 @@ import {
   type LineaTiempoJudicial,
 } from "@/lib/admin-api";
 import { AdminButton, AdminLoader, Badge } from "@/components/admin/ui";
+import { LegalProWalkingLoader } from "@/components/admin/legal-pro-walking-loader";
 import { formatearFechaBogota, formatearFechaHoraBogota } from "@/lib/fecha";
 
 const formatearFecha = formatearFechaBogota;
@@ -744,17 +745,14 @@ export function SeguimientoDeCasoModal({
               )}
 
               {cargandoMemoriaCroma || extrayendoCroma ? (
-                <div className="py-16 text-center">
-                  <AdminLoader label={null} size="md" />
-                  <p className="mt-4 text-sm font-medium text-ink">
-                    {extrayendoCroma
-                      ? "Extrayendo informe completo en vivo desde Croma API..."
-                      : "Verificando memoria de 7 días de Croma..."}
-                  </p>
-                  <p className="mt-1 text-xs text-ink-soft">
-                    Consultando expediente, actuaciones, términos, boletines y correos oficiales del despacho judicial.
-                  </p>
-                </div>
+                <LegalProWalkingLoader
+                  titulo={extrayendoCroma ? "Extrayendo Legal-Pro en vivo" : "Verificando memoria de 7 días"}
+                  subtitulo={
+                    extrayendoCroma
+                      ? "Consultando expediente, actuaciones, términos, boletines y correos oficiales del juzgado..."
+                      : "Revisando caché de 7 días para evitar consumos adicionales de cuota..."
+                  }
+                />
               ) : !informeCroma ? (
                 <div className="rounded-2xl border border-dashed border-line bg-paper p-8 text-center">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold/15 text-gold-deep">
