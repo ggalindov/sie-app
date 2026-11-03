@@ -246,6 +246,30 @@ public class SeguimientoJudicialService {
             List<ActuacionJudicial> actuaciones = actuacionRepository.countByCaso(caso) == 0
                     ? cpnuClient.listarActuacionesTodasLasPaginas(idProceso)
                     : cpnuClient.listarActuaciones(idProceso);
+
+            // Si el caso aún no tiene actuaciones y la conexión guardada respondió vacía/404,
+            // re-consulta el radicado en CPNU para asociar la conexión activa más reciente.
+            if (actuaciones.isEmpty() && actuacionRepository.countByCaso(caso) == 0) {
+                Optional<RamaJudicialCpnuClient.ProcesoResuelto> fresco = cpnuClient.buscarProceso(caso.getRadicadoId());
+                if (fresco.isPresent() && (idProceso == null || fresco.get().idProceso() != idProceso)) {
+                    idProceso = fresco.get().idProceso();
+                    caso.setIdProcesoCpnu(idProceso);
+                    caso.setDespachoJudicial(fresco.get().despacho());
+                    caso.setSujetosProcesales(fresco.get().sujetosProcesales());
+                    caso.setDepartamentoJudicial(fresco.get().departamento());
+                    caso.setPonente(fresco.get().ponente());
+                    caso.setFechaRadicacionProceso(fresco.get().fechaProceso());
+                    caso.setProcesoPrivado(fresco.get().esPrivado());
+                    caso.setTipoProceso(fresco.get().tipoProceso());
+                    caso.setClaseProceso(fresco.get().claseProceso());
+                    caso.setSubclaseProceso(fresco.get().subclaseProceso());
+                    caso.setRecursoProceso(fresco.get().recurso());
+                    caso.setUbicacionProceso(fresco.get().ubicacion());
+                    caso.setUltimaActualizacionRama(fresco.get().ultimaActualizacionRama());
+                    casoRepository.save(caso);
+                    actuaciones = cpnuClient.listarActuacionesTodasLasPaginas(idProceso);
+                }
+            }
             int nuevas = 0;
             int fundamentalesNuevas = 0;
             if (!actuaciones.isEmpty()) {

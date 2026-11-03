@@ -108,19 +108,19 @@ public class RamaJudicialCpnuClient {
         if (!procesos.isArray() || procesos.isEmpty()) {
             return Optional.empty();
         }
-        JsonNode primero = procesos.get(0);
-        if (!primero.path("idProceso").isNumber()) {
+        JsonNode mejor = seleccionarMejorProceso(procesos);
+        if (mejor == null || !mejor.path("idProceso").isNumber()) {
             return Optional.empty();
         }
-        long idProceso = primero.path("idProceso").asLong();
+        long idProceso = mejor.path("idProceso").asLong();
         DetalleProceso detalle = buscarDetalleProceso(idProceso);
         return Optional.of(new ProcesoResuelto(
                 idProceso,
-                textoOVacio(primero.path("despacho")),
-                textoOVacio(primero.path("sujetosProcesales")),
-                textoOVacio(primero.path("departamento")),
-                parsearFecha(primero.path("fechaProceso").asString(null)),
-                primero.path("esPrivado").asBoolean(false),
+                textoOVacio(mejor.path("despacho")),
+                textoOVacio(mejor.path("sujetosProcesales")),
+                textoOVacio(mejor.path("departamento")),
+                parsearFecha(mejor.path("fechaProceso").asString(null)),
+                mejor.path("esPrivado").asBoolean(false),
                 detalle.ponente(),
                 detalle.tipoProceso(),
                 detalle.claseProceso(),
@@ -457,6 +457,49 @@ public class RamaJudicialCpnuClient {
                     parsearFecha(nodo.path("fechaFinal").asString(null))));
         }
         return resultado;
+    }
+
+    // Selecciona el proceso activo o más reciente cuando el CPNU devuelve múltiples conexiones
+    // para el mismo radicado (ej. conocimiento original vs ejecución de sentencias o tribunal).
+    private JsonNode seleccionarMejorProceso(JsonNode procesos) {
+        if (!procesos.isArray() || procesos.isEmpty()) {
+            return null;
+        }
+        JsonNode mejor = null;
+        LocalDateTime mejorFechaUltAct = null;
+        java.time.LocalDate mejorFechaProc = null;
+
+        for (JsonNode candidato : procesos) {
+            if (!candidato.path("idProceso").isNumber()) {
+                continue;
+            }
+            LocalDateTime fUltAct = parsearFechaHora(candidato.path("fechaUltimaActuacion").asString(null));
+            java.time.LocalDate fProc = parsearFecha(candidato.path("fechaProceso").asString(null));
+
+            if (mejor == null) {
+                mejor = candidato;
+                mejorFechaUltAct = fUltAct;
+                mejorFechaProc = fProc;
+                continue;
+            }
+
+            if (fUltAct != null && mejorFechaUltAct == null) {
+                mejor = candidato;
+                mejorFechaUltAct = fUltAct;
+                mejorFechaProc = fProc;
+            } else if (fUltAct != null && mejorFechaUltAct != null && fUltAct.isAfter(mejorFechaUltAct)) {
+                mejor = candidato;
+                mejorFechaUltAct = fUltAct;
+                mejorFechaProc = fProc;
+            } else if (fUltAct == null && mejorFechaUltAct == null) {
+                if (fProc != null && (mejorFechaProc == null || fProc.isAfter(mejorFechaProc))) {
+                    mejor = candidato;
+                    mejorFechaUltAct = fUltAct;
+                    mejorFechaProc = fProc;
+                }
+            }
+        }
+        return mejor != null ? mejor : procesos.get(0);
     }
 
     private static String textoOVacio(JsonNode nodo) {

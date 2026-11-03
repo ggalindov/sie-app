@@ -383,6 +383,12 @@ public class CromaLegalProService {
 
             List<ActuacionJudicial> actuacionesConDocs = exp.actuaciones().stream()
                     .filter(ActuacionJudicial::conDocumentos)
+                    .filter(act -> {
+                        LocalDate fAct = act.fechaActuacion() != null ? act.fechaActuacion().toLocalDate() : null;
+                        LocalDate fReg = act.fechaRegistro() != null ? act.fechaRegistro().toLocalDate() : null;
+                        LocalDate f = fReg != null ? fReg : fAct;
+                        return f != null && !f.isBefore(ventanaBoletines);
+                    })
                     .limit(5)
                     .toList();
 
@@ -431,6 +437,12 @@ public class CromaLegalProService {
             //      más el enlace directo al tablero de Estados Electrónicos del despacho en Publicaciones Procesales
             Pattern patronUrl = Pattern.compile("(https?://[^\\s\"'<>]+)", Pattern.CASE_INSENSITIVE);
             for (ActuacionRegistradaResponse act : actuacionesConsolidada) {
+                LocalDate fReg = act.fechaRegistro() != null ? act.fechaRegistro().toLocalDate() : null;
+                LocalDate fAct = act.fechaActuacion() != null ? act.fechaActuacion().toLocalDate() : null;
+                LocalDate f = fReg != null ? fReg : fAct;
+                if (f != null && f.isBefore(ventanaBoletines)) {
+                    continue; // Acotado a los últimos boletines del mes (pedido del usuario)
+                }
                 if (act.anotacion() == null || !act.anotacion().toLowerCase().contains("http")) {
                     continue;
                 }
