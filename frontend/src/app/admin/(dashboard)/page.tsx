@@ -67,7 +67,7 @@ export default function ResumenPage() {
   return (
     <div>
       <AdminPageHeader
-        title={`Hola, ${sesion?.nombre.split(" ")[0]}`}
+        title={`Hola, ${(sesion?.nombre || "Administrador").split(" ")[0]}`}
         description="Resumen de la actividad reciente."
       />
 

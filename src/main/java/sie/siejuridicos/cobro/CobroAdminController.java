@@ -63,6 +63,16 @@ public class CobroAdminController {
         return ResponseEntity.ok(cobroService.enviarRecordatorioDePrueba());
     }
 
+    public record ActualizarEstadoPagoRequest(Boolean pagoEsteMes, String respuesta) {}
+
+    // Permite al administrador ajustar o confirmar directamente el pago de un cliente
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/estado-pago")
+    public ResponseEntity<ClienteCobroResponse> actualizarEstadoPago(
+            @org.springframework.web.bind.annotation.PathVariable Long id,
+            @RequestBody ActualizarEstadoPagoRequest request) {
+        return ResponseEntity.ok(cobroService.actualizarEstadoPagoManual(id, request.pagoEsteMes(), request.respuesta()));
+    }
+
     // Endpoint de prueba y simulación para verificar en local la respuesta de pago del cliente de test (3126029742)
     @PostMapping("/simular-respuesta")
     public ResponseEntity<List<ClienteCobroResponse>> simularRespuesta(

@@ -23,7 +23,7 @@ const esDesarrollo = process.env.NODE_ENV !== "production";
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${esDesarrollo ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   // https: (sin restringir a un host) porque la imagen de portada de un
   // artículo puede ser un enlace externo que el admin pega a mano, no un
   // asset propio del sitio: no hay una lista fija de dominios que permitir
@@ -33,13 +33,15 @@ const csp = [
   // sin este agregado la regla de arriba no lo cubriría y la imagen no
   // cargaría en el panel ni en el sitio público al probar en local. En
   // producción ya está cubierto por "https:" (apiOrigin es el mismo dominio).
-  `img-src 'self' data: blob: https: ${apiOrigin}`,
+  `img-src 'self' data: blob: https: ${apiOrigin} https://challenges.cloudflare.com`,
   "font-src 'self' data:",
   "media-src 'self'",
   `connect-src 'self' ${apiOrigin} https://challenges.cloudflare.com`,
   // frame-src / child-src: permite incrustar reproductores de video (YouTube) en blogs y panel + iframe de Cloudflare Turnstile
-  "frame-src 'self' https://challenges.cloudflare.com https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
-  "child-src 'self' https://challenges.cloudflare.com https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
+  "frame-src 'self' https://challenges.cloudflare.com blob: https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
+  "child-src 'self' https://challenges.cloudflare.com blob: https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
+  // worker-src: Turnstile de Cloudflare requiere workers con blob: para ejecutar su desafío criptográfico
+  "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

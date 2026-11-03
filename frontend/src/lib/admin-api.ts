@@ -1120,6 +1120,17 @@ export function sincronizarCobros(): Promise<ResumenSincronizacionCobros> {
   return pedido<ResumenSincronizacionCobros>("/api/admin/cobros/sincronizar", { method: "POST" });
 }
 
+export function actualizarEstadoPagoCobro(
+  id: number,
+  pagoEsteMes: boolean | null,
+  respuesta: string | null,
+): Promise<ClienteCobro> {
+  return pedido<ClienteCobro>(`/api/admin/cobros/${id}/estado-pago`, {
+    method: "PUT",
+    body: JSON.stringify({ pagoEsteMes, respuesta }),
+  });
+}
+
 export function enviarRecordatoriosCobros(): Promise<ResumenEnvioRecordatoriosCobros> {
   return pedido<ResumenEnvioRecordatoriosCobros>("/api/admin/cobros/enviar-recordatorios", { method: "POST" });
 }

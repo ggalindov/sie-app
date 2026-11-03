@@ -301,7 +301,7 @@ export default function ProcesosDetectadosPage() {
                           CREAR Y ADJUNTAR AUTOMÁTICAMENTE EN SIE
                         </AdminButton>
                         <p className="mt-1.5 text-center text-[11px] leading-snug text-ink-soft/70">
-                          Sí es {c.clienteNombre.split(" ")[0]}: crea el caso ya mismo y empieza a vigilarlo.
+                          Sí es {c.clienteNombre ? c.clienteNombre.split(" ")[0] : "el cliente"}: crea el caso ya mismo y empieza a vigilarlo.
                         </p>
                       </div>
                       <div>

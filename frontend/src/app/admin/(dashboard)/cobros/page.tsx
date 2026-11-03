@@ -22,6 +22,7 @@ import {
   sincronizarCobros,
   enviarRecordatoriosCobros,
   enviarRecordatorioPrueba,
+  actualizarEstadoPagoCobro,
   ApiError,
   type ClienteCobro,
 } from "@/lib/admin-api";
@@ -86,6 +87,36 @@ export default function CobrosAdminPage() {
   const [enviandoPrueba, setEnviandoPrueba] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
   const [busqueda, setBusqueda] = useState("");
+  const [actualizandoId, setActualizandoId] = useState<number | null>(null);
+
+  async function onCambiarEstadoPago(id: number, pagoEsteMes: boolean | null, respuesta: string | null) {
+    setActualizandoId(id);
+    const anterior = clientes;
+    setClientes((prev) =>
+      prev
+        ? prev.map((c) =>
+            c.id === id
+              ? { ...c, pagoEsteMes, respondioMensaje: respuesta }
+              : c,
+          )
+        : prev,
+    );
+    try {
+      await actualizarEstadoPagoCobro(id, pagoEsteMes, respuesta);
+      toast.success(
+        pagoEsteMes === true
+          ? "Pago confirmado y reflejado exitosamente en el sistema."
+          : pagoEsteMes === false
+            ? "Cliente registrado como 'No pagó'."
+            : "Estado restablecido a pendiente.",
+      );
+    } catch (err) {
+      setClientes(anterior);
+      toast.error(err instanceof ApiError ? err.message : "No se pudo actualizar el estado de pago.");
+    } finally {
+      setActualizandoId(null);
+    }
+  }
 
   const cargar = useCallback(() => {
     listarCobros()
@@ -440,19 +471,71 @@ export default function CobrosAdminPage() {
                     </NotificationBadge>
                   )}
                   {estado === "APROBADO" && (
-                    <NotificationBadge tone="success" icon={<CheckCircle weight="bold" className="h-4 w-4" />}>
-                      Pago confirmado
-                    </NotificationBadge>
+                    <div className="flex flex-col items-start gap-1 lg:items-end">
+                      <NotificationBadge tone="success" icon={<CheckCircle weight="bold" className="h-4 w-4" />}>
+                        Pago confirmado
+                      </NotificationBadge>
+                      <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                        {c.respondioMensaje
+                          ? `✓ Cliente confirmó "${c.respondioMensaje}" por WhatsApp`
+                          : "✓ Confirmado en el sistema"}
+                      </p>
+                    </div>
                   )}
                   {estado === "NO_PAGO" && (
-                    <NotificationBadge tone="danger" icon={<X weight="bold" className="h-4 w-4" />}>
-                      Dijo que no pagaba
-                    </NotificationBadge>
+                    <div className="flex flex-col items-start gap-1 lg:items-end">
+                      <NotificationBadge tone="danger" icon={<X weight="bold" className="h-4 w-4" />}>
+                        Dijo que no pagaba
+                      </NotificationBadge>
+                      <p className="text-[11px] font-medium text-rose-700 dark:text-rose-400">
+                        {c.respondioMensaje
+                          ? `✕ Cliente respondió "${c.respondioMensaje}" por WhatsApp`
+                          : "✕ Marcado como no pagó"}
+                      </p>
+                    </div>
                   )}
                   {estado === "PENDIENTE" && (
                     <NotificationBadge tone="warning" icon={<HourglassMedium weight="bold" className="h-4 w-4" />}>
                       Sin respuesta aún
                     </NotificationBadge>
+                  )}
+
+                  {/* Acciones directas para reflejar y ajustar la decisión de pago */}
+                  {conCosto && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1 lg:justify-end">
+                      {c.pagoEsteMes !== true && (
+                        <button
+                          type="button"
+                          disabled={actualizandoId === c.id}
+                          onClick={() => onCambiarEstadoPago(c.id, true, "Sí (admin)")}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-600/15 px-2.5 py-1 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-600/25 disabled:opacity-50 dark:bg-emerald-500/20 dark:text-emerald-300"
+                        >
+                          <CheckCircle weight="bold" className="h-3 w-3" />
+                          Confirmar pago
+                        </button>
+                      )}
+                      {c.pagoEsteMes !== false && (
+                        <button
+                          type="button"
+                          disabled={actualizandoId === c.id}
+                          onClick={() => onCambiarEstadoPago(c.id, false, "No (admin)")}
+                          className="inline-flex items-center gap-1 rounded-full bg-rose-600/15 px-2.5 py-1 text-xs font-semibold text-rose-800 transition-colors hover:bg-rose-600/25 disabled:opacity-50 dark:bg-rose-500/20 dark:text-rose-300"
+                        >
+                          <X weight="bold" className="h-3 w-3" />
+                          Marcar no pagó
+                        </button>
+                      )}
+                      {c.pagoEsteMes !== null && (
+                        <button
+                          type="button"
+                          disabled={actualizandoId === c.id}
+                          onClick={() => onCambiarEstadoPago(c.id, null, null)}
+                          className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2.5 py-1 text-xs text-ink-soft transition-colors hover:bg-ink/10 disabled:opacity-50"
+                        >
+                          Restablecer
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {conCosto && (

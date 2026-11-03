@@ -164,17 +164,10 @@ public class CobroService {
             cliente.setHonorarios(fila.honorarios());
             cambio = true;
         }
-        if (fila.pagoEsteMes() != null && !Objects.equals(fila.pagoEsteMes(), cliente.getPagoEsteMes())) {
-            cliente.setPagoEsteMes(fila.pagoEsteMes());
-            cliente.setMesRespuesta(YearMonth.now().toString());
-            cambio = true;
-        }
-        if (fila.respondioMensaje() != null && !fila.respondioMensaje().isBlank()
-                && !Objects.equals(fila.respondioMensaje(), cliente.getRespondioMensaje())) {
-            cliente.setRespondioMensaje(fila.respondioMensaje());
-            cliente.setMesRespuesta(YearMonth.now().toString());
-            cambio = true;
-        }
+        // Pedido explícito del usuario: "desliga el check del excel de pagos, en el sistema tiene que verse
+        // perfectamente reflejado cuando un cliente oprimi si pago, se tiene que ver reflejada esa decision".
+        // La sincronización de la hoja de cálculo de cobros NO debe sobreescribir pagoEsteMes ni respondioMensaje,
+        // preservando de manera inmutable la decisión real tomada por el cliente o ajustada en el sistema.
         cliente.setActivo(true);
         return cambio;
     }
@@ -520,6 +513,29 @@ public class CobroService {
                 true);
 
         return actualizados;
+    }
+
+    // Actualización manual del estado de pago por parte del administrador desde el panel.
+    // Permite reflejar inmediatamente la confirmación de pago del cliente (o que no pagó),
+    // registrando la decisión de forma visible y trazable en el sistema.
+    @Transactional
+    public ClienteCobroResponse actualizarEstadoPagoManual(Long id, Boolean pagoEsteMes, String respuesta) {
+        ClienteCobro cliente = clienteCobroRepository.findById(id)
+                .orElseThrow(() -> new sie.siejuridicos.common.exception.RecursoNoEncontradoException(
+                        "Cliente de cobro no encontrado: " + id));
+
+        cliente.setPagoEsteMes(pagoEsteMes);
+        cliente.setRespondioMensaje(respuesta);
+        cliente.setMesRespuesta(pagoEsteMes != null ? YearMonth.now().toString() : null);
+        clienteCobroRepository.save(cliente);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.SINCRONIZACION_COBROS,
+                "Estado de pago actualizado para '%s': pagoEsteMes=%s, respuesta='%s'"
+                        .formatted(cliente.getNombre(), pagoEsteMes, respuesta),
+                true);
+
+        return ClienteCobroResponse.desde(cliente);
     }
 
     // Reinicio mensual (bug real corregido en esta auditoría, pedido explícito del usuario: "no
