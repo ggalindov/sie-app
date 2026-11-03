@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Spinner } from "@phosphor-icons/react";
 import { login as loginRequest, ApiError } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { PasswordInput } from "@/components/admin/password-input";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/admin/turnstile-widget";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -30,6 +31,15 @@ export default function LoginPage() {
   const [contrasena, setContrasena] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState("");
+  const recaptchaRef = useRef<TurnstileWidgetHandle>(null);
+
+  const handleTurnstileToken = useCallback((token: string) => {
+    setRecaptchaToken(token);
+    if (token) {
+      setError(null);
+    }
+  }, []);
 
   // La navegación no puede disparase durante el render (violaría las reglas de React);
   // se hace en un efecto una vez la sesión ya existe.
@@ -45,10 +55,14 @@ export default function LoginPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !recaptchaToken) {
+      setError("Por favor completa la verificación de seguridad antes de ingresar.");
+      return;
+    }
     setError(null);
     setEnviando(true);
     try {
-      const respuesta = await loginRequest(correo, contrasena);
+      const respuesta = await loginRequest(correo, contrasena, recaptchaToken);
       login(respuesta.token);
       router.push("/admin");
     } catch (err) {
@@ -57,6 +71,11 @@ export default function LoginPage() {
       // mensaje genérico fijo, un admin real bloqueado no tendría forma de saber que
       // no es un simple error de tipeo, ni cuánto debe esperar.
       setError(err instanceof ApiError ? err.message : "Correo o contraseña incorrectos.");
+      // Un token de reCAPTCHA es de un solo uso -- sin reiniciar el widget, el siguiente
+      // intento mandaría el mismo token ya consumido y fallaría siempre por el captcha,
+      // sin importar que la contraseña esta vez sí sea correcta.
+      setRecaptchaToken("");
+      recaptchaRef.current?.reset();
     } finally {
       setEnviando(false);
     }
@@ -124,7 +143,7 @@ export default function LoginPage() {
           width={644}
           height={559}
           priority
-          className="mt-2 h-36 w-auto object-contain opacity-95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] lg:h-44 xl:h-48"
+          className="mt-2 h-56 w-auto object-contain opacity-95 drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)] lg:h-64 xl:h-72"
         />
         <div>
           {/* "20+ años" es la misma cifra real ya usada en la sección "Con la confianza de"
@@ -141,21 +160,26 @@ export default function LoginPage() {
       <div aria-hidden="true" className="relative z-10 hidden w-px self-stretch bg-gradient-to-b from-transparent via-gold/20 to-transparent md:block" />
 
       <div className="relative z-10 flex flex-1 items-center justify-center px-7 py-20 sm:px-10 md:px-14 lg:px-16">
-        <div className="w-full max-w-sm">
+        {/* Pedido explícito del usuario: "pon una tarjeta negra blur detras del formulario
+            del login" -- una sola tarjeta oscura con blur detrás de TODO el bloque del
+            formulario (kicker, título, campos, botón y la nota de pie), no solo un fondo
+            suelto en los inputs. Separa el formulario de la foto de fondo sin volver a la
+            tarjeta de vidrio genérica de antes (ring sutil, sin sombra grande). */}
+        <div className="w-full max-w-lg rounded-[1.75rem] bg-black/5 p-7 ring-1 ring-white/10 backdrop-blur-xl sm:p-8">
           {/* Equivalente compacto de la columna izquierda, solo en móvil (esa columna está
               oculta ahí). */}
-          <div className="mb-10 flex items-center gap-3 md:hidden">
+          <div className="mb-7 flex items-center gap-3 md:hidden">
             <Image src="/marca/logo.png" alt="SIE Jurídicos" width={644} height={559} className="h-16 w-auto object-contain opacity-95" />
             <span className="text-sm text-night-ink/45">SIE Jurídicos · Panel interno</span>
           </div>
 
           <motion.div custom={0} initial="oculto" animate="visible" variants={bloqueVariants}>
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold-pale/70">Acceso interno</p>
-            <h1 className="mt-3 font-display text-4xl text-night-ink">Panel administrativo</h1>
-            <p className="mt-3 text-sm text-night-ink/45">Ingresa con tus credenciales de la firma.</p>
+            <h1 className="mt-2 font-display text-3xl text-night-ink">Panel administrativo</h1>
+            <p className="mt-2 text-sm text-night-ink/45">Ingresa con tus credenciales de la firma.</p>
           </motion.div>
 
-          <form onSubmit={onSubmit} className="mt-11 space-y-7">
+          <form onSubmit={onSubmit} className="mt-7 space-y-5">
             {/* Campos tipo "subrayado" (sin caja, sin fondo) en vez de inputs encerrados --
                 el lenguaje minimalista que pidió el usuario, consistente con el resto de la
                 composición sin tarjetas. */}
@@ -190,6 +214,10 @@ export default function LoginPage() {
               />
             </motion.div>
 
+            <motion.div custom={3} initial="oculto" animate="visible" variants={bloqueVariants}>
+              <TurnstileWidget ref={recaptchaRef} onToken={handleTurnstileToken} tema="dark" />
+            </motion.div>
+
             {error && (
               <motion.p
                 initial={{ opacity: 0, y: -6 }}
@@ -201,7 +229,7 @@ export default function LoginPage() {
               </motion.p>
             )}
 
-            <motion.div custom={3} initial="oculto" animate="visible" variants={bloqueVariants} className="pt-2">
+            <motion.div custom={4} initial="oculto" animate="visible" variants={bloqueVariants} className="pt-2">
               <button
                 type="submit"
                 disabled={enviando}

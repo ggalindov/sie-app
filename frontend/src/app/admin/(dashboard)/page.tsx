@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, ArrowUpRight, Envelope, Article, Megaphone } from "@phosphor-icons/react";
-import { listarSolicitudes, listarArticulosAdmin, listarSuscriptoresMarketing, type Solicitud } from "@/lib/admin-api";
+import { toast } from "sonner";
+import {
+  listarSolicitudes,
+  listarArticulosAdmin,
+  listarSuscriptoresMarketing,
+  listarConfiguracionEnvios,
+  actualizarConfiguracionEnvio,
+  ApiError,
+  type Solicitud,
+  type ConfiguracionEnvio,
+} from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminCard, Badge, AdminLoader } from "@/components/admin/ui";
 
@@ -16,6 +26,10 @@ export default function ResumenPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[] | null>(null);
   const [totalArticulos, setTotalArticulos] = useState<number | null>(null);
   const [totalSuscriptores, setTotalSuscriptores] = useState<number | null>(null);
+  // Pedido explícito del usuario: "implementa en el dashboard principal del administrador
+  // un boton para apagar los envios de correo, apagar los envios de whatsapp (boton
+  // independiente notificacones, boletin, marketing entre otros)".
+  const [configuracionEnvios, setConfiguracionEnvios] = useState<ConfiguracionEnvio[] | null>(null);
 
   useEffect(() => {
     listarSolicitudes().then(setSolicitudes).catch(() => setSolicitudes([]));
@@ -25,8 +39,26 @@ export default function ResumenPage() {
     // de que de verdad no hubiera ninguno.
     if (sesion?.rol === "ADMIN_GENERAL") {
       listarSuscriptoresMarketing().then((s) => setTotalSuscriptores(s.length)).catch(() => setTotalSuscriptores(0));
+      listarConfiguracionEnvios().then(setConfiguracionEnvios).catch(() => {});
     }
   }, [sesion]);
+
+  async function onAlternarEnvio(clave: string, activoActual: boolean) {
+    const nuevo = !activoActual;
+    setConfiguracionEnvios((prev) =>
+      prev ? prev.map((c) => (c.clave === clave ? { ...c, activo: nuevo } : c)) : prev,
+    );
+    try {
+      await actualizarConfiguracionEnvio(clave, nuevo);
+      toast.success(nuevo ? "Envío activado." : "Envío desactivado.");
+    } catch (err) {
+      // Revierte el cambio optimista si el backend lo rechazó.
+      setConfiguracionEnvios((prev) =>
+        prev ? prev.map((c) => (c.clave === clave ? { ...c, activo: activoActual } : c)) : prev,
+      );
+      toast.error(err instanceof ApiError ? err.message : "No se pudo actualizar la configuración de envíos.");
+    }
+  }
 
   const nuevas = solicitudes?.filter((s) => s.estado === "NUEVO").length ?? null;
   const contactadas = solicitudes?.filter((s) => s.estado === "CONTACTADO").length ?? null;
@@ -47,6 +79,58 @@ export default function ResumenPage() {
           <StatCard icono={Megaphone} etiqueta="Suscriptores marketing" valor={totalSuscriptores} href="/admin/marketing" />
         )}
       </div>
+
+      {sesion?.rol === "ADMIN_GENERAL" && configuracionEnvios && (
+        <div className="mt-10">
+          <div className="mb-4">
+            <h2 className="font-display text-lg text-ink">Interruptores de envío</h2>
+            <p className="mt-1 text-sm text-ink-soft">
+              Apaga en caliente cualquier categoría de envío automático, sin reiniciar el sistema.
+            </p>
+          </div>
+          <AdminCard>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { titulo: "Notificaciones", correo: "NOTIFICACIONES_CORREO", whatsapp: "NOTIFICACIONES_WHATSAPP" },
+                { titulo: "Reporte periódico", correo: "REPORTE_PERIODICO_CORREO", whatsapp: "REPORTE_PERIODICO_WHATSAPP" },
+                { titulo: "Boletín judicial", correo: "BOLETIN_JUDICIAL_CORREO", whatsapp: "BOLETIN_JUDICIAL_WHATSAPP" },
+                { titulo: "Marketing", correo: "MARKETING_CORREO", whatsapp: "MARKETING_WHATSAPP" },
+              ].map((grupo) => (
+                <div key={grupo.titulo} className="rounded-xl border border-line p-4">
+                  <p className="text-sm font-medium text-ink">{grupo.titulo}</p>
+                  <div className="mt-3 space-y-2">
+                    {[grupo.correo, grupo.whatsapp].map((clave) => {
+                      const item = configuracionEnvios.find((c) => c.clave === clave);
+                      if (!item) return null;
+                      return (
+                        <button
+                          key={clave}
+                          type="button"
+                          onClick={() => onAlternarEnvio(item.clave, item.activo)}
+                          className="flex w-full items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-left text-xs transition-colors hover:bg-ink/[0.06]"
+                        >
+                          <span className="text-ink-soft">{clave.endsWith("WHATSAPP") ? "WhatsApp" : "Correo"}</span>
+                          <span
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                              item.activo ? "bg-emerald-500" : "bg-ink/20"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                item.activo ? "translate-x-4" : "translate-x-0.5"
+                              }`}
+                            />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </AdminCard>
+        </div>
+      )}
 
       <div className="mt-10">
         <div className="mb-4 flex items-center justify-between">

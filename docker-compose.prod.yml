@@ -106,6 +106,22 @@ services:
       # ruta absoluta dentro del volumen montado abajo, no la ruta relativa de desarrollo
       # local -- el filesystem del contenedor en sí es efímero entre despliegues.
       - IMAGENES_ARTICULOS_PATH=/data/uploads/articulos
+      # Motor de firma electrónica (ver sie.siejuridicos.documento)
+      - DOCUMENTO_FIRMA_CLAVE_MAESTRA=${DOCUMENTO_FIRMA_CLAVE_MAESTRA}
+      - WHATSAPP_TEMPLATE_FIRMA_ENLACE_NAME=${WHATSAPP_TEMPLATE_FIRMA_ENLACE_NAME:-enlace_firma_documento}
+      - WHATSAPP_TEMPLATE_REPORTE_SEMANAL_NAME=${WHATSAPP_TEMPLATE_REPORTE_SEMANAL_NAME:-reporte_semanal_caso}
+      # Cloudflare Turnstile captcha
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
+      # Croma API (Multi-Key Legal-Tech)
+      - CROMA_API_KEY=${CROMA_API_KEY:-}
+      - CROMA_API_KEY_2=${CROMA_API_KEY_2:-}
+      - CROMA_API_KEY_3=${CROMA_API_KEY_3:-}
+      - CROMA_API_KEY_4=${CROMA_API_KEY_4:-}
+      # Vigilancia judicial automatizada
+      - VIGILANCIA_CICLO_NOCTURNO_CRON=${VIGILANCIA_CICLO_NOCTURNO_CRON:-0 15 5 * * *}
+      - VIGILANCIA_BOLETIN_DIGEST_DIARIO_CRON=${VIGILANCIA_BOLETIN_DIGEST_DIARIO_CRON:-0 0 8 * * *}
+      - VIGILANCIA_BOLETIN_DIGEST_CLIENTE_CRON=${VIGILANCIA_BOLETIN_DIGEST_CLIENTE_CRON:-0 0 8 * * FRI}
+      - VIGILANCIA_ENVIO_CLIENTES_ACTIVO=${VIGILANCIA_ENVIO_CLIENTES_ACTIVO:-false}
     volumes:
       - sie_juridicos_uploads:/data/uploads
     secrets:
@@ -149,6 +165,7 @@ services:
         # sesión eran contra localhost en desarrollo, donde esta variable no lleva
         # "/api" y por eso nunca reproducía el bug.
         NEXT_PUBLIC_API_URL: https://${DOMAIN}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     restart: unless-stopped
     environment:
       # Variable normal (sin prefijo NEXT_PUBLIC_): solo la lee el servidor en tiempo de

@@ -40,6 +40,36 @@ public class RecordatorioCitaScheduler {
         this.bloqueoTotalClientes = bloqueoTotalClientes;
     }
 
+    // Recordatorio UN DIA ANTES (regla del usuario, 2026-11-02: al programar la cita, un dia antes
+    // y 1 hora antes). Se manda cuando faltan 24 h o menos pero mas de 1 h (la ultima hora la
+    // cubre el recordatorio de abajo). Las citas agendadas con menos de 24 h de anticipacion
+    // nacen con este aviso ya marcado como enviado (ver SolicitudService.agendarCita), asi que
+    // aqui solo llegan las que de verdad tuvieron mas de un dia de margen.
+    @Scheduled(cron = "${app.recordatorios.cron}")
+    @Transactional
+    public void enviarRecordatoriosDeUnDiaAntes() {
+        if (bloqueoTotalClientes) {
+            return;
+        }
+        LocalDateTime ahora = LocalDateTime.now();
+        List<Solicitud> citas = solicitudRepository.findByFechaCitaBetweenAndRecordatorioDiaAntesEnviadoFalse(
+                ahora.plusHours(1), ahora.plusHours(24));
+        if (citas.isEmpty()) {
+            return;
+        }
+        log.info("Enviando {} recordatorio(s) de cita de un dia antes", citas.size());
+        for (Solicitud solicitud : citas) {
+            solicitudService.enviarRecordatorioCitaDiaAntes(solicitud);
+            // marcado optimista, mismo criterio que el recordatorio de 1 hora (ver abajo)
+            solicitud.setRecordatorioDiaAntesEnviado(true);
+        }
+        solicitudRepository.saveAll(citas);
+        registroSistemaService.registrar(
+                TipoRegistroSistema.RECORDATORIO_CITA,
+                "%d recordatorio(s) de cita de un dia antes enviado(s) (correo + WhatsApp)".formatted(citas.size()),
+                true);
+    }
+
     @Scheduled(cron = "${app.recordatorios.cron}")
     @Transactional
     public void enviarRecordatoriosDeLaProximaHora() {

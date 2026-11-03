@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
+import { Suspense, useEffect, useState, useRef, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import {
   MagnifyingGlass,
@@ -37,8 +38,27 @@ function formatearFecha(iso: string) {
   }
 }
 
+// useSearchParams() exige un límite de Suspense alrededor de quien lo use (si no, Next.js
+// rompe el build de producción con "should be wrapped in a suspense boundary") -- el
+// fallback nunca se ve en la práctica porque esta página es 100% "use client" sin datos del
+// servidor, pero Next.js igual lo exige en el prerender.
 export default function ConsultaCasoPage() {
-  const [radicado, setRadicado] = useState("");
+  return (
+    <Suspense fallback={null}>
+      <ConsultaCasoContent />
+    </Suspense>
+  );
+}
+
+function ConsultaCasoContent() {
+  // Pedido explícito del usuario: "la plantilla de whatsapp debera ajustarse para que el
+  // link que se le comparta sea siempre el link directo para que la persona consulte su
+  // caso con el codigo... con eso no tienen que hacer mucho" -- el link del WhatsApp/correo
+  // ahora trae ?radicado=XXXX (ver WhatsAppService.construirCuerpoPlantilla), así que esta
+  // página lo lee y consulta SOLA al cargar, sin que la persona tenga que escribir ni pegar
+  // nada.
+  const radicadoDeLaUrl = useSearchParams().get("radicado") ?? "";
+  const [radicado, setRadicado] = useState(radicadoDeLaUrl);
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<CasoConsulta | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +73,12 @@ export default function ConsultaCasoPage() {
     }, 150);
   }
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!radicado.trim()) return;
+  async function consultar(valor: string) {
+    if (!valor.trim()) return;
     setCargando(true);
     setError(null);
     try {
-      const caso = await consultarCaso(radicado.trim());
+      const caso = await consultarCaso(valor.trim());
       setResultado(caso);
       setFormularioContraido(true);
     } catch (err) {
@@ -73,6 +92,20 @@ export default function ConsultaCasoPage() {
     } finally {
       setCargando(false);
     }
+  }
+
+  // Solo una vez, al montar -- si llega con el código ya en la URL, se consulta de
+  // inmediato sin esperar a que la persona toque nada.
+  useEffect(() => {
+    if (radicadoDeLaUrl.trim()) {
+      consultar(radicadoDeLaUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await consultar(radicado);
   }
 
   return (

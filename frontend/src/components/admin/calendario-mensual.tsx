@@ -1,6 +1,7 @@
 "use client";
 
-import type { Solicitud } from "@/lib/admin-api";
+import { Scales } from "@phosphor-icons/react";
+import type { Solicitud, TerminoCalendario } from "@/lib/admin-api";
 import { cn } from "@/lib/utils";
 
 const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -18,6 +19,17 @@ const PALETA_RESPONSABLE = [
   { bg: "bg-rose-100", text: "text-rose-800", dot: "bg-rose-600" },
   { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-600" },
 ] as const;
+
+// Gap real detectado en la auditoría del plan de desarrollo: antes el término procesal solo
+// se veía como una insignia dentro del modal de Seguimiento -- esto es el semáforo real en
+// /admin/calendario que pidió el usuario. Deliberadamente DISTINTO de PALETA_RESPONSABLE:
+// el color de un término significa "qué tan urgente es" (un hecho objetivo), no "de quién
+// es" (una identidad arbitraria) -- nunca deben competir ni confundirse.
+export function colorEstadoTermino(estado: TerminoCalendario["estado"]) {
+  if (estado === "VENCIDO") return { bg: "bg-red-100", text: "text-red-800", dot: "bg-red-600" };
+  if (estado === "POR_VENCER") return { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-600" };
+  return { bg: "bg-emerald-100", text: "text-emerald-800", dot: "bg-emerald-600" };
+}
 
 export function colorResponsable(nombre: string | null) {
   if (!nombre) return PALETA_RESPONSABLE[0];
@@ -44,12 +56,17 @@ export function diasDeLaCuadricula(mes: Date): Date[] {
 export function CalendarioMensual({
   mes,
   eventos,
+  terminos = [],
   diaSeleccionado,
   onSeleccionarDia,
   mostrarResponsable,
 }: {
   mes: Date;
   eventos: Solicitud[];
+  // Gap real detectado en la auditoría del plan de desarrollo: "se vea con semáforo en
+  // /admin/calendario" -- opcional para no romper ningún otro lugar que ya use este
+  // componente sin pasar términos.
+  terminos?: TerminoCalendario[];
   diaSeleccionado: Date | null;
   onSeleccionarDia: (dia: Date) => void;
   /** true para ADMIN_GENERAL (necesita distinguir de quién es cada reunión). */
@@ -71,6 +88,18 @@ export function CalendarioMensual({
     lista.sort((a, b) => new Date(a.fechaCita!).getTime() - new Date(b.fechaCita!).getTime());
   }
 
+  const terminosPorDia = new Map<string, TerminoCalendario[]>();
+  for (const termino of terminos) {
+    // fechaVencimiento es "YYYY-MM-DD" (LocalDate del backend, sin hora) -- parsear con new
+    // Date() a secas lo interpretaría en UTC y podría correrse un día según el huso horario
+    // del navegador, por eso se arma la fecha local a mano con los 3 números.
+    const [anio, mesNum, dia] = termino.fechaVencimiento.split("-").map(Number);
+    const clave = claveDia(new Date(anio, mesNum - 1, dia));
+    const lista = terminosPorDia.get(clave) ?? [];
+    lista.push(termino);
+    terminosPorDia.set(clave, lista);
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
       <div className="grid grid-cols-7 border-b border-line bg-ink/[0.02]">
@@ -88,6 +117,9 @@ export function CalendarioMensual({
           const eventosDelDia = eventosPorDia.get(claveDia(dia)) ?? [];
           const visibles = eventosDelDia.slice(0, 3);
           const restantes = eventosDelDia.length - visibles.length;
+          const terminosDelDia = terminosPorDia.get(claveDia(dia)) ?? [];
+          const terminosVisibles = terminosDelDia.slice(0, 2);
+          const terminosRestantes = terminosDelDia.length - terminosVisibles.length;
 
           return (
             <button
@@ -128,6 +160,29 @@ export function CalendarioMensual({
                 })}
                 {restantes > 0 && (
                   <span className="px-1.5 text-[10.5px] font-medium text-ink-soft">+{restantes} más</span>
+                )}
+                {/* Semáforo de términos procesales (gap real detectado en la auditoría del
+                    plan de desarrollo) -- color por URGENCIA (rojo/ámbar/verde), nunca por
+                    responsable, para no confundirse con los chips de reuniones de arriba. */}
+                {terminosVisibles.map((termino) => {
+                  const color = colorEstadoTermino(termino.estado);
+                  return (
+                    <span
+                      key={termino.id}
+                      className={cn(
+                        "flex items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-[10.5px] font-medium leading-tight sm:text-[11px]",
+                        color.bg,
+                        color.text,
+                      )}
+                      title={`${termino.nombreCliente} · ${termino.descripcion}${termino.abogadoAsignadoNombre ? ` · ${termino.abogadoAsignadoNombre}` : ""}`}
+                    >
+                      <Scales className="h-3 w-3 shrink-0" weight="bold" />
+                      {termino.nombreCliente}
+                    </span>
+                  );
+                })}
+                {terminosRestantes > 0 && (
+                  <span className="px-1.5 text-[10.5px] font-medium text-ink-soft">+{terminosRestantes} término(s)</span>
                 )}
               </div>
             </button>

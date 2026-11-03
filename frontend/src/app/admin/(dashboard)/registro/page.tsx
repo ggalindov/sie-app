@@ -24,16 +24,9 @@ import {
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminCard, AdminButton, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { useAuth } from "@/lib/auth-context";
+import { formatearFechaHoraBogota } from "@/lib/fecha";
 
-function formatearFechaHora(iso: string) {
-  return new Date(iso).toLocaleString("es-CO", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const formatearFechaHora = formatearFechaHoraBogota;
 
 // Cada categoría recibe un tono de píldora propio (ver Badge en ui.tsx) para que un vistazo
 // rápido a la lista ya distinga el tipo de evento sin tener que leer el texto -- pedido
@@ -56,6 +49,7 @@ const GRUPOS_FILTRO_PROCESOS: { categoria: string; tipos: { valor: TipoRegistroS
       { valor: "ENVIO_RECORDATORIOS_COBROS", label: "Recordatorios de cobro" },
       { valor: "RECORDATORIO_CITA", label: "Recordatorios de cita" },
       { valor: "BOLETIN_ENVIADO", label: "Boletín" },
+      { valor: "ENVIO_DOCUMENTO_JUDICIAL", label: "Envío de documento judicial" },
     ],
   },
   {
@@ -64,6 +58,12 @@ const GRUPOS_FILTRO_PROCESOS: { categoria: string; tipos: { valor: TipoRegistroS
       { valor: "SINCRONIZACION_CASOS", label: "Sincronización de casos" },
       { valor: "SINCRONIZACION_COBROS", label: "Sincronización de cobros" },
       { valor: "REINICIO_MENSUAL_COBROS", label: "Reinicio mensual de cobros" },
+      // Los tres pasos del ciclo nocturno de vigilancia judicial (ver
+      // sie.siejuridicos.vigilancia.VigilanciaExternaOrquestador) -- auditoría de
+      // SIE-Vigilancia, pedido explícito del usuario: "seguimiento para Usuarios".
+      { valor: "SEGUIMIENTO_JUDICIAL", label: "Seguimiento judicial" },
+      { valor: "VIGILANCIA_BOLETINES", label: "Recopilación de boletines judiciales" },
+      { valor: "VIGILANCIA_DETECCION_PROCESOS", label: "Detección de procesos nuevos" },
     ],
   },
   {
@@ -72,6 +72,7 @@ const GRUPOS_FILTRO_PROCESOS: { categoria: string; tipos: { valor: TipoRegistroS
       { valor: "INICIO_SESION", label: "Inicios de sesión" },
       { valor: "USUARIO_CREADO", label: "Usuarios creados" },
       { valor: "USUARIO_ACTIVO_CAMBIADO", label: "Cambios de estado de usuario" },
+      { valor: "CONFIGURACION_ENVIOS", label: "Configuración de envíos" },
     ],
   },
   {
@@ -80,6 +81,11 @@ const GRUPOS_FILTRO_PROCESOS: { categoria: string; tipos: { valor: TipoRegistroS
       { valor: "CONSULTA_ESTADO_CASO", label: "Consultas de estado de caso" },
       { valor: "GESTION_CRM", label: "Gestión CRM" },
       { valor: "GESTION_TAREAS", label: "Gestión de tareas" },
+      { valor: "EDICION_CASO", label: "Edición de caso" },
+      { valor: "CASO_CREADO_DESDE_DETECCION", label: "Caso creado desde detección automática" },
+      // Pedido explícito del usuario (2026-11-01): "el sistema debe reflejar que fallos
+      // hay" -- ver CasoService.registrarSiRadicadoInvalido() en el backend.
+      { valor: "RADICADO_FORMATO_INVALIDO", label: "Radicado con formato no reconocido" },
     ],
   },
 ];
@@ -97,6 +103,17 @@ const TIPOS_FILTRO_ENVIOS: { valor: TipoEnvio; label: string }[] = [
   { valor: "AVISO_REDES_SOCIALES", label: "Aviso a redes sociales" },
   { valor: "BOLETIN", label: "Boletín" },
   { valor: "BIENVENIDA_BOLETIN", label: "Bienvenida al boletín" },
+  { valor: "ENLACE_FIRMA_DOCUMENTO", label: "Enlace de firma de documento" },
+  { valor: "OTP_FIRMA_DOCUMENTO", label: "Código de verificación de firma" },
+  { valor: "DOCUMENTO_FIRMADO_FINAL", label: "Documento firmado final" },
+  { valor: "RECORDATORIO_FIRMA", label: "Recordatorio de firma pendiente" },
+  { valor: "ALERTA_INTEGRIDAD_DOCUMENTO", label: "Alerta de integridad de documento" },
+  { valor: "ALERTA_FIRMA_RECHAZADA", label: "Alerta de firma rechazada" },
+  { valor: "RADICADO_PQRS", label: "Radicado de PQRS" },
+  { valor: "RESPUESTA_PQRS", label: "Respuesta a PQRS" },
+  { valor: "PROVIDENCIA_JUDICIAL", label: "Providencia judicial" },
+  { valor: "BOLETIN_JUDICIAL", label: "Boletín judicial" },
+  { valor: "ALERTA_VIGILANCIA_CAIDA", label: "Alerta de caída de vigilancia judicial" },
 ];
 
 function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {

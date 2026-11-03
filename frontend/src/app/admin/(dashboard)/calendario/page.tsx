@@ -11,6 +11,7 @@ import {
   VideoCamera,
   MapPin,
   EnvelopeSimple,
+  Scales,
   WhatsappLogo,
   X,
 } from "@phosphor-icons/react";
@@ -19,16 +20,18 @@ import {
   listarResponsables,
   listarSolicitudes,
   listarCasos,
+  listarTerminosCalendario,
   crearSolicitudDirecta,
   ApiError,
   type Responsable,
   type Solicitud,
   type CasoAdmin,
+  type TerminoCalendario,
 } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminButton, AdminCard, AdminLoader, Badge, EmptyState } from "@/components/admin/ui";
 import { AgendarReunionModal } from "@/components/admin/agendar-reunion-modal";
-import { CalendarioMensual, colorResponsable, diasDeLaCuadricula } from "@/components/admin/calendario-mensual";
+import { CalendarioMensual, colorEstadoTermino, colorResponsable, diasDeLaCuadricula } from "@/components/admin/calendario-mensual";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -46,6 +49,10 @@ export default function CalendarioPage() {
   const [mes, setMes] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [diaSeleccionado, setDiaSeleccionado] = useState<Date>(() => new Date());
   const [eventos, setEventos] = useState<Solicitud[] | null>(null);
+  // Gap real detectado en la auditoría del plan de desarrollo: el término procesal solo se
+  // veía como una insignia dentro del modal de Seguimiento -- esto lo trae con semáforo
+  // para este calendario (ver TerminoCalendario y VigilanciaAdminController.terminosCalendario).
+  const [terminos, setTerminos] = useState<TerminoCalendario[]>([]);
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [filtroAbogadoId, setFiltroAbogadoId] = useState<number | undefined>(undefined);
 
@@ -65,6 +72,16 @@ export default function CalendarioPage() {
     })
       .then(setEventos)
       .catch(() => toast.error("No se pudo cargar el calendario."));
+    listarTerminosCalendario({
+      desde: isoFecha(rango.desde),
+      hasta: isoFecha(rango.hasta),
+      abogadoId: filtroAbogadoId,
+    })
+      .then(setTerminos)
+      .catch(() => {
+        // Silencioso a propósito: los términos son un dato secundario del calendario (las
+        // reuniones siguen siendo lo principal), un fallo acá no debe bloquear la vista.
+      });
   }, [rango, filtroAbogadoId]);
 
   useEffect(() => {
@@ -93,6 +110,14 @@ export default function CalendarioPage() {
   const eventosDelDiaSeleccionado = (eventos ?? [])
     .filter((e) => e.fechaCita && mismodia(new Date(e.fechaCita), diaSeleccionado))
     .sort((a, b) => new Date(a.fechaCita!).getTime() - new Date(b.fechaCita!).getTime());
+
+  // Mismo cuidado de zona horaria que en CalendarioMensual: fechaVencimiento es una fecha
+  // "pura" (sin hora) del backend, se arma la fecha local a mano en vez de dejar que
+  // new Date(string) la interprete en UTC.
+  const terminosDelDiaSeleccionado = terminos.filter((t) => {
+    const [anio, mesNum, dia] = t.fechaVencimiento.split("-").map(Number);
+    return mismodia(new Date(anio, mesNum - 1, dia), diaSeleccionado);
+  });
 
   function onAgendada(actualizada: Solicitud) {
     setEventos((prev) => {
@@ -169,6 +194,7 @@ export default function CalendarioPage() {
           <CalendarioMensual
             mes={mes}
             eventos={eventos}
+            terminos={terminos}
             diaSeleccionado={diaSeleccionado}
             onSeleccionarDia={setDiaSeleccionado}
             mostrarResponsable={esAdmin}
@@ -251,6 +277,44 @@ export default function CalendarioPage() {
                 })}
               </div>
             )}
+
+            {/* Gap real detectado en la auditoría del plan de desarrollo: "se vea con
+                semáforo en /admin/calendario" -- términos procesales que vencen este día,
+                aparte de las reuniones de arriba (son cosas distintas: una reunión es un
+                compromiso agendado, un término es un plazo legal que corre solo). */}
+            {terminosDelDiaSeleccionado.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-soft/70">Términos que vencen hoy</p>
+                {terminosDelDiaSeleccionado.map((termino) => {
+                  const color = colorEstadoTermino(termino.estado);
+                  return (
+                    <AdminCard key={termino.id} className="!p-4">
+                      <div className="flex items-start gap-2">
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${color.bg} ${color.text}`}>
+                          <Scales className="h-3 w-3" weight="bold" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-ink">{termino.nombreCliente}</p>
+                          <p className="mt-0.5 text-xs text-ink-soft">{termino.descripcion}</p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-medium ${color.bg} ${color.text}`}>
+                              {termino.estado === "VENCIDO" ? "Vencido" : termino.estado === "POR_VENCER" ? "Por vencer" : "Corriendo"}
+                            </span>
+                            {termino.radicadoId && (
+                              <span className="font-mono text-[10.5px] text-gold-deep">{termino.radicadoId}</span>
+                            )}
+                          </div>
+                          {esAdmin && termino.abogadoAsignadoNombre && (
+                            <p className="mt-1 text-[10.5px] text-ink-soft">Asignado a {termino.abogadoAsignadoNombre}</p>
+                          )}
+                        </div>
+                      </div>
+                    </AdminCard>
+                  );
+                })}
+              </div>
+            )}
+
             <AdminButton
               variant="secondary"
               className="mt-3 w-full"

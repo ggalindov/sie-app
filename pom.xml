@@ -177,6 +177,17 @@
             <artifactId>bcpkix-jdk18on</artifactId>
             <version>1.86</version>
         </dependency>
+        <!-- Parseo del HTML del portal público "Publicaciones Procesales" de la Rama
+             Judicial (ver sie.siejuridicos.vigilancia.PublicacionesProcesalesClient): no es
+             una API, es una página Liferay normal, así que hace falta un parser de HTML real
+             en vez de regex contra el markup, más resistente a que el portal cambie
+             detalles de formato que no afecten la estructura real del DOM. Versión
+             explícita, no está en el BOM de Spring Boot. -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.1</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa-test</artifactId>

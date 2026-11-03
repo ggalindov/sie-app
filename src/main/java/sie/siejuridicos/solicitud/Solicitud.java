@@ -64,6 +64,11 @@ public class Solicitud {
     @Column(name = "recordatorio_enviado", nullable = false)
     private boolean recordatorioEnviado = false;
 
+    // Recordatorio de "un dia antes" (ver V78): junto a la confirmacion al programar y al
+    // recordatorio de 1 hora antes (recordatorioEnviado), completa los tres avisos de cada cita.
+    @Column(name = "recordatorio_dia_antes_enviado", nullable = false)
+    private boolean recordatorioDiaAntesEnviado = false;
+
     // Responsables (abogados/admin) vinculados a la reunion (ver SolicitudService.agendarCita):
     // vacio hasta que se agenda la primera cita. Reemplaza al antiguo campo unico
     // abogadoAsignado (@ManyToOne) -- pedido explicito del usuario: "vincular a 1 o mas
@@ -191,6 +196,14 @@ public class Solicitud {
 
     public void setRecordatorioEnviado(boolean recordatorioEnviado) {
         this.recordatorioEnviado = recordatorioEnviado;
+    }
+
+    public boolean isRecordatorioDiaAntesEnviado() {
+        return recordatorioDiaAntesEnviado;
+    }
+
+    public void setRecordatorioDiaAntesEnviado(boolean recordatorioDiaAntesEnviado) {
+        this.recordatorioDiaAntesEnviado = recordatorioDiaAntesEnviado;
     }
 
     public Set<UsuarioInterno> getResponsables() {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { MagnifyingGlass, Plus, Trash, UploadSimple, X } from "@phosphor-icons/react";
 import {
@@ -26,14 +26,30 @@ type ParteSeleccionada = { cliente: ClienteCrm; canal: CanalNotificacionFirma };
 export default function NuevoDocumentoPage() {
   const router = useRouter();
   const { sesion } = useAuth();
+  // Pedido explícito del usuario: "cuando dentro de la tarjeta del caso oprima emitir
+  // documento, de una vez sea un documento para ese caso" -- antes el link desde
+  // DocumentosDeCasoModal mandaba aquí sin ningún contexto, obligando a volver a buscar el
+  // mismo caso a mano en el paso 1. Ahora ese link ya trae "?casoId=N" en la URL.
+  const searchParams = useSearchParams();
+  const casoIdDesdeUrl = searchParams.get("casoId");
 
   const [archivo, setArchivo] = useState<File | null>(null);
+  // Pedido explícito del usuario: "en nuevo documento implementa un visualizador al pdf que
+  // suban" -- URL de objeto del PDF ya elegido, para previsualizarlo con un <iframe> antes
+  // de emitir (ver <PrevisualizadorPdf/> más abajo). Se revoca al cambiar de archivo o
+  // desmontar la página para no filtrar memoria del blob.
+  const [urlPreviewPdf, setUrlPreviewPdf] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
   const [casoId, setCasoId] = useState<string>("");
   const [casos, setCasos] = useState<CasoAdmin[]>([]);
 
   const [abogados, setAbogados] = useState<UsuarioInterno[]>([]);
   const [abogadosElegidos, setAbogadosElegidos] = useState<number[]>([]);
+  // Pedido explícito del usuario: "en abogados pon tambien opcional las firmas de los
+  // gerentes" -- otros ADMIN_GENERAL activos aparte de quien está emitiendo el documento
+  // (ese sigue firmando siempre, automático, ver AdminCard de abajo).
+  const [otrosGerentes, setOtrosGerentes] = useState<UsuarioInterno[]>([]);
+  const [gerentesElegidos, setGerentesElegidos] = useState<number[]>([]);
 
   const [busqueda, setBusqueda] = useState("");
   const [resultadosCrm, setResultadosCrm] = useState<ClienteCrm[]>([]);
@@ -44,14 +60,43 @@ export default function NuevoDocumentoPage() {
 
   useEffect(() => {
     listarUsuarios()
-      .then((todos) => setAbogados(todos.filter((u) => u.rol === "ABOGADO" && u.activo)))
+      .then((todos) => {
+        setAbogados(todos.filter((u) => u.rol === "ABOGADO" && u.activo));
+        setOtrosGerentes(todos.filter((u) => u.rol === "ADMIN_GENERAL" && u.activo && u.correo !== sesion?.correo));
+      })
       .catch(() => toast.error("No se pudieron cargar los abogados."));
     listarCasos()
       .then(setCasos)
       .catch(() => {
         /* el caso es opcional; si falla la carga simplemente no se ofrece el selector */
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pre-selecciona el caso que vino en la URL apenas la lista de casos termina de cargar --
+  // antes de eso casoIdDesdeUrl no se puede validar contra nada real.
+  useEffect(() => {
+    if (casoIdDesdeUrl && casos.some((c) => String(c.id) === casoIdDesdeUrl)) {
+      setCasoId(casoIdDesdeUrl);
+    }
+  }, [casoIdDesdeUrl, casos]);
+
+  // Genera/revoca la URL de previsualización del PDF cada vez que cambia el archivo
+  // elegido -- un object URL vive en memoria del navegador hasta que se revoca a mano, así
+  // que nunca se deja más de uno activo a la vez.
+  useEffect(() => {
+    if (!archivo) {
+      setUrlPreviewPdf(null);
+      return;
+    }
+    const url = URL.createObjectURL(archivo);
+    setUrlPreviewPdf(url);
+    return () => URL.revokeObjectURL(url);
+  }, [archivo]);
+
+  function alternarGerente(id: number) {
+    setGerentesElegidos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   useEffect(() => {
     if (busqueda.trim().length < 2) {
@@ -123,6 +168,7 @@ export default function NuevoDocumentoPage() {
         nombre: nombre.trim(),
         casoId: casoId ? Number(casoId) : undefined,
         abogadoIds: abogadosElegidos,
+        gerenteIds: gerentesElegidos,
         partes: cuerpo as ParteAFirmarInput[],
       });
       toast.success("Documento emitido. El motor de firma ya está en marcha.");
@@ -184,11 +230,19 @@ export default function NuevoDocumentoPage() {
                 onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               />
             </label>
+            {/* Pedido explícito del usuario: "implementa un visualizador al pdf que suban"
+                -- confirma de un vistazo que el archivo elegido es de verdad el correcto
+                antes de emitir, sin tener que abrirlo aparte en otra pestaña. */}
+            {urlPreviewPdf && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-line">
+                <iframe src={urlPreviewPdf} title="Vista previa del PDF" className="h-[480px] w-full" />
+              </div>
+            )}
           </div>
         </AdminCard>
 
         <AdminCard accent>
-          <h2 className="font-display text-lg text-ink">2. Abogados que deben firmar</h2>
+          <h2 className="font-display text-lg text-ink">2. Abogados y gerentes que deben firmar</h2>
           <p className="mt-1 text-xs text-ink-soft">
             Tú (gerencia) quedas siempre como firmante. Elige los abogados que también deban firmar este documento.
           </p>
@@ -208,6 +262,32 @@ export default function NuevoDocumentoPage() {
                   {a.nombre}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Pedido explícito del usuario: "en abogados pon tambien opcional las firmas de
+              los gerentes" -- otros ADMIN_GENERAL de la firma (hay más de uno real en este
+              sistema), opcional igual que los abogados de arriba. Solo se muestra si de
+              verdad existe otro gerente activo distinto de quien está emitiendo. */}
+          {otrosGerentes.length > 0 && (
+            <div className="mt-5 border-t border-line pt-4">
+              <p className="text-xs text-ink-soft">
+                Otros gerentes que también deban firmar este documento (opcional).
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {otrosGerentes.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => alternarGerente(g.id)}
+                    className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                      gerentesElegidos.includes(g.id) ? "bg-gold text-ink-fixed" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
+                    }`}
+                  >
+                    {g.nombre}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </AdminCard>

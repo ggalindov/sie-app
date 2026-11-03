@@ -50,11 +50,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new RegistroLimite("POST", "/api/solicitudes", 10),
             new RegistroLimite("POST", "/api/testimonios", 10),
             new RegistroLimite("POST", "/api/marketing/suscriptores", 10),
-            // GET /api/casos/consulta es el único endpoint público que funciona como
-            // "adivina el radicado": sin límite de tasa un atacante podría probar miles por
-            // minuto. 20/min alcanza de sobra para un cliente real que se equivoca
-            // escribiendo su radicado varias veces.
-            new RegistroLimite("GET", "/api/casos/consulta", 20),
+            // GET /api/casos/consulta funciona como "adivina el radicado": sin límite de
+            // tasa un atacante podría probar miles por minuto. Bajado de 20 a 10/min
+            // (auditoría de seguridad, 2026-10-31) como capa adicional sobre
+            // ConsultaCasoAbuseGuard (que ya bloquea 30 min tras 15 fallos seguidos, la
+            // defensa real contra enumeración sostenida) -- 10/min sigue siendo de sobra
+            // para un cliente real que se equivoca escribiendo su radicado varias veces,
+            // pero reduce a la mitad la ventana de prueba antes de que el abuse guard
+            // intervenga.
+            new RegistroLimite("GET", "/api/casos/consulta", 10),
+            // Mismo criterio que /api/casos/consulta -- no tenía límite de tasa propio
+            // (solo PqrsConsultaAbuseGuard, el bloqueo tras fallos), confirmado en la misma
+            // auditoría.
+            new RegistroLimite("GET", "/api/pqrs/consulta", 10),
             // Se envía como mucho una vez por pestaña/sesión (ver VisitorTracker en el
             // frontend), así que 10/min por IP es de sobra para uso legítimo y sigue
             // acotando un abuso que intente inflar el contador de visitantes.

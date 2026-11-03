@@ -22,6 +22,12 @@ public record ResumenSincronizacion(
         // servidor (ver CasoService.sincronizarDesdeHoja()) para que el admin corrija el
         // duplicado directamente en la hoja.
         int radicadosDuplicados,
+        // Filas con un radicado capturado en la hoja que excede los 50 caracteres que
+        // permite la columna (ver Caso.radicadoId) -- dato corrupto de la hoja (fila mal
+        // pegada, columna desplazada, etc.), nunca un radicado real de la Rama Judicial (los
+        // reales tienen 23 dígitos). Se ignora en vez de truncarlo o dejar que la
+        // sincronización completa falle por una sola fila mala.
+        int radicadosInvalidos,
         List<String> fuentesConError
 ) {
 }

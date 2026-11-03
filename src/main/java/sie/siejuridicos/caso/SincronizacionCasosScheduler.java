@@ -49,8 +49,9 @@ public class SincronizacionCasosScheduler {
     public void sincronizar() {
         ResumenSincronizacion resumen = casoService.sincronizarDesdeHoja();
         log.info("Sincronización automática de casos: {} fila(s) leída(s), {} nuevo(s), {} actualizado(s), "
-                        + "{} eliminado(s), {} sin correo, {} radicado(s) duplicado(s)",
+                        + "{} eliminado(s), {} sin correo, {} radicado(s) duplicado(s), {} radicado(s) inválido(s)",
                 resumen.filasLeidasEnHoja(), resumen.casosNuevos(), resumen.casosActualizados(),
-                resumen.casosEliminados(), resumen.filasSinCorreo(), resumen.radicadosDuplicados());
+                resumen.casosEliminados(), resumen.filasSinCorreo(), resumen.radicadosDuplicados(),
+                resumen.radicadosInvalidos());
     }
 }

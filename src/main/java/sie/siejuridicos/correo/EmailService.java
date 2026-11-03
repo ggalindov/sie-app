@@ -14,6 +14,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import sie.siejuridicos.articulo.Articulo;
 import sie.siejuridicos.articulo.TipoContenido;
+import sie.siejuridicos.configuracion.ClaveConfiguracionEnvio;
+import sie.siejuridicos.configuracion.ConfiguracionEnviosService;
 import sie.siejuridicos.marketing.SuscriptorMarketing;
 import sie.siejuridicos.registro.CanalEnvio;
 import sie.siejuridicos.registro.RegistroEnvioService;
@@ -72,9 +74,11 @@ public class EmailService {
     private final Resource selloResource;
     private final boolean bloqueoTotalClientes;
     private final RegistroEnvioService registroEnvioService;
+    private final ConfiguracionEnviosService configuracionEnviosService;
 
     public EmailService(JavaMailSender mailSender,
                          RegistroEnvioService registroEnvioService,
+                         ConfiguracionEnviosService configuracionEnviosService,
                          @Value("${app.correo.remitente}") String remitente,
                          @Value("${app.correo.admin}") String correoAdmin,
                          @Value("${app.correo.gerencia}") String correoGerencia,
@@ -87,6 +91,7 @@ public class EmailService {
                          @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.mailSender = mailSender;
         this.registroEnvioService = registroEnvioService;
+        this.configuracionEnviosService = configuracionEnviosService;
         this.remitente = remitente;
         this.correoAdmin = correoAdmin;
         this.correoGerencia = correoGerencia;
@@ -316,6 +321,32 @@ public class EmailService {
     }
 
     @Async
+    public void enviarRecordatorioCitaDiaAntes(Solicitud solicitud) {
+        // La fecha va completa (dia y hora) en vez de decir "manana": el aviso sale cuando faltan
+        // entre 24 y 1 h, y asi el texto es correcto aunque cruce la medianoche o el envio se
+        // retrase por una caida del servidor.
+        String cuando = solicitud.getFechaCita().format(
+                DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'a las' h:mm a", Locale.of("es", "CO")));
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 20px;">Te recordamos que tu reunión con %s es <strong>%s</strong>.</p>
+                %s
+                %s
+                %s
+                """.formatted(
+                escaparHtml(solicitud.getNombre()),
+                nombreFirma,
+                escaparHtml(cuando),
+                bloqueAccesoReunion(solicitud),
+                botonWhatsapp(),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(solicitud.getCorreo(), "Recordatorio: tu reunión es pronto - " + nombreFirma, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.RECORDATORIO_CITA,
+                solicitud.getNombre(), solicitud.getCorreo(), "Recordatorio de reunión un día antes", exito);
+    }
+
+    @Async
     public void enviarRecordatorioCita(Solicitud solicitud) {
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
@@ -344,6 +375,10 @@ public class EmailService {
     // de una publicación en un solo envío.
     @Async
     public void enviarNotificacionPublicacion(List<Articulo> publicaciones, List<SuscriptorMarketing> suscriptores) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.MARKETING_CORREO)) {
+            log.info("Aviso de publicación por correo omitido: MARKETING_CORREO está apagado desde el panel.");
+            return;
+        }
         StringBuilder listado = new StringBuilder();
         for (Articulo articulo : publicaciones) {
             String urlArticulo = sitioWeb + "/blog/" + articulo.getSlug();
@@ -422,6 +457,10 @@ public class EmailService {
     // formulario de Agendar asesoría: mismo destino, mismo correo de bienvenida.
     @Async
     public void enviarBienvenidaBoletin(String nombre, String correo) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.MARKETING_CORREO)) {
+            log.info("Correo de bienvenida al boletín omitido: MARKETING_CORREO está apagado desde el panel.");
+            return;
+        }
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
                 <p style="margin:0 0 16px;">Gracias por suscribirte al boletín de %s. A partir de ahora te
@@ -452,6 +491,10 @@ public class EmailService {
     // lista de suscriptores es pequeña (mismo razonamiento que enviarNotificacionPublicacion).
     @Async
     public void enviarBoletin(String asunto, String cuerpoTexto, List<SuscriptorMarketing> destinatarios) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.MARKETING_CORREO)) {
+            log.info("Envío de boletín de marketing omitido: MARKETING_CORREO está apagado desde el panel.");
+            return;
+        }
         String cuerpoHtml = escaparHtmlConParrafos(cuerpoTexto);
         for (SuscriptorMarketing suscriptor : destinatarios) {
             String cuerpo = """
@@ -505,6 +548,12 @@ public class EmailService {
             log.warn("Se intentó enviar el correo de radicado sin un radicado real -- se canceló el envío.");
             return false;
         }
+        // Pedido explícito del usuario: interruptor independiente por categoría/canal desde
+        // el panel (ver sie.siejuridicos.configuracion), además de app.bloqueo-total-clientes.
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.NOTIFICACIONES_CORREO)) {
+            log.info("Envío de correo de radicado omitido: NOTIFICACIONES_CORREO está apagado desde el panel.");
+            return false;
+        }
         String cuerpo = """
                 <p style="margin:0 0 16px;">Hola %s,</p>
                 <p style="margin:0 0 16px;">Registramos tu caso en %s. Puedes consultar el estado de tu
@@ -516,7 +565,7 @@ public class EmailService {
                 </td></tr>
                 </table>
                 <p style="margin:0 0 8px;">Ingresa tu radicado en
-                <a href="%s/consulta-caso" style="color:%s;">%s/consulta-caso</a> para ver el estado
+                <a href="%s" style="color:%s;">%s/consulta-caso</a> para ver el estado
                 actual de tu proceso.</p>
                 <p style="margin:0 0 20px;">Guarda este radicado en un lugar seguro: lo necesitarás para
                 futuras consultas.</p>
@@ -525,7 +574,7 @@ public class EmailService {
                 escaparHtml(nombreCliente),
                 nombreFirma,
                 COLOR_DORADO, COLOR_TEXTO, escaparHtml(radicadoId),
-                sitioWeb, COLOR_DORADO, sitioWeb,
+                enlaceConsultaDirecto(radicadoId), COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
         boolean exito = enviarHtml(correo, "Tu número de radicado para consultar tu caso - " + nombreFirma, cuerpo, false);
@@ -551,7 +600,37 @@ public class EmailService {
             log.warn("Se intentó enviar el reporte semanal de caso sin un radicado real -- se canceló el envío.");
             return false;
         }
-        String cuerpo = """
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.REPORTE_PERIODICO_CORREO)) {
+            log.info("Envío de reporte periódico omitido: REPORTE_PERIODICO_CORREO está apagado desde el panel.");
+            return false;
+        }
+        boolean exito = enviarHtml(correo, "Reporte semanal de tu caso - " + nombreFirma,
+                cuerpoReporteSemanal(nombreCliente, radicadoId, false), false);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.REPORTE_CASO,
+                nombreCliente, correo, "Radicado " + radicadoId, exito);
+        return exito;
+    }
+
+    // Variante de prueba pedida por el usuario: "reporte periodico + boletin adjunto" -- el
+    // mismo cuerpo de arriba, pero con el boletín más reciente del caso anexado, y un aviso
+    // explícito en el texto de que viene adjunto (para que se note la diferencia al leerlo,
+    // no solo al ver el adjunto). Reutiliza enviarHtmlConAdjunto (ya existente) en vez de
+    // enviarHtml -- no toca el flujo automático de arriba.
+    public boolean enviarReporteSemanalCasoConBoletinSincrono(
+            String nombreCliente, String correo, String radicadoId, Adjunto adjunto) {
+        if (radicadoId == null || radicadoId.isBlank()) {
+            log.warn("Se intentó enviar el reporte semanal con boletín sin un radicado real -- se canceló el envío.");
+            return false;
+        }
+        boolean exito = enviarHtmlConAdjunto(correo, "Reporte semanal de tu caso - " + nombreFirma,
+                cuerpoReporteSemanal(nombreCliente, radicadoId, true), adjunto.nombreArchivo(), adjunto.datos());
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.REPORTE_CASO,
+                nombreCliente, correo, "Radicado " + radicadoId + " (con boletín adjunto)", exito);
+        return exito;
+    }
+
+    private String cuerpoReporteSemanal(String nombreCliente, String radicadoId, boolean conBoletinAdjunto) {
+        return """
                 <p style="margin:0 0 16px;">Hola %s,</p>
                 <p style="margin:0 0 16px;">Seguimos trabajando activamente en tu caso en %s. Puede que esta
                 semana haya novedades en tu proceso -- te recomendamos consultar el estado actual con tu
@@ -561,21 +640,21 @@ public class EmailService {
                 <span style="font-size:24px;font-weight:bold;letter-spacing:3px;color:%s;font-family:Arial,Helvetica,sans-serif;">%s</span>
                 </td></tr>
                 </table>
+                %s
                 <p style="margin:0 0 20px;">Ingresa tu radicado en
-                <a href="%s/consulta-caso" style="color:%s;">%s/consulta-caso</a> para ver el estado
+                <a href="%s" style="color:%s;">%s/consulta-caso</a> para ver el estado
                 actual de tu proceso.</p>
                 %s
                 """.formatted(
                 escaparHtml(nombreCliente),
                 nombreFirma,
                 COLOR_DORADO, COLOR_TEXTO, escaparHtml(radicadoId),
-                sitioWeb, COLOR_DORADO, sitioWeb,
+                conBoletinAdjunto
+                        ? "<p style=\"margin:0 0 18px;\">Te adjuntamos el boletín más reciente de tu proceso.</p>"
+                        : "",
+                enlaceConsultaDirecto(radicadoId), COLOR_DORADO, sitioWeb,
                 firmaCierre()
         );
-        boolean exito = enviarHtml(correo, "Reporte semanal de tu caso - " + nombreFirma, cuerpo, false);
-        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.REPORTE_CASO,
-                nombreCliente, correo, "Radicado " + radicadoId, exito);
-        return exito;
     }
 
     // Recordatorio mensual de cobro (ver cobro.CobroService.enviarRecordatorios(), disparado
@@ -780,6 +859,40 @@ public class EmailService {
                 nombreAdmin, correoAdmin, nombreDocumento + ": rechazado por " + nombreFirmante, exito);
     }
 
+    // Auditoría de SIE-Vigilancia (pedido explícito del usuario: "implementa... alertas,
+    // anuncios de caidas") -- disparado por VigilanciaCaidaAlertaListener cuando
+    // RamaJudicialCpnuClient/PublicacionesProcesalesClient/SamaiClient "pareceCaido()" tras
+    // un paso del ciclo nocturno de VigilanciaExternaOrquestador. @Async: esto nunca debe
+    // retrasar ni el ciclo de vigilancia que lo dispara ni la respuesta a quien lo haya
+    // disparado manualmente desde el panel.
+    @Async
+    public void enviarAlertaVigilanciaCaida(String nombreAdmin, String correoAdmin, String nombreServicio, String detalle) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;"><strong>%s parece estar caído o bloqueando nuestras consultas</strong>
+                durante la última corrida del sistema de vigilancia judicial.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:%s;font-family:Arial,Helvetica,sans-serif;">Detalle</p>
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">Es normal que esto se resuelva solo en minutos u horas (suele ser un
+                bloqueo temporal del propio portal contra tráfico automatizado). El ciclo automático lo vuelve a
+                intentar en la próxima corrida programada sin que tengas que hacer nada -- este correo es solo
+                para que lo sepas si notas que algún caso lleva más tiempo del esperado sin actualizarse. Revisa
+                /admin/registro (filtro "Sincronización de datos") para el detalle completo.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreAdmin), escaparHtml(nombreServicio),
+                COLOR_DORADO, COLOR_DORADO, escaparHtml(detalle),
+                firmaCierre()
+        );
+        boolean exito = enviarHtml(correoAdmin, "Aviso: " + nombreServicio + " no está respondiendo", cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.ALERTA_VIGILANCIA_CAIDA,
+                nombreAdmin, correoAdmin, nombreServicio + ": " + detalle, exito);
+    }
+
     // Motor de firma electrónica: enlace único de firma para una parte que eligió (o para la
     // que quedó forzado, si es empresa) el canal correo -- ver DocumentoFirmaService. El motor
     // de WhatsApp tiene su propio método equivalente en WhatsAppService.
@@ -851,6 +964,114 @@ public class EmailService {
         return exito;
     }
 
+    // Última providencia de fondo de un proceso (ver sie.siejuridicos.vigilancia), remitida
+    // al cliente a pedido EXPRESO de un abogado desde el panel -- nunca automático, siempre
+    // una decisión manual sobre un documento candidato ya revisado (ver
+    // EnvioDocumentoJudicialService, único llamador). El PDF llega descargado en memoria
+    // desde Publicaciones Procesales (la propia Rama Judicial) y nunca se guarda en disco
+    // antes ni después de este envío.
+    public boolean enviarProvidenciaJudicial(String nombreCliente, String correo, String radicadoId,
+                                              String nombreActuacion, String nombreArchivo, byte[] pdf) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Te remitimos la providencia más reciente de tu proceso con radicado
+                <strong>%s</strong>: "%s". Adjuntamos el documento oficial expedido por el despacho para tu
+                archivo personal.</p>
+                %s
+                """.formatted(escaparHtml(nombreCliente), escaparHtml(radicadoId), escaparHtml(nombreActuacion), firmaCierre());
+        boolean exito = enviarHtmlConAdjunto(correo, "Novedad en tu proceso " + radicadoId + " - " + nombreFirma,
+                cuerpo, nombreArchivo, pdf);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.PROVIDENCIA_JUDICIAL,
+                nombreCliente, correo, nombreActuacion, exito);
+        return exito;
+    }
+
+    // Gap real detectado en la auditoría del plan de desarrollo: digest automático de
+    // boletines judiciales nuevos (gerente diario, abogado diario, cliente semanal, ver
+    // sie.siejuridicos.vigilancia.BoletinJudicialDigestService) -- un solo correo puede
+    // traer VARIOS PDFs (varios casos/actuaciones a la vez), a diferencia de
+    // enviarProvidenciaJudicial (un solo documento, envío manual puntual).
+    public record Adjunto(String nombreArchivo, byte[] datos) {
+    }
+
+    // Gap real detectado en la auditoría del plan de desarrollo: "quiero que todos los
+    // boletines nuevos... se envien tanto al gerente, como los boletines de cada caso al
+    // cliente" -- digest diario a TODOS los casos para el gerente.
+    //
+    // ANCHO_DIGEST_INTERNO (960px, no los 600px del resto de correos de marca) -- pedido
+    // explícito del usuario (2026-10-31), comparando contra el correo real de Lupa Jurídica:
+    // "mandalo como lupa... haz mas ancho el correo". Esto es una tabla operativa densa para
+    // gerencia/abogados, no un correo de marca que alguien lea cómodo en el teléfono.
+    // Subido de 960 a 1400 (2026-10-31): "no importa que ocupe todo el horizontal, necesito
+    // que sea grande" -- en la práctica, casi ningún panel de lectura de correo real supera
+    // los ~1200-1300px, así que este tope alto equivale a "ocupa todo el ancho disponible"
+    // sin forzar un correo absurdamente ancho en una pantalla gigante.
+    private static final int ANCHO_DIGEST_INTERNO = 1400;
+
+    @Async
+    public void enviarDigestBoletinGerente(String correoGerente, String cuerpoHtml, List<Adjunto> adjuntos) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.BOLETIN_JUDICIAL_CORREO)) {
+            log.info("Digest de boletín judicial al gerente omitido: BOLETIN_JUDICIAL_CORREO está apagado desde el panel.");
+            return;
+        }
+        boolean exito = enviarHtmlConAdjuntos(correoGerente,
+                "Boletín judicial diario (" + adjuntos.size() + " documento(s)) - " + nombreFirma, cuerpoHtml, adjuntos,
+                ANCHO_DIGEST_INTERNO);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
+                "Gerencia", correoGerente, adjuntos.size() + " boletín(es)", exito);
+    }
+
+    // Mismo digest, pero solo con los casos asignados a ESE abogado puntual (pedido
+    // explícito del usuario: "a los abogados y sus casos asignados a las 7am").
+    @Async
+    public void enviarDigestBoletinAbogado(String nombreAbogado, String correoAbogado, String cuerpoHtml, List<Adjunto> adjuntos) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.BOLETIN_JUDICIAL_CORREO)) {
+            log.info("Digest de boletín judicial a '{}' omitido: BOLETIN_JUDICIAL_CORREO está apagado desde el panel.", nombreAbogado);
+            return;
+        }
+        boolean exito = enviarHtmlConAdjuntos(correoAbogado,
+                "Tus casos: boletín judicial diario (" + adjuntos.size() + " documento(s)) - " + nombreFirma, cuerpoHtml, adjuntos,
+                ANCHO_DIGEST_INTERNO);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
+                nombreAbogado, correoAbogado, adjuntos.size() + " boletín(es)", exito);
+    }
+
+    // Digest semanal al CLIENTE de un caso puntual -- SOLO boletines que coinciden por
+    // nombre con la actuación esperada (ver BoletinJudicialCache.coincideNombreActuacion):
+    // nunca se le manda a un cliente real un documento ambiguo sin que un humano lo
+    // confirme primero, a diferencia del gerente/abogado (revisores con criterio propio).
+    //
+    // REDISEÑADO el 2026-10-31 -- pedido explícito del usuario, inspirado en el correo
+    // diario de Lupa Jurídica: "mas que enviar radicado... es que muestre cual es la ultima
+    // actualizacion y todos los ultimos documentos de la semana con descripcion". Antes
+    // construía su propio cuerpo genérico aquí mismo, sin mostrar ni la última actualización
+    // ni describir los documentos -- ahora recibe el cuerpo YA ARMADO (igual que gerente/
+    // abogado, ver BoletinJudicialDigestService.construirCuerpoDigest()), que si incluye
+    // esa tabla con última actualización, documentos con descripción y el link directo a
+    // la consulta de caso.
+    public boolean enviarDigestBoletinCliente(String nombreCliente, String correo, String radicadoId, String cuerpoHtml,
+                                               List<Adjunto> adjuntos) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.BOLETIN_JUDICIAL_CORREO)) {
+            log.info("Digest de boletín judicial al cliente omitido: BOLETIN_JUDICIAL_CORREO está apagado desde el panel.");
+            return false;
+        }
+        boolean exito = enviarHtmlConAdjuntos(correo, "Novedades de tu proceso " + radicadoId + " - " + nombreFirma, cuerpoHtml, adjuntos);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
+                nombreCliente, correo, "Radicado " + radicadoId + " (" + adjuntos.size() + " documento(s))", exito);
+        return exito;
+    }
+
+    // Mismo criterio que WhatsAppService.enlaceConsultaDirecto (pedido explícito del
+    // usuario de que el link ya lleve el radicado embebido, no obligar a escribirlo a
+    // mano) -- ver consulta-caso/page.tsx en el frontend, que lo lee y consulta solo al
+    // cargar. Público desde el 2026-10-31: BoletinJudicialDigestService.
+    // construirCuerpoDigest() lo necesita para mostrar el link directo en el digest de
+    // boletines (gerente/abogado/cliente), no solo en el cuerpo armado aquí mismo.
+    public String enlaceConsultaDirecto(String radicadoId) {
+        return sitioWeb + "/consulta-caso?radicado="
+                + java.net.URLEncoder.encode(radicadoId, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     private String firmaCierre() {
         return """
                 <p style="margin:24px 0 0;">Atentamente,<br><strong>Equipo %s</strong></p>
@@ -892,6 +1113,16 @@ public class EmailService {
     // renderiza de forma consistente en Outlook de escritorio (motor de Word) además de
     // los clientes basados en WebKit/Blink.
     private String plantilla(String tituloInterno, String contenidoHtml) {
+        return plantilla(tituloInterno, contenidoHtml, 600);
+    }
+
+    // Pedido explícito del usuario (2026-10-31): "haz mas ancho el correo" -- el digest de
+    // boletines a gerencia/abogados es una tabla operativa densa (varias columnas, estilo
+    // Lupa Jurídica), no un correo de marca/marketing para leer en el teléfono. anchoPx
+    // sobrescribe el 600px fijo que SÍ sigue siendo correcto para el resto de correos del
+    // sistema (confirmaciones, boletín de marketing, firma electrónica...), que nunca llevan
+    // una tabla ancha de verdad.
+    private String plantilla(String tituloInterno, String contenidoHtml, int anchoPx) {
         int anioActual = Year.now().getValue();
         boolean hayTelefono = telefono != null && !telefono.isBlank();
         boolean hayCiudad = ciudad != null && !ciudad.isBlank();
@@ -914,7 +1145,7 @@ public class EmailService {
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:{{FONDO}};padding:32px 16px;">
                 <tr>
                 <td align="center">
-                <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#FFFFFF;">
+                <table role="presentation" width="{{ANCHO}}" cellpadding="0" cellspacing="0" style="max-width:{{ANCHO}}px;width:100%;background-color:#FFFFFF;">
                 <tr>
                 <td align="center" style="padding:30px 24px 24px;border-bottom:3px solid {{DORADO}};">
                 <img src="cid:{{CID_LOGO}}" width="150" alt="{{FIRMA}}" style="display:block;max-width:150px;height:auto;border:0;">
@@ -949,6 +1180,7 @@ public class EmailService {
                 """
                 .replace("{{TITULO}}", escaparHtml(tituloInterno))
                 .replace("{{CONTENIDO}}", contenidoHtml)
+                .replace("{{ANCHO}}", String.valueOf(anchoPx))
                 .replace("{{FONDO}}", COLOR_FONDO_PAGINA)
                 .replace("{{DORADO}}", COLOR_DORADO)
                 .replace("{{TEXTO}}", COLOR_TEXTO)
@@ -1105,6 +1337,50 @@ public class EmailService {
             return true;
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.warn("No se pudo enviar el correo con adjunto '{}' a {}: {}", asunto, destinatario, ex.getMessage());
+            return false;
+        }
+    }
+
+    // Igual que enviarHtmlConAdjunto, pero con VARIOS documentos en el mismo correo (ver
+    // Adjunto) -- los digest de boletín judicial pueden traer varios PDFs de casos/
+    // actuaciones distintas en un solo envío, a diferencia del resto de este servicio.
+    private boolean enviarHtmlConAdjuntos(String destinatario, String asunto, String cuerpoHtml, List<Adjunto> adjuntos) {
+        return enviarHtmlConAdjuntos(destinatario, asunto, cuerpoHtml, adjuntos, 600);
+    }
+
+    // anchoPx: ver el comentario de plantilla(titulo, contenido, anchoPx) -- el digest a
+    // gerencia/abogados lo usa con 960, el resto (cliente) se queda en el 600 por defecto.
+    private boolean enviarHtmlConAdjuntos(String destinatario, String asunto, String cuerpoHtml, List<Adjunto> adjuntos, int anchoPx) {
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Envío de correo con {} adjunto(s) CANCELADO hacia '{}' con asunto '{}' (app.bloqueo-total-clientes=true).",
+                    adjuntos.size(), destinatario, asunto);
+            return true;
+        }
+        String[] destinatarios = separarCorreos(destinatario);
+        if (destinatarios.length == 0) {
+            log.warn("No se pudo enviar el correo '{}': '{}' no tiene ninguna dirección válida.", asunto, destinatario);
+            return false;
+        }
+        try {
+            MimeMessage mensaje = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
+            helper.setFrom(remitente, nombreFirma);
+            helper.setTo(destinatarios);
+            helper.setReplyTo(correoAdmin);
+            helper.setSubject(asunto);
+            String htmlCompleto = plantilla(asunto, cuerpoHtml, anchoPx);
+            helper.setText(htmlAPlano(htmlCompleto), htmlCompleto);
+            helper.addInline(CID_LOGO, logoResource, "image/png");
+            helper.addInline(CID_SELLO, selloResource, "image/png");
+            for (Adjunto adjunto : adjuntos) {
+                helper.addAttachment(adjunto.nombreArchivo(),
+                        new org.springframework.core.io.ByteArrayResource(adjunto.datos()), "application/pdf");
+            }
+            mailSender.send(mensaje);
+            return true;
+        } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
+            log.warn("No se pudo enviar el correo con {} adjunto(s) '{}' a {}: {}",
+                    adjuntos.size(), asunto, destinatario, ex.getMessage());
             return false;
         }
     }

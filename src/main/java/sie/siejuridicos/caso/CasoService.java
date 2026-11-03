@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import sie.siejuridicos.caso.dto.ActualizarCasoRequest;
 import sie.siejuridicos.caso.dto.CasoAdminResponse;
 import sie.siejuridicos.caso.dto.CasoConsultaResponse;
 import sie.siejuridicos.caso.dto.CrearCasoRequest;
@@ -21,11 +22,21 @@ import sie.siejuridicos.hojacalculo.dto.FilaSincronizacionHoja;
 import sie.siejuridicos.hojacalculo.dto.ResultadoSincronizacionHoja;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
+import sie.siejuridicos.usuario.UsuarioInterno;
+import sie.siejuridicos.usuario.UsuarioInternoRepository;
+import sie.siejuridicos.vigilancia.ActuacionJudicialRegistradaRepository;
+import sie.siejuridicos.vigilancia.BoletinJudicialCacheRepository;
+import sie.siejuridicos.vigilancia.EstadoProcesoCandidato;
+import sie.siejuridicos.vigilancia.ProcesoCandidatoDetectado;
+import sie.siejuridicos.vigilancia.ProcesoCandidatoDetectadoRepository;
+import sie.siejuridicos.vigilancia.SeguimientoVistoUsuarioRepository;
+import sie.siejuridicos.vigilancia.TerminoProcesalService;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -39,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class CasoService {
@@ -53,6 +65,10 @@ public class CasoService {
     private static final long PAUSA_ENTRE_ENVIOS_MS = 1500;
     // Ante un fallo transitorio (SMTP/Meta), cuánto esperar antes del único reintento.
     private static final long PAUSA_REINTENTO_MS = 4000;
+    // Mismo límite que la columna radicado_id de la tabla casos (ver migración V1) -- un
+    // radicado real de la Rama Judicial tiene 23 dígitos, así que cualquier valor más largo
+    // es dato corrupto de la hoja, nunca un radicado legítimo.
+    private static final int LONGITUD_MAXIMA_RADICADO = 50;
 
     private final CasoRepository casoRepository;
     private final ClienteRepository clienteRepository;
@@ -62,7 +78,14 @@ public class CasoService {
     private final CifradoService cifradoService;
     private final RegistroSistemaService registroSistemaService;
     private final LimiteEnvioMasivoService limiteEnvioMasivoService;
+    private final ActuacionJudicialRegistradaRepository actuacionJudicialRegistradaRepository;
+    private final SeguimientoVistoUsuarioRepository seguimientoVistoUsuarioRepository;
+    private final UsuarioInternoRepository usuarioInternoRepository;
+    private final TerminoProcesalService terminoProcesalService;
+    private final BoletinJudicialCacheRepository boletinJudicialCacheRepository;
+    private final ProcesoCandidatoDetectadoRepository procesoCandidatoDetectadoRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CasoService(CasoRepository casoRepository,
                         ClienteRepository clienteRepository,
                         EmailService emailService,
@@ -70,7 +93,13 @@ public class CasoService {
                         HojaCalculoService hojaCalculoService,
                         CifradoService cifradoService,
                         RegistroSistemaService registroSistemaService,
-                        LimiteEnvioMasivoService limiteEnvioMasivoService) {
+                        LimiteEnvioMasivoService limiteEnvioMasivoService,
+                        ActuacionJudicialRegistradaRepository actuacionJudicialRegistradaRepository,
+                        SeguimientoVistoUsuarioRepository seguimientoVistoUsuarioRepository,
+                        UsuarioInternoRepository usuarioInternoRepository,
+                        TerminoProcesalService terminoProcesalService,
+                        BoletinJudicialCacheRepository boletinJudicialCacheRepository,
+                        ProcesoCandidatoDetectadoRepository procesoCandidatoDetectadoRepository) {
         this.casoRepository = casoRepository;
         this.clienteRepository = clienteRepository;
         this.emailService = emailService;
@@ -79,6 +108,26 @@ public class CasoService {
         this.cifradoService = cifradoService;
         this.registroSistemaService = registroSistemaService;
         this.limiteEnvioMasivoService = limiteEnvioMasivoService;
+        this.actuacionJudicialRegistradaRepository = actuacionJudicialRegistradaRepository;
+        this.seguimientoVistoUsuarioRepository = seguimientoVistoUsuarioRepository;
+        this.usuarioInternoRepository = usuarioInternoRepository;
+        this.terminoProcesalService = terminoProcesalService;
+        this.boletinJudicialCacheRepository = boletinJudicialCacheRepository;
+        this.procesoCandidatoDetectadoRepository = procesoCandidatoDetectadoRepository;
+    }
+
+    // Constructor de compatibilidad para suites de prueba unitarias
+    public CasoService(CasoRepository casoRepository,
+                        ClienteRepository clienteRepository,
+                        EmailService emailService,
+                        WhatsAppService whatsAppService,
+                        HojaCalculoService hojaCalculoService,
+                        CifradoService cifradoService,
+                        RegistroSistemaService registroSistemaService,
+                        LimiteEnvioMasivoService limiteEnvioMasivoService) {
+        this(casoRepository, clienteRepository, emailService, whatsAppService,
+                hojaCalculoService, cifradoService, registroSistemaService,
+                limiteEnvioMasivoService, null, null, null, null, null, null);
     }
 
     // Respaldo manual: ya no es el flujo principal (ver sincronizarDesdeHoja()), pero se
@@ -118,6 +167,7 @@ public class CasoService {
         caso.setNotasInternas(request.notasInternas());
 
         Caso guardado = casoRepository.save(caso);
+        registrarSiRadicadoInvalido(guardado);
 
         // Variantes SÍNCRONAS a propósito -- bug real encontrado en auditoría (reportado por
         // el usuario: "no me llegó el WhatsApp al usuario de prueba" mientras el panel
@@ -137,7 +187,205 @@ public class CasoService {
             guardado.setWhatsappEnviado(whatsappExitoso);
         }
 
-        return CasoAdminResponse.desde(guardado);
+        // Caso recién creado: nunca puede tener ya una actuación "sin revisar" pendiente, ni
+        // ninguna actuación detectada todavía, ni boletín en caché.
+        return CasoAdminResponse.desde(guardado, false, null, null, null);
+    }
+
+    // Pedido explícito del usuario (2026-11-01): "le sale una alerta de que debe ser
+    // corregido" + "el sistema debe reflejar que fallos hay" -- se llama justo después de
+    // CUALQUIER punto donde se asigna/cambia un radicado (creación manual, edición desde el
+    // panel, sincronización desde la hoja), nunca bloquea el guardado (ver Caso.
+    // setRadicadoId()/RadicadoUtil: hay jurisdicciones reales sin radicado CPNU). Solo deja
+    // trazabilidad en /admin/registro de qué caso puntual quedó así, para que un admin lo
+    // note sin tener que revisar los logs del servidor.
+    private void registrarSiRadicadoInvalido(Caso caso) {
+        if (caso.getRadicadoId() == null || !caso.isRadicadoFormatoInvalido()) {
+            return;
+        }
+        registroSistemaService.registrar(
+                TipoRegistroSistema.RADICADO_FORMATO_INVALIDO,
+                "Caso #%d (%s) quedó con el radicado '%s', que no tiene el formato de la Rama Judicial (23 dígitos)"
+                        .formatted(caso.getId(), caso.getFuente().getNombreVisible(), caso.getRadicadoId()),
+                "Si es un caso de otra jurisdicción (comisaría de familia, inspección de policía), puede ignorarse. "
+                        + "Si esperabas seguimiento automático 24/7 para este caso, revisa el radicado.",
+                false);
+    }
+
+    // Botón "Crear y adjuntar automáticamente en SIE" de /admin/procesos-detectados (pedido
+    // explícito del usuario: "implementa todas las mejoras identificadas", comparando contra
+    // Lupa Jurídica -- y luego, sobre la primera versión de esta pantalla: "deja dos botones,
+    // CREAR Y ADJUNTAR AUTOMATICAMENTE EN SIE, NO (ES OTRA PERSONA)"). A diferencia de crear()
+    // (que pide escribir nombre/correo/radicado a mano), aquí el Cliente YA es uno real del
+    // sistema (el candidato se detectó buscando SU nombre) y los datos del proceso ya los
+    // trajo el CPNU durante la detección -- no hay nada que volver a preguntar.
+    //
+    // Deliberadamente NO manda el correo/WhatsApp de "código de tu caso" que sí manda crear():
+    // ese mensaje nació para cuando un cliente llena el formulario de contacto esperando una
+    // confirmación inmediata. Aquí el cliente no hizo ninguna gestión en este momento -- es la
+    // firma la que encontró un proceso suyo por su cuenta -- así que avisarle de buenas a
+    // primeras sería una comunicación que el abogado no decidió a propósito. El seguimiento
+    // 24/7 (ver SeguimientoJudicialService) sí vigila el caso desde que se crea, igual que
+    // cualquier otro.
+    @Transactional
+    public CasoAdminResponse crearDesdeProcesoCandidato(Long candidatoId, UsuarioInterno actor) {
+        ProcesoCandidatoDetectado candidato = procesoCandidatoDetectadoRepository.findById(candidatoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Candidato no encontrado"));
+        if (candidato.getEstado() != EstadoProcesoCandidato.PENDIENTE) {
+            throw new ConflictoNegocioException("Este candidato ya fue revisado antes.");
+        }
+
+        String radicadoId = candidato.getLlaveProceso();
+        if (casoRepository.existsByRadicadoId(radicadoId)) {
+            throw new ConflictoNegocioException(
+                    "Ya existe un caso registrado con ese radicado -- probablemente ya se había creado por otro medio.");
+        }
+
+        Caso caso = new Caso();
+        caso.setCliente(candidato.getCliente());
+        caso.setFuente(FuenteCaso.MANUAL);
+        caso.setRadicadoId(radicadoId);
+        // Lo que el CPNU ya trajo durante la detección por nombre -- el próximo ciclo del
+        // seguimiento 24/7 completa el resto (ponente, tipo/clase/subclase de proceso,
+        // ubicación del expediente, actuaciones), exactamente igual que con cualquier otro
+        // caso nuevo (ver SeguimientoJudicialService.sincronizarCaso).
+        caso.setSujetosProcesales(candidato.getSujetosProcesales());
+        caso.setDespachoJudicial(candidato.getDespacho());
+        caso.setDepartamentoJudicial(candidato.getDepartamento());
+        caso.setFechaRadicacionProceso(candidato.getFechaProceso());
+        caso.setNotasInternas("Creado automáticamente el %s desde \"Procesos nuevos detectados\": el sistema encontró este proceso buscando el nombre del cliente en la Rama Judicial y %s confirmó que es real."
+                .formatted(LocalDate.now(), actor.getNombre()));
+
+        Caso guardado = casoRepository.save(caso);
+
+        candidato.setEstado(EstadoProcesoCandidato.YA_ES_CASO);
+        procesoCandidatoDetectadoRepository.save(candidato);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.CASO_CREADO_DESDE_DETECCION,
+                "'%s' creó el caso #%d (radicado %s) automáticamente desde un proceso detectado para el cliente '%s'".formatted(
+                        actor.getNombre(), guardado.getId(), radicadoId, candidato.getCliente().getNombre()),
+                true);
+
+        // Igual que un caso recién creado por cualquier otro medio: sin actuación "sin
+        // revisar" ni boletín en caché todavía.
+        return CasoAdminResponse.desde(guardado, false, null, null, null);
+    }
+
+    // Edición manual de un caso ya existente (pedido explícito del usuario: "una variable
+    // para editar los casos, la idea es desligarnos del excel... un boton para editar caso
+    // para administrador unicamente y asignacion de caso por abogado"). A diferencia de
+    // sincronizarDesdeHoja() (que solo puede traer lo que ya está en la hoja de la firma),
+    // esto permite corregir o completar datos directamente, sin depender de que el Google
+    // Sheets los tenga -- el primer paso real de dejar de ser 100% dependientes de la hoja.
+    //
+    // numeroCaso NO se edita aquí a propósito (ver ActualizarCasoRequest). radicadoId sí se
+    // valida contra duplicados, igual que en la sincronización.
+    //
+    // correo/telefono viven en Cliente, que puede estar COMPARTIDO entre varios casos (ver
+    // CasoRepository.countByCliente) -- si el cliente de este caso tiene más de uno, NO se
+    // tocan esos dos campos (se reportan como "no actualizados" en el mensaje) para no pisar
+    // silenciosamente el contacto de otro caso que comparte el mismo cliente; nombreEnHoja,
+    // radicadoId, notasInternas y abogadoAsignado son siempre por-caso, sin ese riesgo.
+    @Transactional
+    public CasoAdminResponse actualizar(Long id, ActualizarCasoRequest request, UsuarioInterno actor) {
+        Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+
+        String nombreNuevo = request.nombreEnHoja() != null ? request.nombreEnHoja().strip() : null;
+        if (nombreNuevo != null && !nombreNuevo.isBlank()) {
+            caso.setNombreEnHoja(nombreNuevo);
+        }
+
+        String radicadoNuevo = request.radicadoId() != null ? request.radicadoId().strip() : null;
+        if (radicadoNuevo != null && radicadoNuevo.isBlank()) {
+            radicadoNuevo = null;
+        }
+        if (radicadoNuevo != null && radicadoNuevo.length() > LONGITUD_MAXIMA_RADICADO) {
+            throw new ConflictoNegocioException(
+                    "El radicado no puede tener más de " + LONGITUD_MAXIMA_RADICADO + " caracteres.");
+        }
+        if (!java.util.Objects.equals(radicadoNuevo, caso.getRadicadoId())) {
+            if (radicadoNuevo != null) {
+                boolean yaUsado = casoRepository.findByRadicadoId(radicadoNuevo)
+                        .filter(otro -> !otro.getId().equals(caso.getId()))
+                        .isPresent();
+                if (yaUsado) {
+                    throw new ConflictoNegocioException("Ese radicado ya está asignado a otro caso.");
+                }
+            }
+            boolean eraReasignacion = caso.getRadicadoId() != null && radicadoNuevo != null;
+            caso.setRadicadoId(radicadoNuevo);
+            registrarSiRadicadoInvalido(caso);
+            if (eraReasignacion) {
+                caso.setCorreoEnviado(false);
+                caso.setWhatsappEnviado(false);
+            }
+        }
+
+        caso.setNotasInternas(request.notasInternas() != null && !request.notasInternas().isBlank()
+                ? request.notasInternas().strip() : null);
+
+        if (request.abogadoAsignadoId() == null) {
+            caso.setAbogadoAsignado(null);
+        } else if (caso.getAbogadoAsignado() == null || !caso.getAbogadoAsignado().getId().equals(request.abogadoAsignadoId())) {
+            UsuarioInterno abogado = usuarioInternoRepository.findById(request.abogadoAsignadoId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
+            caso.setAbogadoAsignado(abogado);
+            // Gap real: si este caso ya tenía términos procesales detectados ANTES de tener
+            // abogado (ver TerminoProcesalService.procesarSiAplica -- nunca reprocesa una
+            // actuación ya registrada), se quedarían para siempre sin tarea ni alerta
+            // activa. Al asignar abogado ahora, se les crea la tarea retroactivamente.
+            terminoProcesalService.asignarTareasPendientes(caso, abogado);
+        }
+
+        boolean contactoActualizado = actualizarContactoCliente(caso, request.correoCliente(), request.telefonoCliente());
+
+        casoRepository.save(caso);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.EDICION_CASO,
+                "'%s' editó el caso #%d (%s)%s".formatted(
+                        actor.getNombre(), caso.getId(), caso.getFuente().getNombreVisible(),
+                        contactoActualizado ? "" : " -- correo/teléfono no se tocaron porque el contacto es compartido por más de un caso"),
+                true);
+
+        return CasoAdminResponse.desde(caso, false, null, null, null);
+    }
+
+    // true si de verdad se pudo actualizar correo/telefono (cliente de un solo caso); false
+    // si se omitió por ser un cliente compartido (ver comentario de actualizar() arriba).
+    private boolean actualizarContactoCliente(Caso caso, String correoNuevo, String telefonoNuevo) {
+        if (correoNuevo == null && telefonoNuevo == null) {
+            return true;
+        }
+        if (casoRepository.countByCliente(caso.getCliente()) > 1) {
+            return false;
+        }
+        Cliente cliente = caso.getCliente();
+        if (correoNuevo != null) {
+            String correoLimpio = correoNuevo.strip();
+            if (correoLimpio.isBlank()) {
+                cliente.setCorreo(null);
+                cliente.setCorreoHash(null);
+            } else {
+                String hashNuevo = cifradoService.indiceCiego(correoLimpio);
+                if (!hashNuevo.equals(cliente.getCorreoHash())) {
+                    Optional<Cliente> otroConEseCorreo = clienteRepository.findByCorreoHash(hashNuevo);
+                    if (otroConEseCorreo.isPresent() && !otroConEseCorreo.get().getId().equals(cliente.getId())) {
+                        caso.setCliente(otroConEseCorreo.get());
+                    } else {
+                        cliente.setCorreo(correoLimpio);
+                        cliente.setCorreoHash(hashNuevo);
+                    }
+                }
+            }
+        }
+        if (telefonoNuevo != null) {
+            String telefonoLimpio = telefonoNuevo.strip();
+            caso.getCliente().setTelefono(telefonoLimpio.isBlank() ? null : telefonoLimpio);
+        }
+        return true;
     }
 
     // Ordenado por fuente y, dentro de cada fuente, por su número de caso (pedido explícito
@@ -152,11 +400,54 @@ public class CasoService {
     // sin ningún sentido) van al final de su grupo, ordenados ahí por fecha_creacion DESC
     // gracias a que Comparator.thenComparingLong es un sort estable sobre el resultado de
     // listarTodosConDetalle(), que ya viene en ese orden.
+    // usuarioActualId: quién está pidiendo el listado (ver CasoAdminController.listar()) --
+    // decide el badge de "sin revisar" de CADA usuario por separado (pedido explícito del
+    // usuario: "si es nuevo para cada persona"), null solo puede pasar si el filtro de
+    // seguridad dejara pasar una petición sin autenticar, lo cual no debería ocurrir bajo
+    // /api/admin/**, pero no hace que el listado falle si pasara.
     @Transactional(readOnly = true)
-    public List<CasoAdminResponse> listarTodos() {
+    public List<CasoAdminResponse> listarTodos(Long usuarioActualId) {
+        Map<Long, LocalDateTime> ultimaDeteccionPorCaso = actuacionJudicialRegistradaRepository
+                .ultimaFechaDetectadaPorCaso().stream()
+                .collect(Collectors.toMap(
+                        ActuacionJudicialRegistradaRepository.UltimaDeteccionPorCaso::getCasoId,
+                        ActuacionJudicialRegistradaRepository.UltimaDeteccionPorCaso::getUltimaFechaDetectada));
+        // Ver el comentario de ultimaFechaMovimientoPorCaso(): esta es la fecha REAL del
+        // movimiento (cuándo lo publicó el despacho), no cuándo nuestro backfill lo detectó --
+        // es la que corrige el ordenador de "última actualización" en el listado.
+        Map<Long, LocalDateTime> ultimoMovimientoPorCaso = actuacionJudicialRegistradaRepository
+                .ultimaFechaMovimientoPorCaso().stream()
+                .collect(Collectors.toMap(
+                        ActuacionJudicialRegistradaRepository.UltimoMovimientoPorCaso::getCasoId,
+                        ActuacionJudicialRegistradaRepository.UltimoMovimientoPorCaso::getUltimaFechaMovimiento));
+        Map<Long, LocalDateTime> fechaVistaPorCaso = usuarioActualId == null
+                ? Map.of()
+                : seguimientoVistoUsuarioRepository.listarPorUsuario(usuarioActualId).stream()
+                        .collect(Collectors.toMap(
+                                SeguimientoVistoUsuarioRepository.VistoPorCaso::getCasoId,
+                                SeguimientoVistoUsuarioRepository.VistoPorCaso::getFechaVista));
+        // Pedido explícito del usuario: "pon un contador en cada caso con boletin... que
+        // muestre dentro de cuantos dias seran borrados" -- la expiración más próxima de
+        // cada caso, convertida a días restantes desde ahora mismo (ver el comentario de
+        // CasoAdminResponse.diasParaBorrarBoletin). Un caso sin ninguna fila en caché
+        // simplemente no aparece en este mapa -- ausencia = sin boletín disponible.
+        LocalDateTime ahora = LocalDateTime.now();
+        Map<Long, Integer> diasParaBorrarPorCaso = boletinJudicialCacheRepository.proximaExpiracionPorCaso().stream()
+                .collect(Collectors.toMap(
+                        BoletinJudicialCacheRepository.ProximaExpiracionPorCaso::getCasoId,
+                        p -> (int) Math.max(0, ChronoUnit.DAYS.between(ahora, p.getProximaExpiracion()))));
+
         return casoRepository.listarTodosConDetalle().stream()
                 .sorted(Comparator.comparing(Caso::getFuente).thenComparingLong(CasoService::numeroOrdenable))
-                .map(CasoAdminResponse::desde)
+                .map(caso -> {
+                    LocalDateTime ultimaDeteccion = ultimaDeteccionPorCaso.get(caso.getId());
+                    LocalDateTime fechaVista = fechaVistaPorCaso.get(caso.getId());
+                    boolean sinRevisar = ultimaDeteccion != null
+                            && (fechaVista == null || ultimaDeteccion.isAfter(fechaVista));
+                    return CasoAdminResponse.desde(caso, sinRevisar, ultimaDeteccion,
+                            ultimoMovimientoPorCaso.get(caso.getId()),
+                            diasParaBorrarPorCaso.get(caso.getId()));
+                })
                 .toList();
     }
 
@@ -211,6 +502,7 @@ public class CasoService {
         // puede enviar notificación todavía.
         int omitidos = 0;
         int radicadosDuplicados = 0;
+        int radicadosInvalidos = 0;
         // Reserva, dentro de esta misma corrida, cada radicado ya asignado (a un caso
         // existente o nuevo) para detectar dos filas de la hoja con el mismo radicado
         // (duplicado real de la firma) sin depender de una consulta a la base de datos que
@@ -237,6 +529,20 @@ public class CasoService {
             String correo = correoValido;
 
             String radicado = fila.radicadoId();
+            // Bug real encontrado en esta sesión: una fila con un radicado de más de 50
+            // caracteres (dato corrupto de la hoja, no un radicado real de 23 dígitos)
+            // tumbaba TODA la sincronización automática al arrancar (SincronizacionCasosScheduler)
+            // con un DataException de Postgres sin que nada lo atajara -- el backend entero
+            // no lograba levantar. Se ignora el radicado de esa fila puntual (el caso se
+            // sigue sincronizando igual, solo sin radicado hasta que se corrija en la hoja)
+            // en vez de dejar que una sola fila mala tumbe todo el proceso.
+            if (radicado != null && radicado.length() > LONGITUD_MAXIMA_RADICADO) {
+                log.warn("Radicado de {} Nº{} excede los {} caracteres permitidos ('{}...') -- se ignora "
+                        + "como dato corrupto de la hoja, revisa esa fila manualmente.",
+                        fila.fuente(), numeroCaso, LONGITUD_MAXIMA_RADICADO, radicado.substring(0, LONGITUD_MAXIMA_RADICADO));
+                radicado = null;
+                radicadosInvalidos++;
+            }
             Optional<Caso> existente = casoRepository.findByFuenteAndNumeroCaso(fila.fuente(), numeroCaso);
 
             if (existente.isPresent()) {
@@ -260,6 +566,7 @@ public class CasoService {
                     } else {
                         boolean eraReasignacion = caso.getRadicadoId() != null;
                         caso.setRadicadoId(radicado);
+                        registrarSiRadicadoInvalido(caso);
                         if (eraReasignacion) {
                             // El radicado que ya se le había enviado al cliente cambió en
                             // la hoja (corrección del despacho): hay que volver a
@@ -327,6 +634,7 @@ public class CasoService {
             nuevoCaso.setRadicadoId(radicadoAUsar);
             nuevoCaso.setNombreEnHoja(fila.nombreCliente());
             casoRepository.save(nuevoCaso);
+            registrarSiRadicadoInvalido(nuevoCaso);
             nuevos++;
         }
 
@@ -355,13 +663,17 @@ public class CasoService {
 
         registroSistemaService.registrar(
                 TipoRegistroSistema.SINCRONIZACION_CASOS,
-                "%d fila(s) leída(s), %d nuevo(s), %d actualizado(s), %d eliminado(s), %d sin correo, %d radicado(s) duplicado(s)"
-                        .formatted(filas.size(), nuevos, actualizados, eliminados, omitidos, radicadosDuplicados),
+                "%d fila(s) leída(s), %d nuevo(s), %d actualizado(s), %d eliminado(s), %d sin correo, %d radicado(s) duplicado(s)%s"
+                        .formatted(filas.size(), nuevos, actualizados, eliminados, omitidos, radicadosDuplicados,
+                                radicadosInvalidos > 0
+                                        ? ", %d radicado(s) con formato inválido (ignorados)".formatted(radicadosInvalidos)
+                                        : ""),
                 fuentesConErrorVisible.isEmpty() ? null : "Fuentes con error: " + String.join(", ", fuentesConErrorVisible),
                 fuentesConErrorVisible.isEmpty());
 
         return new ResumenSincronizacion(
-                filas.size(), nuevos, actualizados, eliminados, omitidos, radicadosDuplicados, fuentesConErrorVisible);
+                filas.size(), nuevos, actualizados, eliminados, omitidos, radicadosDuplicados, radicadosInvalidos,
+                fuentesConErrorVisible);
     }
 
     // Aplica a Cliente cualquier corrección hecha directamente en la hoja. El correo es una
@@ -856,7 +1168,10 @@ public class CasoService {
 
         Optional<Caso> caso = casoRepository.findByRadicadoId(radicadoBuscado);
         if (caso.isEmpty()) {
-            String radicadoLimpio = radicadoBuscado.replaceAll("[\\s\\-\\.]+", "");
+            // Un solo punto de normalización (ver RadicadoUtil) -- antes esta misma limpieza
+            // vivía con su propia regex local aquí, en RamaJudicialCpnuClient y en
+            // PublicacionesProcesalesClient, cada uno por su lado.
+            String radicadoLimpio = RadicadoUtil.limpiar(radicadoBuscado);
             if (!radicadoLimpio.isBlank() && !radicadoLimpio.equals(radicadoBuscado)) {
                 caso = casoRepository.findByRadicadoId(radicadoLimpio);
                 if (caso.isPresent()) {

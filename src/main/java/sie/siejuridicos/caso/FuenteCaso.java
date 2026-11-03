@@ -11,6 +11,16 @@ public enum FuenteCaso {
     JUDICIALES("Judiciales"),
     SUPERINTENDENCIA("Superintendencia"),
     PROCESOS_COMISARIA("Procesos Comisaría"),
+    // Las siguientes 5 se agregaron el 2026-10-30 al expandir de 3 a 8 pestañas reales del
+    // Excel de la firma (ver HojaCalculoService) -- UCN y AUDIENCIAS quedaron fuera a
+    // propósito (son agendas de audiencias sin radicado/expediente, no encajan como Caso) y
+    // MARCAS/INTERNACIONAL/DENUNCIAS tampoco se agregaron todavía (no fueron pedidas en esta
+    // ronda).
+    TUTELAS("Tutelas"),
+    PROCESOS_SALEN("Procesos Salen"),
+    PROCESOS_ICBF("Procesos ICBF"),
+    INSPECCIONES_POLICIA("Inspecciones de Policía"),
+    INSOLVENCIA("Insolvencia"),
     MANUAL("Registrado a mano");
 
     private final String nombreVisible;

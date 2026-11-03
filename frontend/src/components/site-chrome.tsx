@@ -13,6 +13,7 @@ import { SlideNav } from "@/components/slide-nav";
 import { NewsletterPopup } from "@/components/newsletter-popup";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import { ConsultaCasoFloat } from "@/components/consulta-caso-float";
+import { SocialBarFloat } from "@/components/social-bar-float";
 import { LoadingScreen } from "@/components/loading-screen";
 
 // El panel administrativo (/admin/**) tiene su propio shell (sidebar/topbar) y no debe
@@ -77,6 +78,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         {children}
         <SiteFooter />
         <SlideNav />
+        <SocialBarFloat />
         {!esConsultaCaso && <ConsultaCasoFloat />}
         <WhatsappFloat />
         <ChatbotWidget />

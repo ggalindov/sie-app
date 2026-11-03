@@ -1,0 +1,21 @@
+-- Pedido explícito del usuario: "implementa esto en nuestro sistema... SAMAI (Consejo de
+-- Estado y Tribunales Administrativos)" -- gap real detectado comparando contra Lupa
+-- Jurídica: hasta ahora el seguimiento judicial 24/7 solo cubre la Rama Judicial ordinaria
+-- (CPNU), nunca la jurisdicción contencioso-administrativa, que usa un sistema público
+-- totalmente aparte (SAMAI, samai.consejodeestado.gov.co).
+--
+-- Reutiliza TODAS las columnas genéricas que ya existían para el CPNU (sujetos_procesales,
+-- despacho_judicial, ponente, tipo_proceso, fecha_radicacion_proceso, proceso_privado) --
+-- mismo formato, mismo significado, un caso resuelto por SAMAI se ve en el panel
+-- exactamente igual que uno resuelto por el CPNU. Solo hace falta UNA columna nueva: el
+-- identificador propio de SAMAI para cada proceso (un GUID en formato texto, no un entero
+-- como idProceso del CPNU -- ver SamaiClient.ProcesoResuelto), necesario para volver a
+-- consultar las actuaciones de ESE proceso en ciclos posteriores sin tener que repetir la
+-- búsqueda inicial por radicado.
+--
+-- id_proceso_cpnu y id_proceso_samai son mutuamente excluyentes en la práctica (un radicado
+-- real pertenece a una sola jurisdicción), pero se dejan como dos columnas independientes en
+-- vez de una sola "id_proceso_generico" + "sistema": así SeguimientoJudicialService puede
+-- decidir qué cliente usar (CpnuClient vs SamaiClient) con un simple null-check, sin
+-- necesitar un tercer campo de enum para la rama.
+ALTER TABLE casos ADD COLUMN id_proceso_samai VARCHAR(64);

@@ -47,7 +47,7 @@ import java.util.Optional;
 // solo se loguea el radicado buscado (el propio cliente ya lo conoce, se lo enviamos por
 // correo) y errores operativos, nunca a nivel INFO.
 //
-// Tres pestañas soportadas (ver FuenteCaso), cada una con su propia estructura de columnas
+// Ocho pestañas soportadas (ver FuenteCaso), cada una con su propia estructura de columnas
 // -- confirmadas leyendo en vivo la fila de encabezados real de cada una (y varias filas de
 // datos reales) con la propia cuenta de servicio, no adivinadas ni copiadas del hoja anterior.
 // Hoja reemplazada por completo el 2026-09-08 ("se estandarizaron los textos y formatos", ver
@@ -87,6 +87,13 @@ import java.util.Optional;
 //   decisión" de Judiciales), I "ÚLTIMO ESTADO" (igual letra y rol que en la hoja anterior),
 //   J "FECHA DE REVISIÓN" (igual letra y rol que en la hoja anterior), L "CORREO DEL
 //   CLIENTE", M "TELÉFONO DEL CLIENTE" (ambas en la misma letra que en la hoja anterior).
+//
+// 5 fuentes más agregadas el 2026-10-30 (ver construirConfiguraciones() para el detalle
+// columna por columna de cada una, con los bugs reales encontrados en esos datos): TUTELAS,
+// PROCESOS SALEN, PROCESOS ICBF, INSPECCIONES DE POLICÍA e INSOLVENCIA. El Excel real de la
+// firma tiene 14 pestañas en total; UCN y AUDIENCIAS (agendas de audiencias sin radicado) y
+// MARCAS/INTERNACIONAL/DENUNCIAS (otros organismos, sin pedir todavía) quedaron fuera a
+// propósito -- no agregarlas sin que el usuario lo pida de nuevo.
 @Service
 public class HojaCalculoService {
 
@@ -102,7 +109,12 @@ public class HojaCalculoService {
             FuenteCaso fuente,
             String rango,
             Integer idxNumeroCaso,
-            int idxDespacho,
+            // Nullable desde que se agregó INSOLVENCIA (ver construirConfiguraciones): esa
+            // hoja sigue procesos ante la Superintendencia de Sociedades, no hay ningún
+            // "despacho judicial" por fila (es implícitamente la misma Superintendencia para
+            // todas). Null aquí significa "esta fuente no tiene despacho", igual criterio que
+            // ya usan el resto de campos Integer de este record -- nunca un índice inventado.
+            Integer idxDespacho,
             int idxInformacionCaso,
             // Solo Superintendencia la usa (columna "DEMANDADO", separada de "DEMANDANTE"):
             // cuando no es null, informacionCaso se arma combinando idxInformacionCaso +
@@ -150,6 +162,28 @@ public class HojaCalculoService {
         mapa.put(FuenteCaso.PROCESOS_COMISARIA, new ConfiguracionFuente(
                 FuenteCaso.PROCESOS_COMISARIA, "'PROCESOS COMISARÍA'!A3:N",
                 null, 0, 1, null, 2, 6, null, null, 5, 4, 12, 13));
+
+        // Pedido explícito del usuario: "deja solo Judiciales, Super intendencia y procesos comisaria
+        // como esta en produccion... posteriormente integramos las otras hojas".
+        // Las configuraciones de las otras 5 hojas (ICBF, Policía, Tutelas, Procesos Salen, Insolvencia)
+        // quedan reservadas para activación posterior sin modificar la base de datos de producción:
+        /*
+        mapa.put(FuenteCaso.PROCESOS_ICBF, new ConfiguracionFuente(
+                FuenteCaso.PROCESOS_ICBF, "'PROCESOS ICBF'!A3:N",
+                null, 0, 1, null, 2, 6, null, null, 5, 4, 12, 13));
+        mapa.put(FuenteCaso.INSPECCIONES_POLICIA, new ConfiguracionFuente(
+                FuenteCaso.INSPECCIONES_POLICIA, "'INSPECCIONES DE POLICÍA'!A2:N",
+                null, 0, 1, null, 2, 6, null, null, 5, 4, 12, 13));
+        mapa.put(FuenteCaso.TUTELAS, new ConfiguracionFuente(
+                FuenteCaso.TUTELAS, "TUTELAS!A2:N",
+                1, 4, 2, 3, null, 7, 8, 10, 5, null, 12, 13));
+        mapa.put(FuenteCaso.PROCESOS_SALEN, new ConfiguracionFuente(
+                FuenteCaso.PROCESOS_SALEN, "'PROCESOS SALEN'!A3:Q",
+                null, 2, 3, null, 4, 8, 10, 9, 7, 6, 15, 16));
+        mapa.put(FuenteCaso.INSOLVENCIA, new ConfiguracionFuente(
+                FuenteCaso.INSOLVENCIA, "INSOLVENCIA!A3:Q",
+                null, null, 1, null, 4, 6, 12, 13, 2, 1, 15, 16));
+        */
         return mapa;
     }
 
@@ -194,7 +228,7 @@ public class HojaCalculoService {
             // Disponibilidad: sin esto, el cliente usa los timeouts por defecto de la
             // librería (20s conectar / 20s leer) -- suficiente para colgar un hilo de Tomcat
             // más tiempo del razonable si Google responde lento. El de lectura queda en 15s
-            // (no 8s): la sincronización masiva trae TODAS las filas de TRES hojas, una
+            // (no 8s): la sincronización masiva trae TODAS las filas de OCHO hojas, una
             // respuesta más pesada que una consulta de una sola fila.
             HttpRequestInitializer inicializador = solicitud -> {
                 adaptadorCredenciales.initialize(solicitud);
@@ -235,7 +269,7 @@ public class HojaCalculoService {
                         ? combinarPartes(valorEn(fila, config.idxInformacionCaso()), valorEn(fila, config.idxContraparte()))
                         : valorEn(fila, config.idxInformacionCaso());
                 return Optional.of(new FilaCasoHoja(
-                        valorEn(fila, config.idxDespacho()),
+                        config.idxDespacho() != null ? valorEn(fila, config.idxDespacho()) : null,
                         informacionCaso,
                         config.idxTipoCaso() != null ? valorEn(fila, config.idxTipoCaso()) : null,
                         config.idxUltimaDecision() != null ? valorEn(fila, config.idxUltimaDecision()) : null,
@@ -281,7 +315,7 @@ public class HojaCalculoService {
         return "Demandante: " + demandante + "\nDemandado: " + demandado;
     }
 
-    // Trae TODAS las filas de las TRES hojas, para que CasoService.sincronizarDesdeHoja()
+    // Trae TODAS las filas de las OCHO hojas, para que CasoService.sincronizarDesdeHoja()
     // decida cuáles son nuevas y cuáles ya existen localmente (por fuente + número de caso).
     // Un fallo leyendo una hoja puntual (red, permisos de esa pestaña) NO aborta las demás:
     // son tres llamadas HTTP independientes, se sincroniza lo que sí se pudo leer y se
@@ -340,7 +374,7 @@ public class HojaCalculoService {
                 // cliente/demandante), no su posición, así que insertar o borrar filas en
                 // cualquier parte de la hoja ya no afecta la llave de las demás.
                 numeroCaso = huellaContenido(
-                        valorEn(fila, config.idxDespacho()),
+                        config.idxDespacho() != null ? valorEn(fila, config.idxDespacho()) : "",
                         config.idxNombreCliente() != null ? valorEn(fila, config.idxNombreCliente()) : "");
             }
             numeroFila++;
@@ -495,7 +529,7 @@ public class HojaCalculoService {
     // caso real. Esto eliminó 4 "casos" fantasma de Superintendencia que en realidad eran
     // separadores de sección, nunca clientes reales de la firma.
     private static boolean tieneContenidoReal(List<Object> fila, ConfiguracionFuente config) {
-        if (!valorEn(fila, config.idxDespacho()).isBlank()) {
+        if (config.idxDespacho() != null && !valorEn(fila, config.idxDespacho()).isBlank()) {
             return true;
         }
         String radicado = valorEn(fila, config.idxRadicado());
@@ -514,7 +548,7 @@ public class HojaCalculoService {
     // marcador de posición en vez de un número real -- "EN PROCESO DE RADICACION" en un caso
     // de Procesos Comisaría -- y tratarlo como si fuera el radicado real terminaría
     // enviándole al cliente un correo diciendo "tu número de radicado es: EN PROCESO DE
-    // RADICACION". Cualquier radicado real (de cualquiera de las tres hojas, visto en la
+    // RADICACION". Cualquier radicado real (de cualquiera de las ocho hojas, visto en la
     // práctica) siempre trae al menos un dígito; un valor sin ningún dígito se trata igual
     // que una celda vacía -- el caso se sincroniza igual, solo que sin radicado todavía.
     private static String radicadoValidoOVacio(List<Object> fila, int indice) {

@@ -10,6 +10,8 @@ export const siteConfig = {
     facebook: "https://www.facebook.com/siejuridicos/",
     instagram: "https://www.instagram.com/siejuridicos/",
     linkedin: "https://www.linkedin.com/in/sie-juridicos-703a3b313/",
+    twitter: "https://x.com/siejuridicos",
+    youtube: "https://www.youtube.com/@siejuridicos",
   },
   // un solo intent de CTA en todo el sitio: "agendar"
   ctaPrincipal: "Agendar asesoría",

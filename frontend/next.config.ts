@@ -22,7 +22,7 @@ const esDesarrollo = process.env.NODE_ENV !== "production";
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${esDesarrollo ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${esDesarrollo ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // https: (sin restringir a un host) porque la imagen de portada de un
   // artículo puede ser un enlace externo que el admin pega a mano, no un
@@ -36,10 +36,10 @@ const csp = [
   `img-src 'self' data: blob: https: ${apiOrigin}`,
   "font-src 'self' data:",
   "media-src 'self'",
-  `connect-src 'self' ${apiOrigin}`,
-  // frame-src / child-src: permite incrustar reproductores de video (YouTube) en blogs y panel
-  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
-  "child-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
+  `connect-src 'self' ${apiOrigin} https://challenges.cloudflare.com`,
+  // frame-src / child-src: permite incrustar reproductores de video (YouTube) en blogs y panel + iframe de Cloudflare Turnstile
+  "frame-src 'self' https://challenges.cloudflare.com https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
+  "child-src 'self' https://challenges.cloudflare.com https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -66,9 +66,10 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
         return listarPendientesReporte(inicioPeriodo, inicioPeriodo);
     }
 
-    // JOIN FETCH evita N+1 al listar (cliente es LAZY): una sola consulta en vez de una
-    // extra por cada caso listado en /admin/casos.
-    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente ORDER BY c.fechaCreacion DESC")
+    // JOIN FETCH evita N+1 al listar (cliente y abogadoAsignado son LAZY): una sola consulta
+    // en vez de una extra por cada caso listado en /admin/casos. LEFT porque
+    // abogadoAsignado es opcional (ver migración V61).
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado ORDER BY c.fechaCreacion DESC")
     List<Caso> listarTodosConDetalle();
 
     // Cuántos casos comparten este mismo Cliente (ver
@@ -81,4 +82,41 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     long countByCliente(Cliente cliente);
 
     List<Caso> findByClienteClienteCrmId(Long clienteCrmId);
+
+    // Universo de casos candidatos al seguimiento judicial 24/7 (ver
+    // sie.siejuridicos.vigilancia.SeguimientoJudicialService): cualquier caso con radicado,
+    // sin filtrar por fuente -- RamaJudicialCpnuClient.buscarIdProceso() ya valida por su
+    // cuenta si el radicadoId tiene forma de radicado CPNU de 23 dígitos, así que un caso de
+    // una fuente que no usa ese formato (ej. Procesos Comisaría/ICBF) simplemente no
+    // encuentra nada ahí, sin que haga falta excluirlo aquí por fuente.
+    List<Caso> findByRadicadoIdIsNotNull();
+
+    // Para DeteccionProcesosNuevosService (pedido explícito del usuario: "implementa todas
+    // las mejoras identificadas") -- solo clienteId + radicadoId, SIN tocar nombre/correo/
+    // teléfono (esos van cifrados con CampoCifradoConverter, ver Cliente -- más seguro no
+    // arriesgar si ese converter aplica igual sobre una ruta de proyección que sobre la
+    // entidad completa). c.cliente.id es seguro de leer en una proyección así: es una llave
+    // numérica plana, nunca pasa por el converter.
+    @Query("SELECT c.cliente.id AS clienteId, c.radicadoId AS radicadoId "
+            + "FROM Caso c WHERE c.radicadoId IS NOT NULL AND c.cliente IS NOT NULL")
+    List<RadicadoPorCliente> listarRadicadosPorCliente();
+
+    interface RadicadoPorCliente {
+        Long getClienteId();
+        String getRadicadoId();
+    }
+
+    // Para EnvioDocumentoJudicialService: necesita leer cliente.getCorreo()/getNombre() sin
+    // envolver todo el método en una transacción propia (ver el comentario ahí sobre por qué
+    // no -- mismo bug de Postgres con Propagation.REQUIRES_NEW ya documentado en
+    // CasoService.consultar()). JOIN FETCH trae el Cliente ya inicializado en esta misma
+    // consulta, sin necesidad de ninguna sesión abierta después.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente WHERE c.id = :id")
+    Optional<Caso> buscarConClientePorId(@Param("id") Long id);
+
+    // Para CasoService.actualizar() (edición manual desde el panel, ver migración V61):
+    // necesita leer y modificar tanto el Cliente (correo/teléfono) como el abogado asignado
+    // en la misma operación, sin dos consultas separadas.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.id = :id")
+    Optional<Caso> buscarConClienteYAbogadoPorId(@Param("id") Long id);
 }

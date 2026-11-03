@@ -12,8 +12,10 @@ import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
 import sie.siejuridicos.documento.events.FirmaStaffActualizadaEvent;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
+import sie.siejuridicos.common.exception.EntidadInvalidaException;
 import sie.siejuridicos.security.JwtService;
 import sie.siejuridicos.security.LoginAttemptService;
+import sie.siejuridicos.security.TurnstileService;
 import sie.siejuridicos.usuario.dto.CambiarContrasenaRequest;
 import sie.siejuridicos.usuario.dto.LoginRequest;
 import sie.siejuridicos.usuario.dto.LoginResponse;
@@ -40,22 +42,36 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final RegistroSistemaService registroSistemaService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TurnstileService turnstileService;
 
     public AuthService(UsuarioInternoRepository usuarioInternoRepository,
                         PasswordEncoder passwordEncoder,
                         JwtService jwtService,
                         LoginAttemptService loginAttemptService,
                         RegistroSistemaService registroSistemaService,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        TurnstileService turnstileService) {
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
         this.registroSistemaService = registroSistemaService;
         this.eventPublisher = eventPublisher;
+        this.turnstileService = turnstileService;
     }
 
     public LoginResponse login(LoginRequest request) {
+        // Pedido explícito del usuario: "captcha al login" -- lo primero de todo, antes
+        // incluso del bloqueo por intentos fallidos: no tiene sentido gastar esa consulta
+        // en memoria si ni siquiera se resolvió el captcha. TurnstileService.verificar()
+        // deja pasar sin exigir nada si app.turnstile.secret-key no está configurada (ver
+        // ese comentario) -- nunca rompe el login en un entorno sin la clave configurada.
+        if (!turnstileService.verificar(request.recaptchaToken())) {
+            registroSistemaService.registrar(TipoRegistroSistema.INICIO_SESION,
+                    "Intento de acceso fallido (captcha inválido): " + request.correo(), false);
+            throw new EntidadInvalidaException("Verifica el captcha e intenta de nuevo.");
+        }
+
         // Antes de tocar la base de datos o calcular ningún hash: si el correo ya está
         // bloqueado por intentos fallidos previos (ver LoginAttemptService), se corta aquí.
         loginAttemptService.verificarNoBloqueado(request.correo());

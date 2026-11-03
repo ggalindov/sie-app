@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import sie.siejuridicos.configuracion.ClaveConfiguracionEnvio;
+import sie.siejuridicos.configuracion.ConfiguracionEnviosService;
 import sie.siejuridicos.registro.CanalEnvio;
 import sie.siejuridicos.registro.RegistroEnvioService;
 import sie.siejuridicos.registro.TipoEnvio;
@@ -83,9 +85,11 @@ public class WhatsAppService {
     private final String numeroAvisoBlog;
     private final boolean configurado;
     private final RegistroEnvioService registroEnvioService;
+    private final ConfiguracionEnviosService configuracionEnviosService;
 
     public WhatsAppService(
             RegistroEnvioService registroEnvioService,
+            ConfiguracionEnviosService configuracionEnviosService,
             @Value("${app.whatsapp.access-token:}") String accessToken,
             @Value("${app.whatsapp.phone-number-id:}") String phoneNumberId,
             @Value("${app.whatsapp.plantilla-nombre:notificacion_radicado}") String nombrePlantilla,
@@ -102,6 +106,7 @@ public class WhatsAppService {
             @Value("${app.firma.sitio-web}") String sitioWeb,
             @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.registroEnvioService = registroEnvioService;
+        this.configuracionEnviosService = configuracionEnviosService;
         this.accessToken = accessToken;
         this.phoneNumberId = phoneNumberId;
         this.nombrePlantilla = nombrePlantilla;
@@ -177,6 +182,10 @@ public class WhatsAppService {
         if (!configurado) {
             return false;
         }
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.NOTIFICACIONES_WHATSAPP)) {
+            log.info("Envío de WhatsApp de radicado omitido: NOTIFICACIONES_WHATSAPP está apagado desde el panel.");
+            return false;
+        }
         // Última barrera antes de mandar nada, sin importar quién llame este método: jamás se
         // envía un WhatsApp de "tu radicado es..." sin un radicado real.
         if (radicadoId == null || radicadoId.isBlank()) {
@@ -225,6 +234,10 @@ public class WhatsAppService {
         if (!configurado) {
             return false;
         }
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.REPORTE_PERIODICO_WHATSAPP)) {
+            log.info("Envío de reporte periódico por WhatsApp omitido: REPORTE_PERIODICO_WHATSAPP está apagado desde el panel.");
+            return false;
+        }
         if (radicadoId == null || radicadoId.isBlank()) {
             log.warn("Se intentó enviar el reporte semanal de caso por WhatsApp sin un radicado real -- se canceló el envío.");
             return false;
@@ -263,7 +276,7 @@ public class WhatsAppService {
     }
 
     private String construirCuerpoPlantillaReporteSemanal(String celular, String nombreCliente, String radicadoId) {
-        String enlace = sitioWeb + "/consulta-caso";
+        String enlace = enlaceConsultaDirecto(radicadoId);
         return """
                 {
                   "messaging_product": "whatsapp",
@@ -445,6 +458,10 @@ public class WhatsAppService {
     @Async
     public void enviarAvisoBlogPublicado(String titulo, String url) {
         if (!configurado || numeroAvisoBlog == null) {
+            return;
+        }
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.MARKETING_WHATSAPP)) {
+            log.info("Aviso de blog por WhatsApp omitido: MARKETING_WHATSAPP está apagado desde el panel.");
             return;
         }
         boolean enviadoPorPlantilla = false;
@@ -778,8 +795,19 @@ public class WhatsAppService {
     // este servicio no depende de que el ObjectMapper del proyecto (Jackson 3, ver notas de
     // Spring Boot 4 en CLAUDE.md) esté configurado de una forma compatible -- una llamada
     // aislada, más fácil de razonar que agregar una dependencia más a esta ruta.
+    // Pedido explícito del usuario: "la plantilla de whatsapp debera ajustarse para que el
+    // link que se le comparta sea siempre el link directo para que la persona consulte su
+    // caso con el codigo... con eso no tienen que hacer mucho" -- antes el link era solo
+    // sitioWeb + "/consulta-caso" a secas, obligando a la persona a escribir/pegar su
+    // radicado a mano. Ahora el radicado va embebido en la URL (ver consulta-caso/page.tsx
+    // en el frontend, que lo lee y consulta solo al cargar).
+    private String enlaceConsultaDirecto(String radicadoId) {
+        return sitioWeb + "/consulta-caso?radicado="
+                + java.net.URLEncoder.encode(radicadoId, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     private String construirCuerpoPlantilla(String celular, String nombreCliente, String radicadoId) {
-        String enlace = sitioWeb + "/consulta-caso";
+        String enlace = enlaceConsultaDirecto(radicadoId);
         return """
                 {
                   "messaging_product": "whatsapp",

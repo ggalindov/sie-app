@@ -50,6 +50,11 @@ WHATSAPP_ADMIN_NUMERO=$(pedir "Número de WhatsApp interno que recibe el aviso d
 WHATSAPP_TEMPLATE_CITA_NAME=$(pedir "Nombre de la plantilla de confirmación de reunión agendada ya aprobada por Meta" "confirmacion_cita")
 WHATSAPP_TEMPLATE_BLOG_NAME=$(pedir "Nombre de la plantilla de aviso de nuevo blog ya aprobada por Meta" "aviso_nuevo_blog")
 WHATSAPP_NUMERO_AVISO_BLOG=$(pedir "Número fijo que recibe el aviso de blog/noticia publicado" "3126029742")
+WHATSAPP_TEMPLATE_FIRMA_ENLACE_NAME=$(pedir "Nombre de la plantilla para envío de enlace de firma" "enlace_firma_documento")
+WHATSAPP_TEMPLATE_REPORTE_SEMANAL_NAME=$(pedir "Nombre de la plantilla para reporte semanal a clientes" "reporte_semanal_caso")
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=$(pedir "Cloudflare Turnstile Site Key (deja vacío si no lo usas aún)")
+TURNSTILE_SECRET_KEY=$(pedir "Cloudflare Turnstile Secret Key (deja vacío si no lo usas aún)")
+CROMA_API_KEY=$(pedir "API Key de Croma (deja vacío si usas scraping directo CPNU/SAMAI)")
 
 # Contraseñas/secretos generados de verdad, nunca placeholders que alguien tenga que
 # acordarse de cambiar. 48 bytes en base64 da de sobra los 256 bits mínimos que exige
@@ -61,12 +66,16 @@ ADMIN_BOOTSTRAP_PASSWORD=$(openssl rand -base64 18)
 # Exactamente 32 bytes reales (256 bits) antes de codificar en Base64, no "48 bytes" como
 # arriba: CifradoService exige que decodifique a 32 bytes justos (AES-256), ni más ni menos.
 DATA_ENCRYPTION_KEY=$(openssl rand -base64 32)
+# Raíz criptográfica propia del motor de firma de documentos (32 bytes en Base64)
+DOCUMENTO_FIRMA_CLAVE_MAESTRA=$(openssl rand -base64 32)
 # Este token lo inventa el propio sistema (nadie tiene que memorizarlo): se registra tal
 # cual en Meta al configurar el webhook (ver DEPLOY.md), Meta simplemente lo reenvía de
 # vuelta en el handshake de verificación.
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=$(openssl rand -base64 24)
 
 cat > .env.prod << EOF
+BLOQUEO_TOTAL_CLIENTES=false
+
 DOMAIN=${DOMAIN}
 
 DB_NAME=sie_juridicos
@@ -90,6 +99,7 @@ FIRMA_WHATSAPP_URL=${FIRMA_WHATSAPP_URL}
 GOOGLE_SHEETS_ID=${GOOGLE_SHEETS_ID}
 
 DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
+DOCUMENTO_FIRMA_CLAVE_MAESTRA=${DOCUMENTO_FIRMA_CLAVE_MAESTRA}
 
 WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
 WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
@@ -105,6 +115,20 @@ WHATSAPP_ADMIN_NUMERO=${WHATSAPP_ADMIN_NUMERO}
 WHATSAPP_TEMPLATE_CITA_NAME=${WHATSAPP_TEMPLATE_CITA_NAME}
 WHATSAPP_TEMPLATE_BLOG_NAME=${WHATSAPP_TEMPLATE_BLOG_NAME}
 WHATSAPP_NUMERO_AVISO_BLOG=${WHATSAPP_NUMERO_AVISO_BLOG}
+WHATSAPP_TEMPLATE_FIRMA_ENLACE_NAME=${WHATSAPP_TEMPLATE_FIRMA_ENLACE_NAME}
+WHATSAPP_TEMPLATE_REPORTE_SEMANAL_NAME=${WHATSAPP_TEMPLATE_REPORTE_SEMANAL_NAME}
+
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
+
+CROMA_API_KEY=${CROMA_API_KEY}
+CROMA_API_KEY_2=
+CROMA_API_KEY_3=
+CROMA_API_KEY_4=
+
+VIGILANCIA_CICLO_NOCTURNO_CRON=0 15 5 * * *
+VIGILANCIA_BOLETIN_DIGEST_DIARIO_CRON=0 0 8 * * *
+VIGILANCIA_BOLETIN_DIGEST_CLIENTE_CRON=0 0 8 * * FRI
 EOF
 
 chmod 600 .env.prod

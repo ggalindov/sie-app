@@ -85,6 +85,35 @@ public class TareaService {
                 .collect(Collectors.toMap(fila -> (Long) fila[0], fila -> (Long) fila[1]));
     }
 
+    // Para TerminoProcesalService (sie.siejuridicos.vigilancia): crea una tarea DIRECTO
+    // sobre la entidad, sin pasar por CrearTareaRequest -- ese DTO viene de un
+    // @RequestBody HTTP con un usuario humano autenticado, y esto corre dentro del ciclo
+    // automatico de seguimiento judicial, sin ninguna peticion HTTP de por medio. No hay un
+    // "usuario creador" real distinto del asignado (nadie humano la creo) -- usar el mismo
+    // abogado asignado como creador es la aproximacion mas honesta sin inventar un usuario
+    // "sistema" que no existe en este modelo de datos.
+    @Transactional
+    public Tarea crearAutomatica(Caso caso, UsuarioInterno asignado, String titulo, String descripcion,
+                                  LocalDateTime vencimiento) {
+        Tarea tarea = new Tarea();
+        tarea.setCaso(caso);
+        tarea.setTitulo(titulo);
+        tarea.setDescripcion(descripcion);
+        tarea.setFechaVencimiento(vencimiento);
+        tarea.setPrioridad(PrioridadTarea.ALTA);
+        tarea.setUsuarioAsignado(asignado);
+        tarea.setUsuarioCreador(asignado);
+        tareaRepository.save(tarea);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.GESTION_TAREAS,
+                "Seguimiento judicial creó automáticamente la tarea '%s' en el caso #%d, asignada a '%s'"
+                        .formatted(titulo, caso.getId(), asignado.getNombre()),
+                true);
+
+        return tarea;
+    }
+
     @Transactional
     public TareaResponse crear(Long casoId, CrearTareaRequest request, UsuarioInterno creador) {
         Caso caso = casoRepository.findById(casoId)

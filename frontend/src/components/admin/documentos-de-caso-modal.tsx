@@ -111,7 +111,7 @@ export function DocumentosDeCasoModal({
             <div className="mt-6 text-center">
               <p className="text-sm text-ink-soft">Este caso todavía no tiene ningún documento del motor de firma.</p>
               <Link
-                href="/admin/documentos/nuevo"
+                href={`/admin/documentos/nuevo?casoId=${caso?.id ?? ""}`}
                 className="mt-3 inline-block text-xs font-medium text-gold-deep hover:underline"
               >
                 Emitir un documento nuevo

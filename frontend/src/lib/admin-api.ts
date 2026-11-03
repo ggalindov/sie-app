@@ -98,10 +98,13 @@ export type LoginResponse = {
   expiraEnMs: number;
 };
 
-export function login(correo: string, contrasena: string): Promise<LoginResponse> {
+// recaptchaToken: pedido explícito del usuario ("captcha al login") -- token de un solo
+// uso que entrega el widget de Google reCAPTCHA v2 (ver RecaptchaWidget), verificado en el
+// backend contra la API real de Google antes de tocar la base de datos.
+export function login(correo: string, contrasena: string, recaptchaToken: string): Promise<LoginResponse> {
   return pedido<LoginResponse>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ correo, contrasena }),
+    body: JSON.stringify({ correo, contrasena, recaptchaToken }),
   });
 }
 
@@ -362,6 +365,29 @@ export function cambiarActivoUsuario(id: number, activo: boolean) {
   });
 }
 
+// ---------- Configuración de envíos ----------
+// Pedido explícito del usuario: "un boton para apagar los envios de correo, apagar los
+// envios de whatsapp (boton independiente notificacones, boletin, marketing entre otros)"
+// -- ADMIN_GENERAL únicamente. Distinto de BLOQUEO_TOTAL_CLIENTES (esa es una variable de
+// entorno estática del backend, el interruptor maestro) -- esto es por categoría y canal,
+// se prende/apaga en caliente desde el panel.
+export type ConfiguracionEnvio = {
+  clave: string;
+  nombreVisible: string;
+  activo: boolean;
+};
+
+export function listarConfiguracionEnvios(): Promise<ConfiguracionEnvio[]> {
+  return pedido<ConfiguracionEnvio[]>("/api/admin/configuracion-envios");
+}
+
+export function actualizarConfiguracionEnvio(clave: string, activo: boolean): Promise<void> {
+  return pedido<void>(`/api/admin/configuracion-envios/${clave}`, {
+    method: "PATCH",
+    body: JSON.stringify({ activo }),
+  });
+}
+
 // ---------- Marketing ----------
 
 export type SuscriptorMarketing = {
@@ -526,12 +552,22 @@ export function moderarFaq(id: number, nuevoEstado: EstadoPreguntaFrecuente, res
 
 // ---------- Casos ----------
 // El panel ya no depende de cargar cada caso a mano: sincronizarCasos() trae/actualiza todo
-// desde las TRES hojas de seguimiento de la firma (Judiciales, Superintendencia, Procesos
-// Comisaría -- cada una con su propia estructura de columnas, ver HojaCalculoService en el
-// backend). crearCaso() se mantiene solo como respaldo manual (fuente "MANUAL"). El estado
-// real del caso se lee en vivo de la hoja correspondiente, no se gestiona desde aquí.
+// desde las OCHO hojas de seguimiento de la firma (Judiciales, Superintendencia, Procesos
+// Comisaría, Tutelas, Procesos Salen, Procesos ICBF, Inspecciones de Policía, Insolvencia --
+// cada una con su propia estructura de columnas, ver HojaCalculoService en el backend).
+// crearCaso() se mantiene solo como respaldo manual (fuente "MANUAL"). El estado real del
+// caso se lee en vivo de la hoja correspondiente, no se gestiona desde aquí.
 
-export type FuenteCaso = "JUDICIALES" | "SUPERINTENDENCIA" | "PROCESOS_COMISARIA" | "MANUAL";
+export type FuenteCaso =
+  | "JUDICIALES"
+  | "SUPERINTENDENCIA"
+  | "PROCESOS_COMISARIA"
+  | "TUTELAS"
+  | "PROCESOS_SALEN"
+  | "PROCESOS_ICBF"
+  | "INSPECCIONES_POLICIA"
+  | "INSOLVENCIA"
+  | "MANUAL";
 
 export type CasoAdmin = {
   id: number;
@@ -548,7 +584,99 @@ export type CasoAdmin = {
   fechaCreacion: string;
   fechaUltimoReporteSemanal: string | null;
   fechaUltimoReporteWhatsapp: string | null;
+  // Trazabilidad del seguimiento judicial 24/7 (ver sie.siejuridicos.vigilancia en el
+  // backend) -- línea de tiempo completa por caso en GET /api/admin/vigilancia/casos/{id}/linea-tiempo.
+  tieneProcesoCpnu: boolean;
+  fechaUltimoSeguimiento: string | null;
+  ultimoSeguimientoExitoso: boolean | null;
+  // Pedido explícito del usuario: "si es nuevo para cada persona, si no la ha abierto le
+  // sale un botoncito rojo" -- true cuando este caso tiene una actuación detectada después
+  // de la última vez que EL USUARIO ACTUAL (no global) abrió su línea de tiempo. Abrir el
+  // modal de Seguimiento (ver obtenerLineaTiempoJudicial) la apaga del lado del backend.
+  tieneActualizacionSinRevisar: boolean;
+  // Pedido explícito del usuario: "el filtro no es de ultima revision, sino en orden de
+  // fecha en la que se encontro el ultimo reporte o notificacion, para ver arriba los que
+  // han tenido movimiento" -- cuándo se DETECTÓ realmente la actuación más reciente (no
+  // cuándo corrió el último chequeo, que pasa igual para todos los casos sin importar si
+  // encontró algo). Null si el caso nunca ha tenido ninguna actuación detectada.
+  fechaUltimaActuacionDetectada: string | null;
+  // Corrección real pedida por el usuario: "un caso que tuvo movimiento hoy tiene que salir
+  // arriba" -- fechaUltimaActuacionDetectada (arriba) es cuándo NUESTRO sistema vio la
+  // actuación por primera vez, y el historial completo de los 362 casos reales se cargó de
+  // una sola vez en un backfill esta misma sesión: eso deja casi empatados, en ese campo, a
+  // un caso con movimiento real de hoy y a uno con movimiento real de hace meses. Este es el
+  // dato real -- cuándo el despacho registró el movimiento -- y es el que debe usarse para
+  // ordenar "por última actualización" (ver compararCasos). Null si el caso nunca ha tenido
+  // ninguna actuación con fecha. Trae hora exacta desde la migración V65 del backend (pedido
+  // explícito del usuario: "el reporte completo por fecha y hora exacta").
+  fechaUltimoMovimientoJudicial: string | null;
+  // Pedido explícito del usuario: "asignacion de caso por abogado" -- null cuando el caso
+  // todavía no tiene abogado asignado. Visible para cualquier rol, editable solo por
+  // ADMIN_GENERAL (ver actualizarCaso).
+  abogadoAsignadoId: number | null;
+  abogadoAsignadoNombre: string | null;
+  // Pedido explícito del usuario: punto azul junto al de "Seguimiento" + "un contador en
+  // cada caso con boletin... que muestre dentro de cuantos dias seran borrados" -- null
+  // cuando el caso no tiene ningún boletín cacheado (no se muestra el punto azul). Cuando
+  // tiene varios con distinta fecha de expiración, es el de la expiración MÁS PRÓXIMA (ver
+  // backend BoletinJudicialCacheRepository.proximaExpiracionPorCaso()). 0 = se borra hoy.
+  diasParaBorrarBoletin: number | null;
+  // Gap real detectado comparando contra el correo diario de Lupa Jurídica (pedido explícito
+  // del usuario: "lupa nos da un seguimiento mas robusto... necesito mejorar esto") -- el
+  // propio CPNU ya da demandante/demandado ("Demandante: NOMBRE | Demandado: NOMBRE ") y el
+  // despacho completo, tal cual para mostrar. null hasta que el próximo ciclo de seguimiento
+  // lo resuelva para este caso.
+  sujetosProcesales: string | null;
+  despachoJudicial: string | null;
+  // Pedido explícito del usuario: "tienes que traer absolutamente toda la informacion...
+  // entre mas datos mucho mejor" -- el resto de lo que da el CPNU al resolver el proceso,
+  // incluido un endpoint aparte (Proceso/Detalle) que trae el ponente (juez), tipo/clase/
+  // subclase de proceso, el recurso y dónde está físicamente el expediente ahora mismo.
+  departamentoJudicial: string | null;
+  fechaRadicacionProceso: string | null;
+  procesoPrivado: boolean | null;
+  ponente: string | null;
+  tipoProceso: string | null;
+  claseProceso: string | null;
+  subclaseProceso: string | null;
+  recursoProceso: string | null;
+  ubicacionProceso: string | null;
+  // Pedido explícito del usuario: "la vigilancia tiene que mostrar toda, absolutamente toda
+  // la informacion... todo lo que se detecte" -- cuándo la Rama Judicial misma actualizó
+  // este proceso en SU sistema (nunca confundir con fechaUltimoSeguimiento, que es cuándo
+  // NOSOTROS revisamos el caso).
+  ultimaActualizacionRama: string | null;
+  // Pedido explícito del usuario (2026-11-01): "el sistema debe reflejar que fallos hay" --
+  // true cuando el radicado, aunque tenga un valor, no es un radicado real de la Rama
+  // Judicial (23 dígitos). NUNCA significa que el caso esté mal -- hay jurisdicciones reales
+  // sin radicado CPNU (comisaría de familia, inspección de policía) -- solo que este caso
+  // puntual no tendrá seguimiento automático 24/7 hasta que se corrija o se confirme que es
+  // de otro tipo.
+  radicadoFormatoInvalido: boolean;
 };
+
+// Pedido explícito del usuario: "una variable para editar los casos, la idea es
+// desligarnos del excel, un boton para editar caso para administrador unicamente" --
+// PATCH /api/admin/casos/{id}, ADMIN_GENERAL únicamente (el backend devuelve 403 para
+// ABOGADO). numeroCaso no es editable a propósito (ver ActualizarCasoRequest en el
+// backend): es la llave que usa la sincronización automática para emparejar cada fila de
+// la hoja con su Caso local.
+export function actualizarCaso(
+  id: number,
+  datos: {
+    nombreEnHoja: string | null;
+    correoCliente: string | null;
+    telefonoCliente: string | null;
+    radicadoId: string | null;
+    notasInternas: string | null;
+    abogadoAsignadoId: number | null;
+  },
+): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>(`/api/admin/casos/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(datos),
+  });
+}
 
 export type ResumenSincronizacionCasos = {
   filasLeidasEnHoja: number;
@@ -557,6 +685,10 @@ export type ResumenSincronizacionCasos = {
   casosEliminados: number;
   filasSinCorreo: number;
   radicadosDuplicados: number;
+  // Fila con un radicado que excede los 50 caracteres permitidos (dato corrupto de la
+  // hoja, ej. una fila mal pegada) -- se ignora ese radicado puntual en vez de tumbar toda
+  // la sincronización (bug real encontrado el 2026-10-31).
+  radicadosInvalidos: number;
   fuentesConError: string[];
 };
 
@@ -592,6 +724,86 @@ export function sincronizarCasos(): Promise<ResumenSincronizacionCasos> {
   return pedido<ResumenSincronizacionCasos>("/api/admin/casos/sincronizar", { method: "POST" });
 }
 
+// =========================================================================
+// TODOS LOS BOLETINES (pedido explícito del usuario: "el sistema debe de traer y darle la
+// opcion de todos los casos de ver/descargar todos los boletines que esten disponibles en
+// las ramas o donde esten") -- una sola lista con TODOS los boletines ya cacheados de TODOS
+// los casos, en vez de tener que abrir el Seguimiento de cada caso uno por uno.
+// =========================================================================
+
+export type BoletinJudicial = {
+  id: number;
+  casoId: number;
+  nombreCliente: string;
+  radicadoId: string | null;
+  nombreArchivo: string;
+  urlOrigen?: string | null;
+  coincideNombreActuacion: boolean;
+  fechaDescarga: string;
+  fechaExpiracion: string;
+  fechaEmision?: string | null;
+  tipoActuacion?: string | null;
+};
+
+// Progreso en vivo SOLO del paso de boletines (no del ciclo completo de vigilancia).
+export type ProgresoBoletines = {
+  enCurso: boolean;
+  // EN_ESPERA | PASADA (recorrido principal) | REINTENTOS (segunda etapa solo sobre lo que fallo)
+  fase: "EN_ESPERA" | "PASADA" | "REINTENTOS" | "ESPERANDO_PORTAL";
+  total: number;
+  revisadas: number;
+  nuevos: number;
+  porcentaje: number;
+  inicio: string | null;
+  fin: string | null;
+  reintentosTotal: number;
+  reintentosHechos: number;
+  recuperados: number;
+  // Boletines/busquedas que siguen en cola esperando reintento (nunca se pierden).
+  pendientes: number;
+};
+
+export function obtenerProgresoBoletines(): Promise<ProgresoBoletines> {
+  return pedido<ProgresoBoletines>("/api/admin/vigilancia/boletines/progreso");
+}
+
+export function listarBoletinesJudiciales(): Promise<BoletinJudicial[]> {
+  return pedido<BoletinJudicial[]>("/api/admin/vigilancia/boletines");
+}
+
+// Ver el PDF en una pestaña nueva -- mismo patrón de fetch+blob+window.open que
+// abrirPdfDocumentoJudicial() más abajo, pero GET (sin cuerpo, el id ya va en la URL).
+// Sirve el PDF que YA está cacheado, nunca vuelve a consultar Publicaciones Procesales en
+// vivo -- instantáneo, no depende de que el portal del Estado esté respondiendo.
+export async function abrirPdfBoletin(id: number): Promise<void> {
+  const ventana = window.open("", "_blank");
+  const token = obtenerToken();
+  const res = await fetch(`${API_URL}/api/admin/vigilancia/boletines/${id}/pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (res.status === 401) {
+    ventana?.close();
+    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
+  }
+  if (!res.ok) {
+    ventana?.close();
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  if (ventana) {
+    ventana.location.href = url;
+  } else {
+    window.open(url, "_blank");
+  }
+}
+
+export function descargarBoletin(id: number, nombreArchivo: string): Promise<void> {
+  return descargarArchivo(`/api/admin/vigilancia/boletines/${id}/pdf`, nombreArchivo);
+}
+
 export function enviarCorreosPendientesCasos(): Promise<ResumenEnvioCorreosCasos> {
   return pedido<ResumenEnvioCorreosCasos>("/api/admin/casos/enviar-pendientes", { method: "POST" });
 }
@@ -611,6 +823,241 @@ export type ResumenReporteSemanalCasos = {
 // automático de los lunes, ver ReporteSemanalCasosScheduler en el backend).
 export function enviarReporteSemanalCasos(): Promise<ResumenReporteSemanalCasos> {
   return pedido<ResumenReporteSemanalCasos>("/api/admin/casos/enviar-reporte-semanal", { method: "POST" });
+}
+
+// ---------- Vigilancia judicial (seguimiento 24/7 por caso, ver sie.siejuridicos.vigilancia
+// en el backend) ----------
+// Ya no depende de ningún botón para actualizarse (SeguimientoJudicialScheduler corre solo,
+// de forma continua) -- esta sección es la VISTA de lo que ese ciclo ya fue guardando, no un
+// disparador. Solo lectura hacia la Rama Judicial. El único disparador real que SÍ puede
+// terminar mandándole un correo a un cliente es enviarDocumentoJudicial() más abajo, y
+// siempre a pedido manual y explícito de un abogado sobre UN documento puntual.
+
+// Los 4 campos de término (descripcionTermino...estadoTermino) se calculan al vuelo en el
+// backend (ver InferenciaTerminoProcesal) a partir del nombre y la fecha de esta misma
+// actuación -- nunca se guardan aparte. null cuando la actuación no abre ningún término
+// reconocido (la mayoría de actuaciones de trámite, ej. "Recepción memorial").
+export type EstadoTerminoProcesal = "CORRIENDO" | "POR_VENCER" | "VENCIDO";
+
+export type EventoLineaTiempoJudicial = {
+  // Pedido explícito del usuario (2026-10-31): "implementa algo mas rapido... que el sistema
+  // lo guarde en el servidor" -- id real de la actuación, antes no expuesto, necesario para
+  // cruzar cada evento con lo que ya trajo obtenerBoletinesCacheDeCaso() sin tener que
+  // volver a consultar Publicaciones Procesales en vivo.
+  id: number;
+  // Fecha Y HORA exacta desde la migración V65 del backend -- pedido explícito del usuario:
+  // "el reporte completo por fecha y hora exacta". El CPNU sí la trae, antes se descartaba.
+  fechaActuacion: string | null;
+  nombreActuacion: string;
+  anotacion: string | null;
+  fechaRegistro: string | null;
+  conDocumentos: boolean;
+  esFundamental: boolean;
+  fechaDetectada: string;
+  // Consecutivo real que el propio despacho le asignó a esta actuación dentro de su
+  // proceso (verificado en vivo el 2026-10-31 contra el CPNU) -- null para actuaciones
+  // guardadas antes de esta captura, nunca inventado.
+  consecutivo: number | null;
+  descripcionTermino: string | null;
+  diasHabilesTermino: number | null;
+  fechaVencimientoTermino: string | null;
+  fechaInicialTermino?: string | null;
+  fechaFinalTermino?: string | null;
+  estadoTermino: EstadoTerminoProcesal | null;
+  // true: fechaVencimientoTermino viene directo de fechaFinal informado por la Rama
+  // Judicial para esta actuación (un hecho). false: es una estimación por palabras clave
+  // (ver InferenciaTerminoProcesal.inferir en el backend). null: no hay ningún término.
+  terminoEsOficial: boolean | null;
+  // Pedido explícito del usuario: "implementa todas las mejoras identificadas" (comparando
+  // contra Lupa Jurídica) -- búsqueda de palabras clave sobre el nombre/anotación de la
+  // actuación, NUNCA un hecho verificado (ver ActuacionRegistradaResponse en el backend).
+  posibleLiquidacionCostas: boolean;
+  posibleAcreedorSubrogatorio: boolean;
+  // Gap real detectado revisando los correos reales de Lupa Jurídica de la propia firma
+  // (pedido explícito del usuario: "mejores la vigilancia... saca informaciones de portales
+  // abiertos"). Mismo criterio: palabras clave, nunca un hecho verificado.
+  posibleMedidaCautelar: boolean;
+};
+
+export type LineaTiempoJudicial = {
+  tieneProcesoCpnu: boolean;
+  fechaUltimoSeguimiento: string | null;
+  ultimoSeguimientoExitoso: boolean | null;
+  // Pedido explícito del usuario: "lupa nos da un seguimiento mas robusto" -- demandante/
+  // demandado y despacho completo, tal cual los da el CPNU. null hasta que el próximo ciclo
+  // de seguimiento los resuelva para este caso.
+  sujetosProcesales: string | null;
+  despachoJudicial: string | null;
+  // Pedido explícito del usuario: "trae absolutamente toda la informacion... entre mas datos
+  // mucho mejor" -- ver CasoAdmin, mismo origen (ProcesoResuelto en el backend).
+  departamentoJudicial: string | null;
+  fechaRadicacionProceso: string | null;
+  procesoPrivado: boolean | null;
+  ponente: string | null;
+  tipoProceso: string | null;
+  claseProceso: string | null;
+  subclaseProceso: string | null;
+  recursoProceso: string | null;
+  ubicacionProceso: string | null;
+  ultimaActualizacionRama: string | null;
+  eventos: EventoLineaTiempoJudicial[];
+};
+
+export function obtenerLineaTiempoJudicial(casoId: number): Promise<LineaTiempoJudicial> {
+  return pedido<LineaTiempoJudicial>(`/api/admin/vigilancia/casos/${casoId}/linea-tiempo`);
+}
+
+// Pedido explícito del usuario (2026-10-31): "las cargas se estan demorando demasiado...
+// implementa algo mas rapido, que no se demore tanto sin que nos lleguen a bloquear". Lectura
+// PURA de lo que BoletinJudicialCacheService ya dejó guardado en el ciclo nocturno -- nunca
+// llama a Publicaciones Procesales, responde en milisegundos sin importar cuántas actuaciones
+// tenga el caso. La clave del mapa es EventoLineaTiempoJudicial.id.
+export function obtenerBoletinesCacheDeCaso(casoId: number): Promise<Record<number, DocumentoCandidatoJudicial[]>> {
+  return pedido<Record<number, DocumentoCandidatoJudicial[]>>(`/api/admin/vigilancia/casos/${casoId}/boletines-cache`);
+}
+
+// Gap real detectado en la auditoría del plan de desarrollo: antes el término procesal solo
+// se veía como una insignia dentro del modal de Seguimiento -- si el abogado no entraba a
+// revisarlo, no había ninguna alerta activa en otro lado del panel. Esto alimenta el
+// semáforo de /admin/calendario (ver TerminoCalendarioResponse en el backend).
+export type TerminoCalendario = {
+  id: number;
+  casoId: number;
+  nombreCliente: string;
+  radicadoId: string | null;
+  descripcion: string;
+  fechaVencimiento: string;
+  diasHabiles: number;
+  estado: EstadoTerminoProcesal;
+  esOficial: boolean;
+  abogadoAsignadoId: number | null;
+  abogadoAsignadoNombre: string | null;
+};
+
+export function listarTerminosCalendario(filtros: { desde: string; hasta: string; abogadoId?: number }): Promise<TerminoCalendario[]> {
+  const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+  if (filtros.abogadoId) params.set("abogadoId", String(filtros.abogadoId));
+  return pedido<TerminoCalendario[]>(`/api/admin/vigilancia/terminos/calendario?${params.toString()}`);
+}
+
+// Documento candidato de la última actuación de fondo -- "candidato" porque puede haber más
+// de uno por boletín. Corrección real (2026-10-31, "el sistema esta trayendo boletines que
+// no son para cada caso"): ya NO se devuelve todo lo que había en el boletín del despacho
+// marcando apenas una pista de similitud de palabras -- el backend (ver
+// PublicacionesProcesalesClient.documentosDelBoletin) ahora VERIFICA cada documento contra el
+// año+consecutivo real del radicado antes de devolverlo, así que todo lo que llega aquí ya
+// está confirmado como del proceso correcto. coincideConNombreActuacion (el nombre quedó del
+// mecanismo viejo, la semántica cambió) ahora significa específicamente "es un documento
+// INDIVIDUAL de este proceso, seguro para mandarlo a este cliente puntual" -- false cuando es
+// un LISTADO verificado (el proceso sí está ahí, pero junto con los de otros clientes/
+// terceros: útil para gerencia/abogados, nunca para mandárselo a un cliente en concreto).
+export type DocumentoCandidatoJudicial = {
+  nombreArchivo: string;
+  urlDescarga: string;
+  coincideConNombreActuacion: boolean;
+};
+
+export type DocumentoRecienteJudicial = {
+  disponible: boolean;
+  mensaje: string;
+  nombreActuacion: string | null;
+  anotacion: string | null;
+  fechaActuacion: string | null;
+  documentosCandidatos: DocumentoCandidatoJudicial[];
+};
+
+export function obtenerDocumentoRecienteJudicial(casoId: number): Promise<DocumentoRecienteJudicial> {
+  return pedido<DocumentoRecienteJudicial>(`/api/admin/casos/${casoId}/documento-reciente`);
+}
+
+// Pedido explícito del usuario: "un botón por cada suceso directo" -- busca el boletín del
+// Estado de CUALQUIER actuación de la línea de tiempo (no solo la más reciente de fondo),
+// usando la fecha y el nombre que ya trae ese mismo evento (ver EventoLineaTiempoJudicial).
+export function buscarDocumentosBoletin(
+  casoId: number,
+  evento: { fechaRegistro: string; nombreActuacion: string },
+): Promise<DocumentoCandidatoJudicial[]> {
+  return pedido<DocumentoCandidatoJudicial[]>(`/api/admin/casos/${casoId}/documentos-boletin`, {
+    method: "POST",
+    body: JSON.stringify(evento),
+  });
+}
+
+export type EstadoEnvioDocumentoJudicial = "ENVIADO" | "BLOQUEADO_SEGURIDAD" | "FALLIDO";
+
+export type ResultadoEnvioDocumentoJudicial = {
+  estado: EstadoEnvioDocumentoJudicial;
+  mensaje: string;
+};
+
+// Pedido manual y explícito sobre UN documento puntual que el abogado ya vio en la lista de
+// candidatos -- nunca se auto-selecciona nada. El backend respeta
+// app.bloqueo-total-clientes (ver EnvioDocumentoJudicialService) y distingue "bloqueado por
+// seguridad" de "enviado de verdad", nunca un mensaje de éxito ambiguo.
+export function enviarDocumentoJudicial(
+  casoId: number,
+  documento: { urlDocumento: string; nombreArchivo: string; nombreActuacion: string },
+): Promise<ResultadoEnvioDocumentoJudicial> {
+  return pedido<ResultadoEnvioDocumentoJudicial>(`/api/admin/casos/${casoId}/documento-reciente/enviar`, {
+    method: "POST",
+    body: JSON.stringify(documento),
+  });
+}
+
+export type TextoDocumentoJudicial = {
+  disponible: boolean;
+  texto: string | null;
+  mensaje: string | null;
+};
+
+// El "anotacion" corto que ya trae EventoLineaTiempoJudicial (ej. "DESCORRE") NO es el texto
+// real del Estado Electrónico -- pedido explícito del usuario, esto extrae el texto VERBATIM
+// del PDF oficial. Bajo demanda sobre UN documento puntual, nunca automático.
+export function obtenerTextoDocumentoJudicial(
+  casoId: number,
+  urlDocumento: string,
+): Promise<TextoDocumentoJudicial> {
+  return pedido<TextoDocumentoJudicial>(`/api/admin/casos/${casoId}/documento-reciente/texto`, {
+    method: "POST",
+    body: JSON.stringify({ urlDocumento }),
+  });
+}
+
+// Abre el PDF real en una pestaña nueva del navegador (su propio visor nativo), no lo
+// descarga a disco -- mismo patrón de fetch+blob que descargarArchivo() (un <a href> normal
+// no puede llevar el header Authorization), pero con window.open() en vez de forzar
+// "download". El popup se abre ANTES del fetch (con about:blank) porque los navegadores
+// bloquean window.open() si no ocurre sincrónicamente dentro del gesto de clic del usuario.
+export async function abrirPdfDocumentoJudicial(casoId: number, urlDocumento: string): Promise<void> {
+  const ventana = window.open("", "_blank");
+  const token = obtenerToken();
+  const res = await fetch(`${API_URL}/api/admin/casos/${casoId}/documento-reciente/pdf`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ urlDocumento }),
+  });
+
+  if (res.status === 401) {
+    ventana?.close();
+    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
+  }
+  if (!res.ok) {
+    ventana?.close();
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  if (ventana) {
+    ventana.location.href = url;
+  } else {
+    // El navegador ya bloqueó el popup vacío -- último intento, puede volver a bloquearse
+    // por no ser ya parte del gesto de clic original.
+    window.open(url, "_blank");
+  }
 }
 
 // ---------- Cobros Pendientes ----------
@@ -915,6 +1362,11 @@ export function obtenerDashboardCrm(): Promise<CrmDashboard> {
 // panel (sincronizaciones, envíos masivos, recordatorios programados, boletines) -- solo
 // ADMIN_GENERAL, ver SecurityConfig en el backend.
 
+// Corregido 2026-10-31 (auditoría de SIE-Vigilancia): a este tipo le faltaban 5 valores que
+// el backend ya tenía desde antes (EDICION_CASO, CONFIGURACION_ENVIOS, SEGUIMIENTO_JUDICIAL,
+// ENVIO_DOCUMENTO_JUDICIAL, CASO_CREADO_DESDE_DETECCION) -- un registro de esos tipos ya
+// llegaba al panel, solo que sin el narrowing de TypeScript correcto. Se completa aquí y se
+// agregan los 2 nuevos pasos del ciclo nocturno de vigilancia (ver TipoRegistroSistema.java).
 export type TipoRegistroSistema =
   | "SINCRONIZACION_CASOS"
   | "ENVIO_NOTIFICACIONES_CASOS"
@@ -929,7 +1381,15 @@ export type TipoRegistroSistema =
   | "USUARIO_ACTIVO_CAMBIADO"
   | "CONSULTA_ESTADO_CASO"
   | "GESTION_CRM"
-  | "GESTION_TAREAS";
+  | "GESTION_TAREAS"
+  | "EDICION_CASO"
+  | "CONFIGURACION_ENVIOS"
+  | "SEGUIMIENTO_JUDICIAL"
+  | "ENVIO_DOCUMENTO_JUDICIAL"
+  | "CASO_CREADO_DESDE_DETECCION"
+  | "VIGILANCIA_BOLETINES"
+  | "VIGILANCIA_DETECCION_PROCESOS"
+  | "RADICADO_FORMATO_INVALIDO";
 
 // Agrupador de alto nivel de TipoRegistroSistema (ver CategoriaRegistroSistema en el
 // backend) -- pedido explícito del usuario: "pon categorias para que sea mas intuitivo de
@@ -976,6 +1436,9 @@ export function listarRegistroSistema(opciones: {
 
 export type CanalEnvio = "EMAIL" | "WHATSAPP";
 
+// Corregido 2026-10-31 (auditoría de SIE-Vigilancia): a este tipo también le faltaban 10
+// valores que el backend ya tenía desde el motor de firma electrónica y PQRS (ver
+// TipoEnvio.java) -- mismo gap que TipoRegistroSistema arriba, corregido igual.
 export type TipoEnvio =
   | "CODIGO_CASO"
   | "REPORTE_CASO"
@@ -988,7 +1451,18 @@ export type TipoEnvio =
   | "PUBLICACION_BLOG"
   | "AVISO_REDES_SOCIALES"
   | "BOLETIN"
-  | "BIENVENIDA_BOLETIN";
+  | "BIENVENIDA_BOLETIN"
+  | "ENLACE_FIRMA_DOCUMENTO"
+  | "OTP_FIRMA_DOCUMENTO"
+  | "DOCUMENTO_FIRMADO_FINAL"
+  | "RECORDATORIO_FIRMA"
+  | "ALERTA_INTEGRIDAD_DOCUMENTO"
+  | "ALERTA_FIRMA_RECHAZADA"
+  | "RADICADO_PQRS"
+  | "RESPUESTA_PQRS"
+  | "PROVIDENCIA_JUDICIAL"
+  | "BOLETIN_JUDICIAL"
+  | "ALERTA_VIGILANCIA_CAIDA";
 
 export type RegistroEnvioItem = {
   id: number;
@@ -1282,6 +1756,10 @@ export async function crearDocumentoFirma(datos: {
   nombre: string;
   casoId?: number;
   abogadoIds: number[];
+  // Pedido explícito del usuario: "en abogados pon tambien opcional las firmas de los
+  // gerentes" -- OTROS ADMIN_GENERAL activos, aparte de quien emite (ese sigue firmando
+  // siempre, el backend lo agrega solo). Opcional, igual que abogadoIds.
+  gerenteIds?: number[];
   partes: ParteAFirmarInput[];
 }): Promise<DocumentoFirmaListado> {
   const token = obtenerToken();
@@ -1290,6 +1768,7 @@ export async function crearDocumentoFirma(datos: {
   formData.append("nombre", datos.nombre);
   if (datos.casoId) formData.append("casoId", String(datos.casoId));
   datos.abogadoIds.forEach((id) => formData.append("abogadoIds", String(id)));
+  (datos.gerenteIds ?? []).forEach((id) => formData.append("gerenteIds", String(id)));
   formData.append("partesJson", JSON.stringify(datos.partes));
 
   const res = await fetch(`${API_URL}/api/admin/documentos`, {
@@ -1401,4 +1880,215 @@ export type ResultadoBusqueda = {
 export function buscarGlobal(q: string): Promise<ResultadoBusqueda[]> {
   const parametros = new URLSearchParams({ q });
   return pedido<ResultadoBusqueda[]>(`/api/admin/busqueda?${parametros.toString()}`);
+}
+
+// =========================================================================
+// PROCESOS NUEVOS DETECTADOS (pedido explícito del usuario: "implementa todas las mejoras
+// identificadas", comparando contra Lupa Jurídica) -- el CPNU buscó por el NOMBRE de cada
+// cliente (no solo por los radicados que ya conocíamos) y encontró procesos que todavía no
+// están en nuestra tabla de casos. Cada hallazgo queda aquí como "candidato" -- nunca se crea
+// un caso solo, porque la búsqueda por nombre puede ser un homónimo real, no necesariamente
+// el mismo cliente. Un abogado/admin decide con uno de dos botones (pedido explícito del
+// usuario tras ver la primera versión: "deja dos botones, CREAR Y ADJUNTAR AUTOMATICAMENTE
+// EN SIE, NO (ES OTRA PERSONA)"):
+//   1. crearCasoDesdeProcesoDetectado -- confirma que SÍ es el cliente: el backend crea el
+//      Caso de una vez con los datos que el CPNU ya trajo (radicado, partes, despacho), sin
+//      que haya que volver a escribir nada a mano.
+//   2. actualizarProcesoDetectado(id, "DESCARTADO") -- confirma que es un homónimo, lo quita
+//      de la lista sin crear nada.
+// =========================================================================
+
+export type EstadoProcesoCandidato = "PENDIENTE" | "DESCARTADO" | "YA_ES_CASO";
+
+export type ProcesoCandidato = {
+  id: number;
+  clienteId: number;
+  clienteNombre: string;
+  llaveProceso: string;
+  despacho: string | null;
+  departamento: string | null;
+  sujetosProcesales: string | null;
+  fechaProceso: string | null;
+  fechaUltimaActuacion: string | null;
+  estado: EstadoProcesoCandidato;
+  fechaDeteccion: string;
+};
+
+export function listarProcesosDetectados(): Promise<ProcesoCandidato[]> {
+  return pedido<ProcesoCandidato[]>("/api/admin/vigilancia/procesos-detectados");
+}
+
+// Botón "No (es otra persona)" -- el único destino real por este camino hoy es DESCARTADO.
+export function actualizarProcesoDetectado(
+  id: number,
+  estado: Exclude<EstadoProcesoCandidato, "PENDIENTE" | "YA_ES_CASO">,
+): Promise<ProcesoCandidato> {
+  return pedido<ProcesoCandidato>(`/api/admin/vigilancia/procesos-detectados/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado }),
+  });
+}
+
+// Botón "Crear y adjuntar automáticamente en SIE" -- crea el Caso real (ver
+// CasoService.crearDesdeProcesoCandidato en el backend) y marca el candidato como YA_ES_CASO,
+// los dos en un solo paso. Devuelve el caso recién creado para poder mostrar su radicado.
+export function crearCasoDesdeProcesoDetectado(id: number): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>(`/api/admin/vigilancia/procesos-detectados/${id}/crear-caso`, {
+    method: "POST",
+  });
+}
+
+// ============================================================================
+// Integración Legal-Tech Croma API (usecroma.com) - Plan Free ($0 USD / mes)
+// Búsqueda de procesos judiciales por Cédula / Nombre de persona o empresa.
+// Tope de 1,500 créditos mensuales (150 consultas en vivo de 10 créditos c/u).
+// ============================================================================
+
+export type CromaEstadoCuota = {
+  mesAno: string;
+  creditosConsumidos: number;
+  limiteCreditos: number;
+  creditosRestantes: number;
+  consultasRealizadas: number;
+  consultasRestantes: number;
+  creditosPorConsulta: number;
+  tieneApiKeyConfigurada: boolean;
+  cuotaDisponible: boolean;
+  keyActivaIndice?: number;
+  totalKeysConfiguradas?: number;
+  creditosConsumidosKeyActiva?: number;
+  creditosPorKey?: number;
+};
+
+export type CromaCaso = {
+  radicado: string;
+  despacho: string;
+  departamento: string;
+  fechaInicio: string | null;
+  fechaUltimaActuacion: string | null;
+  partes: string;
+  esPrivado: boolean;
+};
+
+export type CromaBusquedaResultado = {
+  exito: boolean;
+  mensaje: string;
+  totalCasos: number;
+  casos: CromaCaso[];
+  creditosConsumidosMes: number;
+  limiteCreditosMes: number;
+  consultasRestantesMes: number;
+};
+
+export function obtenerCuotaCroma(): Promise<CromaEstadoCuota> {
+  return pedido<CromaEstadoCuota>("/api/admin/croma/cuota");
+}
+
+export function buscarProcesosCroma(params: {
+  nombre: string;
+  tipoEntidad?: "natural" | "juridical";
+  soloActivos?: boolean;
+}): Promise<CromaBusquedaResultado> {
+  return pedido<CromaBusquedaResultado>("/api/admin/croma/buscar", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export type CromaBuzonDespacho = {
+  email: string;
+  nombre: string;
+  tipoCuenta: string;
+  corporacion: string;
+  especialidad: string;
+  departamento: string;
+  ciudad: string;
+  seccional: string;
+  codigoDespacho: string;
+};
+
+export type CromaLegalProResultado = {
+  exito: boolean;
+  mensaje: string;
+  casoId: number | null;
+  nombreCliente: string;
+  radicado: string;
+  fuenteVisible: string | null;
+  encontradoEnCroma: boolean;
+  idProcesoCpnu: number | null;
+  connectionIdCroma?: number | null;
+  idsProcesosRelacionados?: number[];
+  soloPrivadoEnRama?: boolean;
+  codigoDespacho12Digitos?: string | null;
+  despacho: string | null;
+  departamento: string | null;
+  sujetosProcesales: string | null;
+  fechaInicio: string | null;
+  fechaUltimaActuacion: string | null;
+  esPrivado: boolean;
+  ponente: string | null;
+  tipoProceso: string | null;
+  claseProceso: string | null;
+  subclaseProceso?: string | null;
+  recursoProceso?: string | null;
+  ubicacion: string | null;
+  contenidoRadicacion?: string | null;
+  ultimaActualizacionRama?: string | null;
+  correoCliente?: string | null;
+  telefonoCliente?: string | null;
+  abogadoAsignadoNombre?: string | null;
+  totalActuaciones: number;
+  actuacionesNuevasInyectadasEnSie: number;
+  actuacionesFundamentalesTotal: number;
+  terminosActivosTotal: number;
+  boletinesDisponiblesTotal: number;
+  boletinesNuevosDescargados: number;
+  buzonesDespacho: CromaBuzonDespacho[];
+  boletinesCacheados: BoletinJudicial[];
+  documentosEnVivo: DocumentoCandidatoJudicial[];
+  actuaciones: EventoLineaTiempoJudicial[];
+  creditosConsumidosMes: number;
+  limiteCreditosMes: number;
+  consultasRestantesMes: number;
+  cargadoDesdeMemoria?: boolean;
+  fechaExtraccionInforme?: string | null;
+  fechaExpiracionInforme?: string | null;
+  diasParaBorrarInforme?: number | null;
+  guardadoHaceTexto?: string | null;
+};
+
+export type CromaMemoriaResumen = {
+  casoId: number | null;
+  radicado: string;
+  fechaExtraccion: string;
+  fechaExpiracion: string;
+  fechaEmision?: string | null;
+  tipoActuacion?: string | null;
+  diasParaBorrar: number;
+  guardadoHaceTexto: string;
+};
+
+export function generarInformeLegalProCroma(params: {
+  casoId?: number;
+  radicado?: string;
+  buscarBoletinesEnVivo?: boolean;
+}): Promise<CromaLegalProResultado> {
+  return pedido<CromaLegalProResultado>("/api/admin/croma/legal-pro", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export function listarMemoriasLegalProCroma(): Promise<CromaMemoriaResumen[]> {
+  return pedido<CromaMemoriaResumen[]>("/api/admin/croma/legal-pro/memorias");
+}
+
+export async function obtenerMemoriaLegalProCroma(params: {
+  casoId?: number;
+  radicado?: string;
+}): Promise<CromaLegalProResultado | null> {
+  const qs = new URLSearchParams();
+  if (params.casoId !== undefined) qs.set("casoId", String(params.casoId));
+  if (params.radicado) qs.set("radicado", params.radicado);
+  return pedido<CromaLegalProResultado | null>(`/api/admin/croma/legal-pro/memoria?${qs.toString()}`);
 }

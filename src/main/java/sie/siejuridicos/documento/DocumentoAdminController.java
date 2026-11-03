@@ -56,17 +56,24 @@ public class DocumentoAdminController {
         this.objectMapper = objectMapper;
     }
 
+    // gerenteIds (pedido explícito del usuario, 2026-10-31: "en abogados pon tambien
+    // opcional las firmas de los gerentes") -- OTROS ADMIN_GENERAL activos, aparte de quien
+    // emite (ese sigue firmando siempre, automático, sin esto). Antes no había forma de que
+    // un segundo gerente firmara un documento aunque la firma tenga más de un ADMIN_GENERAL
+    // real (confirmado: hay 2 en este sistema) -- ver DocumentoAdminService.crear().
     @PostMapping(consumes = "multipart/form-data")
     @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<DocumentoFirmaListadoDto> crear(@RequestParam("archivo") MultipartFile archivo,
                                                            @RequestParam("nombre") String nombre,
                                                            @RequestParam(value = "casoId", required = false) Long casoId,
                                                            @RequestParam(value = "abogadoIds", required = false) List<Long> abogadoIds,
+                                                           @RequestParam(value = "gerenteIds", required = false) List<Long> gerenteIds,
                                                            @RequestParam(value = "partesJson", required = false) String partesJson,
                                                            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
         List<AsignarParteRequest> partes = leerPartes(partesJson);
         byte[] pdf = leerBytes(archivo);
-        DocumentoFirmaListadoDto creado = documentoAdminService.crear(pdf, nombre, casoId, abogadoIds, partes, principal.getId());
+        DocumentoFirmaListadoDto creado = documentoAdminService.crear(
+                pdf, nombre, casoId, abogadoIds, gerenteIds, partes, principal.getId());
         return ResponseEntity.ok(creado);
     }
 

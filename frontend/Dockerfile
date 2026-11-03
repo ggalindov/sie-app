@@ -20,6 +20,8 @@ COPY . .
 # eso entra como ARG aquí y no como variable de entorno del contenedor en producción.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 ENV NODE_ENV=production
 
 RUN npm run build

@@ -86,7 +86,7 @@ public class DocumentoAdminService {
 
     @Transactional
     public DocumentoFirmaListadoDto crear(byte[] pdf, String nombre, Long casoId, List<Long> abogadoIds,
-                                           List<AsignarParteRequest> partes, Long gerenteId) {
+                                           List<Long> gerenteIds, List<AsignarParteRequest> partes, Long gerenteId) {
         validarPdf(pdf);
         if (nombre == null || nombre.isBlank()) {
             throw new EntidadInvalidaException("El documento necesita un nombre.");
@@ -107,6 +107,29 @@ public class DocumentoAdminService {
                             .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el usuario interno " + id + "."));
                     if (u.getRol() != RolUsuario.ABOGADO) {
                         throw new EntidadInvalidaException(u.getNombre() + " no tiene rol de abogado.");
+                    }
+                    if (!u.isActivo()) {
+                        throw new EntidadInvalidaException(u.getNombre() + " no está activo.");
+                    }
+                    return u;
+                })
+                .toList();
+
+        // Pedido explícito del usuario: "en abogados pon tambien opcional las firmas de los
+        // gerentes" -- quien emite (gerente, arriba) SIEMPRE firma, sin cambios; esto es
+        // para los DEMÁS ADMIN_GENERAL activos que gerencia quiera sumar como firmantes
+        // adicionales de este documento puntual, igual de opcional que los abogados.
+        // distinct() por si el frontend llegara a mandar el mismo id dos veces -- un
+        // firmante duplicado rompería la cuenta "cada firmante firma exactamente una vez"
+        // del motor.
+        List<UsuarioInterno> otrosGerentes = (gerenteIds == null ? List.<Long>of() : gerenteIds).stream()
+                .distinct()
+                .filter(id -> !id.equals(gerenteId))
+                .map(id -> {
+                    UsuarioInterno u = usuarioInternoRepository.findById(id)
+                            .orElseThrow(() -> new RecursoNoEncontradoException("No se encontró el usuario interno " + id + "."));
+                    if (u.getRol() != RolUsuario.ADMIN_GENERAL) {
+                        throw new EntidadInvalidaException(u.getNombre() + " no tiene rol de gerente.");
                     }
                     if (!u.isActivo()) {
                         throw new EntidadInvalidaException(u.getNombre() + " no está activo.");
@@ -152,7 +175,7 @@ public class DocumentoAdminService {
         documento.setHashContenido(HashUtil.sha256Hex(pdf));
         documento = documentoFirmaRepository.save(documento);
 
-        documentoFirmaService.procesarEmision(documento, gerente, abogados, partesAFirmar);
+        documentoFirmaService.procesarEmision(documento, gerente, abogados, otrosGerentes, partesAFirmar);
 
         return DocumentoFirmaListadoDto.from(documento);
     }

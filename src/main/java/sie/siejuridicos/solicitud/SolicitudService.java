@@ -275,6 +275,12 @@ public class SolicitudService {
         solicitud.setFechaCita(request.fechaHora());
         // si se reprograma una cita cuyo recordatorio ya se había enviado, se rearma para la nueva fecha
         solicitud.setRecordatorioEnviado(false);
+        // Recordatorio de "un dia antes": solo tiene sentido si la cita se agenda con MAS de 24 h
+        // de anticipacion. Si se agenda con menos, el cliente ya recibe la confirmacion ahora y el
+        // aviso de 1 hora antes -- un recordatorio de "manana" justo despues de confirmar seria
+        // un duplicado, asi que se deja marcado como ya enviado. Al reprogramar se rearma.
+        solicitud.setRecordatorioDiaAntesEnviado(
+                !request.fechaHora().isAfter(java.time.LocalDateTime.now().plusHours(24)));
         Solicitud actualizada = solicitudRepository.save(solicitud);
 
         if (bloqueoTotalClientes) {
@@ -303,6 +309,20 @@ public class SolicitudService {
             return;
         }
         emailService.enviarRecordatorioCita(solicitud);
+        whatsAppService.enviarConfirmacionCita(
+                solicitud.getNombre(), solicitud.getTelefono(),
+                solicitud.getFechaCita(), detalleAccesoParaWhatsApp(solicitud));
+    }
+
+    // Recordatorio UN DIA ANTES (ver RecordatorioCitaScheduler). Mismo canal doble y misma plantilla
+    // de WhatsApp que la confirmacion y el recordatorio de 1 hora: el dato (fecha, hora, enlace o
+    // direccion) es el mismo, solo cambia cuando se manda. El correo si lleva texto propio.
+    public void enviarRecordatorioCitaDiaAntes(Solicitud solicitud) {
+        if (bloqueoTotalClientes) {
+            log.warn("[SEGURIDAD ACTIVA] Recordatorio de cita (un dia antes) omitido para Solicitud ID={} por bloqueo de pruebas.", solicitud.getId());
+            return;
+        }
+        emailService.enviarRecordatorioCitaDiaAntes(solicitud);
         whatsAppService.enviarConfirmacionCita(
                 solicitud.getNombre(), solicitud.getTelefono(),
                 solicitud.getFechaCita(), detalleAccesoParaWhatsApp(solicitud));

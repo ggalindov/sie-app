@@ -97,6 +97,12 @@ EXPOSE 8080
 #    con `free -h` en el incidente), así que el metaspace pudo subir con margen real en vez
 #    de quedar otra vez al límite: 1024*0.6=614m de heap + 256m de metaspace = 870m, dejando
 #    ~154m de colchón para el resto de la JVM.
-ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=40.0 -XX:MaxMetaspaceSize=256m -Xss512k -Djava.security.egd=file:/dev/./urandom"
+# -Djava.net.preferIPv4Stack=true: bug real encontrado en vivo (ver run.bat para el detalle
+# completo de la investigación) -- publicacionesprocesales.ramajudicial.gov.co resuelve
+# detrás de un CDN con dirección IPv4 Y IPv6, y entornos sin salida IPv6 real (confirmado
+# con "curl -6": falla en 0.1s con "red inalcanzable") hacen que la JVM pierda tiempo real
+# intentando la ruta IPv6 "fantasma" antes de caer a la que sí funciona -- forzar IPv4 en
+# toda la JVM evita el problema de raíz, sin importar si el VPS real tiene o no salida IPv6.
+ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=60.0 -XX:InitialRAMPercentage=40.0 -XX:MaxMetaspaceSize=256m -Xss512k -Djava.security.egd=file:/dev/./urandom -Djava.net.preferIPv4Stack=true"
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

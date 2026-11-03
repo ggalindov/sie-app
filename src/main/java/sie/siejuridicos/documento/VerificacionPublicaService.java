@@ -19,11 +19,17 @@ import java.util.Optional;
 // INTEGRO / ALTERADO / NO_REGISTRADO.
 //
 // Decisión de diseño: una consulta pública NUNCA marca ALTERADO un documento por el solo
-// hecho de que alguien suba un archivo distinto (cualquiera podría envenenar el estado de
-// un documento auténtico subiendo una copia manipulada). Lo que sí se marca es lo que
-// revela manipulación del propio REGISTRO de SIE (firma de aplicación inválida, cadena de
-// eventos rota). Cada consulta que identifica un documento agrega un evento
-// VERIFICACION_CONSULTADA a su cadena de hashes.
+// hecho de que alguien suba un archivo CUALQUIERA que no coincide (cualquiera podría
+// envenenar el estado de un documento auténtico subiendo una copia manipulada con el
+// código de verificación falsificado en los metadatos -- ver la rama "origen.isPresent()"
+// de verificarPdf, que deliberadamente NO persiste). Lo que sí se marca y persiste de
+// inmediato (sin esperar el barrido periódico, ver DocumentIntegrityScanService) es
+// cualquier evidencia que NO se pueda fabricar subiendo un archivo ajeno: manipulación del
+// propio REGISTRO de SIE (firma de aplicación inválida, cadena de eventos rota), o un
+// archivo cuyo hash SHA-256 coincide EXACTAMENTE con uno de nuestros propios archivos
+// guardados pero cuya firma PAdES ya no verifica (solo posible si el archivo realmente es
+// el nuestro, byte a byte -- ver veredictoPorCoincidencia). Cada consulta que identifica un
+// documento agrega un evento VERIFICACION_CONSULTADA a su cadena de hashes.
 @Service
 public class VerificacionPublicaService {
 
@@ -129,6 +135,18 @@ public class VerificacionPublicaService {
             if (!pades.firmaValida() || !pades.cubreTodoElDocumento()) {
                 evaluacion.alterado = true;
                 agregarHallazgosPades(pades, evaluacion.hallazgos);
+                // El hash SHA-256 del archivo subido coincide EXACTAMENTE con uno que ya
+                // teníamos guardado (es byte a byte uno de nuestros propios archivos, no una
+                // copia cualquiera con metadatos falsificables) y aun así su firma PAdES no
+                // verifica: evidencia real de que el propio registro de custodia quedó
+                // comprometido, no una denuncia que cualquiera pueda fabricar subiendo un PDF
+                // ajeno. Por eso aquí sí se persiste, igual que ya hace evaluarRegistro() con
+                // la firma de aplicación -- sin esto, el estado del documento nunca cambiaba
+                // hasta que corriera el barrido periódico (ver DocumentIntegrityScanService).
+                integrityGuard.marcarAlterado(documento,
+                        "La firma digital PAdES de un archivo con hash SHA-256 idéntico a una versión registrada "
+                                + "ya no verifica contra su contenido (detectado por el portal público de verificación).",
+                        DocumentoEvento.ACTOR_SISTEMA, ip);
             }
         }
         registrarConsulta(documento, "archivo PDF (hash " + hash.substring(0, 16) + "…)", evaluacion.alterado, ip);

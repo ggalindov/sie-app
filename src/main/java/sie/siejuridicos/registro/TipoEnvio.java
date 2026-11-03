@@ -30,7 +30,21 @@ public enum TipoEnvio {
     // PQRS (Peticiones, Quejas, Reclamos y Sugerencias): mismo patrón que CODIGO_CASO (el
     // radicado es la única forma de consultar el estado, sin cuenta ni login).
     RADICADO_PQRS("Radicado de PQRS"),
-    RESPUESTA_PQRS("Respuesta a PQRS");
+    RESPUESTA_PQRS("Respuesta a PQRS"),
+    // Seguimiento judicial (ver sie.siejuridicos.vigilancia): envío manual, a pedido
+    // expreso de un abogado, de la última providencia de fondo encontrada en Publicaciones
+    // Procesales -- nunca automático.
+    PROVIDENCIA_JUDICIAL("Providencia judicial"),
+    // Digest AUTOMÁTICO de boletines judiciales nuevos (pedido explícito del usuario, ver
+    // sie.siejuridicos.vigilancia.BoletinJudicialDigestService) -- distinto de BOLETIN (ese
+    // es el newsletter de marketing a suscriptores) y de PROVIDENCIA_JUDICIAL (ese es el
+    // envío manual de un documento puntual a pedido de un abogado).
+    BOLETIN_JUDICIAL("Boletín judicial"),
+    // Auditoría de SIE-Vigilancia (pedido explícito del usuario: "implementa... alertas,
+    // anuncios de caidas") -- correo automático a todo ADMIN_GENERAL activo cuando
+    // RamaJudicialCpnuClient/PublicacionesProcesalesClient/SamaiClient "pareceCaido()" tras
+    // un paso del ciclo nocturno, ver VigilanciaCaidaAlertaListener.
+    ALERTA_VIGILANCIA_CAIDA("Alerta de caída de vigilancia judicial");
 
     private final String nombreVisible;
 

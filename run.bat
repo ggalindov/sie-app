@@ -112,6 +112,10 @@ rem application.properties), igual que DATA_ENCRYPTION_KEY, asi que puedes dejar
 rem blanco en local. En produccion DEBE cambiarse: genera una con "openssl rand -base64 32".
 set DOCUMENTO_FIRMA_CLAVE_MAESTRA=
 
+rem Cloudflare Turnstile ("captcha al login").
+rem Clave secreta que valida el token del widget contra Cloudflare.
+set TURNSTILE_SECRET_KEY=
+
 rem Credenciales reales (Gmail u otras): NUNCA las pongas aqui arriba, este archivo esta
 rem versionado en git y se sube al repositorio. Crea "run.local.bat" (esta en .gitignore,
 rem nunca se sube) junto a este script con las mismas variables set MAIL_USERNAME=... /
@@ -125,6 +129,6 @@ echo    levanta y apaga el contenedor de Postgres automaticamente).
 echo  - Admin de arranque: %ADMIN_BOOTSTRAP_EMAIL%
 echo ============================================================
 
-call "%~dp0mvnw.cmd" spring-boot:run
+call "%~dp0mvnw.cmd" spring-boot:run -Dmaven.test.skip=true
 
 endlocal

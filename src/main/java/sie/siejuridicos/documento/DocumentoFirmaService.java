@@ -85,19 +85,30 @@ public class DocumentoFirmaService {
     // DocumentoFirma con su número de secuencia ya asignado (ver DocumentoAdminController).
     @Transactional(propagation = Propagation.MANDATORY)
     public void procesarEmision(DocumentoFirma documento, UsuarioInterno gerente, List<UsuarioInterno> abogados,
-                                 List<ParteAFirmar> partes) {
-        crearFirmantesIniciales(documento, gerente, abogados, partes);
+                                 List<UsuarioInterno> otrosGerentes, List<ParteAFirmar> partes) {
+        crearFirmantesIniciales(documento, gerente, abogados, otrosGerentes, partes);
         documentoTimelineService.registrarSistema(documento, DocumentoEvento.TIPO_EMITIDO,
                 "Documento '" + documento.getNombre() + "' emitido con número de secuencia " + documento.getNumeroSecuencia() + ".");
         documento.setEstadoDocumento(DocumentoFirma.ESTADO_DOC_EMITIDO);
         intentarFirmarYSellar(documento);
     }
 
+    // otrosGerentes (pedido explícito del usuario: "en abogados pon tambien opcional las
+    // firmas de los gerentes") -- ADMIN_GENERAL adicionales, aparte de quien emite, que
+    // gerencia eligió sumar como firmantes de ESTE documento puntual. El motor ya trataba
+    // "staff" como gerente+abogados de forma genérica (ver intentarFirmarYSellar,
+    // DocumentoFirmante.esStaff()), nunca asumió que solo puede haber un STAFF_GERENTE --
+    // agregar más de uno aquí es seguro, no rompe ninguna validación existente.
     private void crearFirmantesIniciales(DocumentoFirma documento, UsuarioInterno gerente,
-                                          List<UsuarioInterno> abogados, List<ParteAFirmar> partes) {
+                                          List<UsuarioInterno> abogados, List<UsuarioInterno> otrosGerentes,
+                                          List<ParteAFirmar> partes) {
         int orden = 0;
         documentoFirmanteRepository.save(new DocumentoFirmante(documento, DocumentoFirmante.TIPO_STAFF_GERENTE,
                 gerente, null, null, gerente.getNombre(), null, orden++));
+        for (UsuarioInterno otroGerente : otrosGerentes) {
+            documentoFirmanteRepository.save(new DocumentoFirmante(documento, DocumentoFirmante.TIPO_STAFF_GERENTE,
+                    otroGerente, null, null, otroGerente.getNombre(), null, orden++));
+        }
         for (UsuarioInterno abogado : abogados) {
             documentoFirmanteRepository.save(new DocumentoFirmante(documento, DocumentoFirmante.TIPO_STAFF_ABOGADO,
                     abogado, null, null, abogado.getNombre(), null, orden++));

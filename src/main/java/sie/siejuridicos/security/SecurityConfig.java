@@ -92,6 +92,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/firmas/**").permitAll()
                         .requestMatchers("/api/v1/verificacion/**").permitAll()
                         .requestMatchers("/api/admin/usuarios/**").hasRole("ADMIN_GENERAL")
+                        // Interruptores de envíos automáticos por categoría/canal (pedido
+                        // explícito del usuario) -- solo el administrador general decide
+                        // apagarlos.
+                        .requestMatchers("/api/admin/configuracion-envios/**").hasRole("ADMIN_GENERAL")
                         // Testimonios, marketing y boletines quedan fuera del alcance del rol
                         // ABOGADO (pedido explícito: "que se queden más como abogados y ya", el
                         // lado de moderación de contenido/marketing es del administrador). FAQ y

@@ -14,7 +14,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import sie.siejuridicos.common.cifrado.CampoCifradoConverter;
+import sie.siejuridicos.usuario.UsuarioInterno;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 // El estado del caso NO vive aquí: esta tabla solo registra qué radicado le pertenece a qué
@@ -59,6 +61,16 @@ public class Caso {
     // en una sincronización posterior cuando sí aparezca en la hoja.
     @Column(name = "radicado_id", unique = true)
     private String radicadoId;
+
+    // Pedido explícito del usuario (2026-11-01): "el sistema debe reflejar que fallos hay" --
+    // true cuando radicadoId, aunque tenga un valor, no se pudo normalizar a un radicado CPNU
+    // real de 23 dígitos (ver RadicadoUtil). NUNCA bloquea el guardado del caso (hay
+    // jurisdicciones reales sin radicado CPNU, p. ej. comisaría de familia o inspección de
+    // policía -- ver RadicadoUtil.esFormatoCpnuValido), solo deja visible en el panel que ESTE
+    // caso en particular no tendrá seguimiento automático 24/7 hasta que se corrija o se
+    // confirme que es de otro tipo.
+    @Column(name = "radicado_formato_invalido", nullable = false)
+    private boolean radicadoFormatoInvalido;
 
     // Nombre TAL COMO aparece en la hoja para ESTA fila puntual (columna de "sujeto procesal
     // representado"/"demandante", ver HojaCalculoService) -- bug real reportado por el
@@ -114,6 +126,107 @@ public class Caso {
     @Column(name = "fecha_ultimo_reporte_whatsapp")
     private LocalDateTime fechaUltimoReporteWhatsapp;
 
+    // Cacheado la primera vez que sie.siejuridicos.vigilancia.RamaJudicialCpnuClient lo
+    // resuelve a partir del radicadoId, para no tener que volver a resolverlo en cada ciclo
+    // del seguimiento judicial (ver SeguimientoJudicialService) -- una llamada menos por
+    // caso en cada corrida. Null: todavía no se ha podido resolver (radicadoId vacío, no es
+    // un radicado CPNU válido de 23 dígitos, o el seguimiento nunca se ha corrido para este
+    // caso).
+    @Column(name = "id_proceso_cpnu")
+    private Long idProcesoCpnu;
+
+    // Mismo rol que idProcesoCpnu, arriba, pero para la jurisdicción contencioso-
+    // administrativa (Consejo de Estado y Tribunales Administrativos, ver
+    // sie.siejuridicos.vigilancia.SamaiClient) -- pedido explícito del usuario: "implementa
+    // esto... SAMAI". Es un GUID en texto (no un entero como el del CPNU), así que su columna
+    // es VARCHAR, no BIGINT. Mutuamente excluyente con idProcesoCpnu en la práctica: un
+    // radicado real pertenece a una sola jurisdicción, nunca a las dos a la vez.
+    // SeguimientoJudicialService decide qué cliente usar con un simple null-check sobre
+    // estos dos campos, sin necesitar un enum aparte de "a qué sistema pertenece este caso".
+    @Column(name = "id_proceso_samai")
+    private String idProcesoSamai;
+
+    // Gap real detectado comparando contra el correo diario de Lupa Jurídica (pedido
+    // explícito del usuario: "lupa nos da un seguimiento mas robusto") -- el propio CPNU ya
+    // da esto al resolver idProcesoCpnu (ver RamaJudicialCpnuClient.buscarProceso()), se
+    // guarda la primera vez que se resuelve el proceso para no tener que pedirlo de nuevo en
+    // cada ciclo. sujetosProcesales llega tal cual el CPNU lo formatea ("Demandante: NOMBRE |
+    // Demandado: NOMBRE "), listo para mostrar sin reformatear.
+    @Column(name = "sujetos_procesales", columnDefinition = "TEXT")
+    private String sujetosProcesales;
+
+    @Column(name = "despacho_judicial")
+    private String despachoJudicial;
+
+    // Pedido explícito del usuario: "tienes que traer absolutamente toda la informacion...
+    // entre mas datos mucho mejor" -- el resto de lo que da el CPNU al resolver el proceso
+    // (ver RamaJudicialCpnuClient.buscarProceso()/ProcesoResuelto), capturado en el mismo
+    // momento que sujetosProcesales/despachoJudicial, arriba.
+    @Column(name = "departamento_judicial")
+    private String departamentoJudicial;
+
+    @Column(name = "fecha_radicacion_proceso")
+    private LocalDate fechaRadicacionProceso;
+
+    @Column(name = "proceso_privado")
+    private Boolean procesoPrivado;
+
+    // Ponente = el juez/magistrado asignado al proceso, tal cual lo informa el CPNU
+    // (Proceso/Detalle/{idProceso}, un endpoint aparte de NumeroRadicacion).
+    @Column(name = "ponente")
+    private String ponente;
+
+    @Column(name = "tipo_proceso")
+    private String tipoProceso;
+
+    @Column(name = "clase_proceso")
+    private String claseProceso;
+
+    @Column(name = "subclase_proceso")
+    private String subclaseProceso;
+
+    @Column(name = "recurso_proceso")
+    private String recursoProceso;
+
+    // Dónde estaba físicamente el expediente dentro del despacho la última vez que se
+    // resolvió el proceso (ej. "Secretaria - Oficios") -- a diferencia de los demás campos de
+    // este bloque (fijos por naturaleza), este sí puede cambiar con el tiempo, pero
+    // SeguimientoJudicialService solo vuelve a resolver el proceso una vez por caso (igual
+    // que ya hacía con idProcesoCpnu), no en cada ciclo -- así que puede quedar desactualizado
+    // entre una resolución y la siguiente actuación nueva real.
+    @Column(name = "ubicacion_proceso")
+    private String ubicacionProceso;
+
+    // Pedido explícito del usuario: "la vigilancia tiene que mostrar toda, absolutamente
+    // toda la informacion... todo lo que se detecte" -- Proceso/Detalle del CPNU trae esto
+    // (cuándo la Rama Judicial misma actualizó el proceso en SU sistema) y se descartaba.
+    // Distinto de fechaUltimoSeguimiento (abajo, cuándo NOSOTROS revisamos) -- este es un
+    // dato propio de la Rama Judicial. Mismo límite que ubicacionProceso arriba: solo se
+    // refresca cuando se vuelve a resolver el proceso completo, no en cada ciclo.
+    @Column(name = "ultima_actualizacion_rama")
+    private java.time.LocalDateTime ultimaActualizacionRama;
+
+    // Trazabilidad INDEPENDIENTE por caso del seguimiento judicial (ver
+    // SeguimientoJudicialService) -- distinto del Registro del Sistema, que solo guarda un
+    // resumen agregado de toda la corrida. Se actualizan en CADA intento, exitoso o no, para
+    // que un caso puntual siempre se pueda responder "¿cuándo se revisó por última vez?" sin
+    // depender de que la corrida completa haya ido bien.
+    @Column(name = "fecha_ultimo_seguimiento")
+    private LocalDateTime fechaUltimoSeguimiento;
+
+    @Column(name = "ultimo_seguimiento_exitoso")
+    private Boolean ultimoSeguimientoExitoso;
+
+    // Pedido explícito del usuario: "la idea es desligarnos del excel... asignacion de caso
+    // por abogado" (ver migración V61) -- quién de la firma es responsable de este caso.
+    // Nunca lo pone el Google Sheets (no tiene esa columna); lo asigna el ADMIN_GENERAL
+    // desde el panel (ver CasoService.actualizar()). Determina, entre otras cosas, a quién
+    // se le crea la tarea automática cuando se detecta un término procesal (ver
+    // TerminoProcesalService).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_abogado_asignado")
+    private UsuarioInterno abogadoAsignado;
+
     public Long getId() {
         return id;
     }
@@ -150,8 +263,16 @@ public class Caso {
         return radicadoId;
     }
 
+    // Normaliza SIEMPRE antes de guardar (ver RadicadoUtil) -- único punto de entrada real,
+    // así cada llamador (sincronización desde la hoja, creación manual, edición desde el
+    // panel) queda cubierto automáticamente sin tener que repetir la lógica en cada uno.
     public void setRadicadoId(String radicadoId) {
-        this.radicadoId = radicadoId;
+        this.radicadoId = RadicadoUtil.normalizarParaAlmacenar(radicadoId);
+        this.radicadoFormatoInvalido = this.radicadoId != null && !RadicadoUtil.esFormatoCpnuValido(this.radicadoId);
+    }
+
+    public boolean isRadicadoFormatoInvalido() {
+        return radicadoFormatoInvalido;
     }
 
     public String getNombreEnHoja() {
@@ -204,5 +325,141 @@ public class Caso {
 
     public void setFechaUltimoReporteWhatsapp(LocalDateTime fechaUltimoReporteWhatsapp) {
         this.fechaUltimoReporteWhatsapp = fechaUltimoReporteWhatsapp;
+    }
+
+    public Long getIdProcesoCpnu() {
+        return idProcesoCpnu;
+    }
+
+    public void setIdProcesoCpnu(Long idProcesoCpnu) {
+        this.idProcesoCpnu = idProcesoCpnu;
+    }
+
+    public String getIdProcesoSamai() {
+        return idProcesoSamai;
+    }
+
+    public void setIdProcesoSamai(String idProcesoSamai) {
+        this.idProcesoSamai = idProcesoSamai;
+    }
+
+    public String getSujetosProcesales() {
+        return sujetosProcesales;
+    }
+
+    public void setSujetosProcesales(String sujetosProcesales) {
+        this.sujetosProcesales = sujetosProcesales;
+    }
+
+    public String getDespachoJudicial() {
+        return despachoJudicial;
+    }
+
+    public void setDespachoJudicial(String despachoJudicial) {
+        this.despachoJudicial = despachoJudicial;
+    }
+
+    public String getDepartamentoJudicial() {
+        return departamentoJudicial;
+    }
+
+    public void setDepartamentoJudicial(String departamentoJudicial) {
+        this.departamentoJudicial = departamentoJudicial;
+    }
+
+    public LocalDate getFechaRadicacionProceso() {
+        return fechaRadicacionProceso;
+    }
+
+    public void setFechaRadicacionProceso(LocalDate fechaRadicacionProceso) {
+        this.fechaRadicacionProceso = fechaRadicacionProceso;
+    }
+
+    public Boolean getProcesoPrivado() {
+        return procesoPrivado;
+    }
+
+    public void setProcesoPrivado(Boolean procesoPrivado) {
+        this.procesoPrivado = procesoPrivado;
+    }
+
+    public String getPonente() {
+        return ponente;
+    }
+
+    public void setPonente(String ponente) {
+        this.ponente = ponente;
+    }
+
+    public String getTipoProceso() {
+        return tipoProceso;
+    }
+
+    public void setTipoProceso(String tipoProceso) {
+        this.tipoProceso = tipoProceso;
+    }
+
+    public String getClaseProceso() {
+        return claseProceso;
+    }
+
+    public void setClaseProceso(String claseProceso) {
+        this.claseProceso = claseProceso;
+    }
+
+    public String getSubclaseProceso() {
+        return subclaseProceso;
+    }
+
+    public void setSubclaseProceso(String subclaseProceso) {
+        this.subclaseProceso = subclaseProceso;
+    }
+
+    public String getRecursoProceso() {
+        return recursoProceso;
+    }
+
+    public void setRecursoProceso(String recursoProceso) {
+        this.recursoProceso = recursoProceso;
+    }
+
+    public String getUbicacionProceso() {
+        return ubicacionProceso;
+    }
+
+    public void setUbicacionProceso(String ubicacionProceso) {
+        this.ubicacionProceso = ubicacionProceso;
+    }
+
+    public java.time.LocalDateTime getUltimaActualizacionRama() {
+        return ultimaActualizacionRama;
+    }
+
+    public void setUltimaActualizacionRama(java.time.LocalDateTime ultimaActualizacionRama) {
+        this.ultimaActualizacionRama = ultimaActualizacionRama;
+    }
+
+    public LocalDateTime getFechaUltimoSeguimiento() {
+        return fechaUltimoSeguimiento;
+    }
+
+    public void setFechaUltimoSeguimiento(LocalDateTime fechaUltimoSeguimiento) {
+        this.fechaUltimoSeguimiento = fechaUltimoSeguimiento;
+    }
+
+    public Boolean getUltimoSeguimientoExitoso() {
+        return ultimoSeguimientoExitoso;
+    }
+
+    public void setUltimoSeguimientoExitoso(Boolean ultimoSeguimientoExitoso) {
+        this.ultimoSeguimientoExitoso = ultimoSeguimientoExitoso;
+    }
+
+    public UsuarioInterno getAbogadoAsignado() {
+        return abogadoAsignado;
+    }
+
+    public void setAbogadoAsignado(UsuarioInterno abogadoAsignado) {
+        this.abogadoAsignado = abogadoAsignado;
     }
 }
