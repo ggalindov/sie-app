@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, type ReactNode, type CSSProperties } from "react";
 import Link from "next/link";
-import { Lexend, Poppins } from "next/font/google";
 import { motion, useInView, useMotionValue, useScroll, useTransform } from "motion/react";
 import { animate } from "motion";
 import {
@@ -25,8 +24,7 @@ import { MascotaSaludo, MascotaFeliz, MascotaPreocupada } from "@/components/mas
 // el resto del sitio usa Playfair Display + Manrope como identidad de marca ya
 // establecida (ver globals.css/layout.tsx), y esta es una landing gemela con su propia
 // identidad visual, no un cambio de la tipografía del sitio.
-const lexend = Lexend({ subsets: ["latin"], weight: ["500", "600", "700"] });
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"] });
+// Tipografia inyectada desde el Server Component en /cuida-tu-marca/page.tsx via CSS variables
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -224,8 +222,11 @@ export function CuidaMarcaLanding() {
 
   return (
     <main
-      className={`flex-1 bg-night text-night-ink ${poppins.className}`}
-      style={{ "--font-display": lexend.style.fontFamily } as CSSProperties}
+      className="flex-1 bg-night text-night-ink"
+      style={{
+        fontFamily: "var(--font-cuida-sans), var(--font-sans), sans-serif",
+        "--font-display": "var(--font-cuida-display), var(--font-display), sans-serif",
+      } as CSSProperties}
     >
       {/* Hero: idéntico criterio al de la home, video-menos pero mismo peso
           visual (gradiente oscuro de borde a borde + halos dorados), para
