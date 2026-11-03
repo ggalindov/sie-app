@@ -48,10 +48,10 @@ class WhatsAppServiceTest {
     }
 
     @Test
-    void variosCorreosSeparadosPorPuntoYComaEnLaColumnaDeTelefonoSeRechaza() {
-        // Mismo tipo de dato sucio ya visto en la columna de correo de un caso real (varias
-        // direcciones en una sola celda): no debe colarse como si fuera un número válido.
-        assertNull(WhatsAppService.normalizarCelular("3001234567; 3009876543"));
+    void variosCelularesSeparadosPorPuntoYComaSeNormalizanCorrectamente() {
+        // Pedido explícito del usuario: identificar todos los celulares con WhatsApp en celdas con múltiples números
+        assertEquals("573001234567", WhatsAppService.normalizarCelular("3001234567; 3009876543"));
+        assertEquals(2, WhatsAppService.extraerCelulares("3001234567; 3009876543").size());
     }
 
     // Regresión de un bug real encontrado en auditoría: escaparJson() solo escapaba "\",

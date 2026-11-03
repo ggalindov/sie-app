@@ -1208,13 +1208,11 @@ public class EmailService {
     // correo nunca sale (confirmado: 41 de 89 fallos de un envío real fueron por esto). Se
     // separa por ";" o "," y cada trozo se manda como un destinatario propio de la lista "to"
     // -- todos reciben el mismo correo, como cabría esperar de una celda con varios contactos.
-    private static final Pattern SEPARADOR_CORREOS = Pattern.compile("[;,]");
-
     private static String[] separarCorreos(String correoCrudo) {
-        return Arrays.stream(SEPARADOR_CORREOS.split(correoCrudo))
-                .map(String::strip)
-                .filter(s -> !s.isBlank() && s.contains("@"))
-                .toArray(String[]::new);
+        if (correoCrudo == null || correoCrudo.isBlank()) {
+            return new String[0];
+        }
+        return sie.siejuridicos.common.ContactoSanitizer.extraerCorreos(correoCrudo).toArray(String[]::new);
     }
 
     // esBoletin=true agrega la cabecera List-Unsubscribe: Gmail y otros proveedores

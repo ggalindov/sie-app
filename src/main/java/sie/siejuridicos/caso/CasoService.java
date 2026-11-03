@@ -519,10 +519,9 @@ public class CasoService {
             // igual (permite verlo, buscarlo, y que el estado se consulte en vivo apenas tenga
             // radicado), solo que sin poder enviarle correo hasta que la hoja se actualice con
             // un contacto real (ver crearCliente/actualizarDatosCliente más abajo).
-            String correoValido = fila.correoCliente();
-            if (correoValido != null && (correoValido.isBlank() || !correoValido.contains("@"))) {
-                correoValido = null;
-            }
+            // Pedido explícito del usuario: tolerar múltiples correos (separados por ';', ',', '/', '·', espacios),
+            // desinfectar puntos medios (ej. 'pagos@rumbos.com.co·') y asegurar que siempre se identifiquen todos los contactos.
+            String correoValido = sie.siejuridicos.common.ContactoSanitizer.normalizarCadenaCorreos(fila.correoCliente());
             if (correoValido == null) {
                 omitidos++;
             }

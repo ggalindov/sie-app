@@ -147,8 +147,9 @@ public class CobroService {
             cliente.setNombre(fila.nombre());
             cambio = true;
         }
-        if (!Objects.equals(fila.correo(), cliente.getCorreo())) {
-            cliente.setCorreo(fila.correo());
+        String correoLimpio = sie.siejuridicos.common.ContactoSanitizer.normalizarCadenaCorreos(fila.correo());
+        if (!Objects.equals(correoLimpio, cliente.getCorreo())) {
+            cliente.setCorreo(correoLimpio);
             cambio = true;
         }
         if (!Objects.equals(fila.telefono(), cliente.getTelefono())) {
@@ -460,8 +461,9 @@ public class CobroService {
                 List<ClienteCobro> todosActivos = clienteCobroRepository.findByActivoTrueOrderByNombreAsc();
                 for (ClienteCobro c : todosActivos) {
                     if (c.getTelefono() != null) {
+                        List<String> cels = sie.siejuridicos.common.ContactoSanitizer.extraerCelulares(c.getTelefono());
                         String digitosGuardados = c.getTelefono().replaceAll("[^0-9]", "");
-                        if (digitosGuardados.endsWith(ultimos10Entrantes)) {
+                        if (cels.contains(telefonoNormalizado) || digitosGuardados.endsWith(ultimos10Entrantes)) {
                             encontrados.add(c);
                             if (c.getTelefonoHash() == null) {
                                 c.setTelefonoHash(hash);

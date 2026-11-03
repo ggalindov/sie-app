@@ -18,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -153,19 +154,11 @@ public class WhatsAppService {
     // indicativo de país incluido). Devuelve null si el número no se puede reconocer como un
     // celular colombiano real -- ver CELULAR_COLOMBIANO.
     public static String normalizarCelular(String telefono) {
-        if (telefono == null) {
-            return null;
-        }
-        String soloDigitos = telefono.replaceAll("[^0-9]", "");
-        // quita un indicativo "57" ya puesto para dejar los 10 dígitos crudos, y así aplicar
-        // una sola validación sin importar si la hoja lo trae con o sin indicativo.
-        String celular = soloDigitos.startsWith("57") && soloDigitos.length() == 12
-                ? soloDigitos.substring(2)
-                : soloDigitos;
-        if (!CELULAR_COLOMBIANO.matcher(celular).matches()) {
-            return null;
-        }
-        return "57" + celular;
+        return sie.siejuridicos.common.ContactoSanitizer.normalizarCelular(telefono);
+    }
+
+    public static List<String> extraerCelulares(String telefono) {
+        return sie.siejuridicos.common.ContactoSanitizer.extraerCelulares(telefono);
     }
 
     // No lanza excepción nunca (mismo criterio que EmailService.enviarHtml): un fallo de
@@ -192,38 +185,44 @@ public class WhatsAppService {
             log.warn("Se intentó enviar el WhatsApp de radicado sin un radicado real -- se canceló el envío.");
             return false;
         }
-        String celular = normalizarCelular(telefono);
-        if (celular == null) {
+        List<String> celulares = extraerCelulares(telefono);
+        if (celulares.isEmpty()) {
             log.warn("No se pudo enviar WhatsApp: el teléfono guardado no es un celular "
                     + "colombiano reconocible.");
             return false;
         }
-        boolean exito;
-        try {
-            String cuerpo = construirCuerpoPlantilla(celular, nombreCliente, radicadoId);
-            HttpRequest solicitud = HttpRequest.newBuilder()
-                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
-                    .timeout(Duration.ofSeconds(8))
-                    .header("Authorization", "Bearer " + accessToken)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
-                    .build();
-            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
-            if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar la notificación de WhatsApp del radicado {}: {}",
-                        respuesta.statusCode(), radicadoId, respuesta.body());
+        boolean algunExito = false;
+        for (String celular : celulares) {
+            boolean exito;
+            try {
+                String cuerpo = construirCuerpoPlantilla(celular, nombreCliente, radicadoId);
+                HttpRequest solicitud = HttpRequest.newBuilder()
+                        .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                        .timeout(Duration.ofSeconds(8))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                        .build();
+                HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+                if (respuesta.statusCode() >= 300) {
+                    log.warn("Meta respondió {} al enviar la notificación de WhatsApp del radicado {}: {}",
+                            respuesta.statusCode(), radicadoId, respuesta.body());
+                    exito = false;
+                } else {
+                    exito = true;
+                }
+            } catch (Exception ex) {
+                log.warn("No se pudo enviar la notificación de WhatsApp del radicado {}: {}",
+                        radicadoId, ex.getMessage());
                 exito = false;
-            } else {
-                exito = true;
             }
-        } catch (Exception ex) {
-            log.warn("No se pudo enviar la notificación de WhatsApp del radicado {}: {}",
-                    radicadoId, ex.getMessage());
-            exito = false;
+            registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.CODIGO_CASO,
+                    nombreCliente, celular, "Radicado " + radicadoId, exito);
+            if (exito) {
+                algunExito = true;
+            }
         }
-        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.CODIGO_CASO,
-                nombreCliente, celular, "Radicado " + radicadoId, exito);
-        return exito;
+        return algunExito;
     }
 
     // Reporte semanal de caso (ver CasoService.enviarReporteSemanal) -- mismas 3 variables
@@ -242,37 +241,43 @@ public class WhatsAppService {
             log.warn("Se intentó enviar el reporte semanal de caso por WhatsApp sin un radicado real -- se canceló el envío.");
             return false;
         }
-        String celular = normalizarCelular(telefono);
-        if (celular == null) {
+        List<String> celulares = extraerCelulares(telefono);
+        if (celulares.isEmpty()) {
             log.warn("No se pudo enviar el reporte semanal de caso por WhatsApp: el teléfono guardado no "
                     + "es un celular colombiano reconocible.");
             return false;
         }
-        boolean exito;
-        try {
-            String cuerpo = construirCuerpoPlantillaReporteSemanal(celular, nombreCliente, radicadoId);
-            HttpRequest solicitud = HttpRequest.newBuilder()
-                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
-                    .timeout(Duration.ofSeconds(8))
-                    .header("Authorization", "Bearer " + accessToken)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
-                    .build();
-            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
-            if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el reporte semanal de caso por WhatsApp: {}",
-                        respuesta.statusCode(), respuesta.body());
+        boolean algunExito = false;
+        for (String celular : celulares) {
+            boolean exito;
+            try {
+                String cuerpo = construirCuerpoPlantillaReporteSemanal(celular, nombreCliente, radicadoId);
+                HttpRequest solicitud = HttpRequest.newBuilder()
+                        .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                        .timeout(Duration.ofSeconds(8))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                        .build();
+                HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+                if (respuesta.statusCode() >= 300) {
+                    log.warn("Meta respondió {} al enviar el reporte semanal de caso por WhatsApp: {}",
+                            respuesta.statusCode(), respuesta.body());
+                    exito = false;
+                } else {
+                    exito = true;
+                }
+            } catch (Exception ex) {
+                log.warn("No se pudo enviar el reporte semanal de caso por WhatsApp: {}", ex.getMessage());
                 exito = false;
-            } else {
-                exito = true;
             }
-        } catch (Exception ex) {
-            log.warn("No se pudo enviar el reporte semanal de caso por WhatsApp: {}", ex.getMessage());
-            exito = false;
+            registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.REPORTE_CASO,
+                    nombreCliente, celular, "Radicado " + radicadoId, exito);
+            if (exito) {
+                algunExito = true;
+            }
         }
-        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.REPORTE_CASO,
-                nombreCliente, celular, "Radicado " + radicadoId, exito);
-        return exito;
+        return algunExito;
     }
 
     private String construirCuerpoPlantillaReporteSemanal(String celular, String nombreCliente, String radicadoId) {
@@ -334,37 +339,43 @@ public class WhatsAppService {
         if (!configurado) {
             return false;
         }
-        String celular = normalizarCelular(telefono);
-        if (celular == null) {
+        List<String> celulares = extraerCelulares(telefono);
+        if (celulares.isEmpty()) {
             log.warn("No se pudo enviar el recordatorio de cobro por WhatsApp: el teléfono guardado no "
                     + "es un celular colombiano reconocible.");
             return false;
         }
-        boolean exito;
-        try {
-            String cuerpo = construirCuerpoPlantillaCobro(celular, nombreCliente, honorariosTexto);
-            HttpRequest solicitud = HttpRequest.newBuilder()
-                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
-                    .timeout(Duration.ofSeconds(8))
-                    .header("Authorization", "Bearer " + accessToken)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
-                    .build();
-            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
-            if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el recordatorio de cobro por WhatsApp: {}",
-                        respuesta.statusCode(), respuesta.body());
+        boolean algunExito = false;
+        for (String celular : celulares) {
+            boolean exito;
+            try {
+                String cuerpo = construirCuerpoPlantillaCobro(celular, nombreCliente, honorariosTexto);
+                HttpRequest solicitud = HttpRequest.newBuilder()
+                        .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                        .timeout(Duration.ofSeconds(8))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                        .build();
+                HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+                if (respuesta.statusCode() >= 300) {
+                    log.warn("Meta respondió {} al enviar el recordatorio de cobro por WhatsApp: {}",
+                            respuesta.statusCode(), respuesta.body());
+                    exito = false;
+                } else {
+                    exito = true;
+                }
+            } catch (Exception ex) {
+                log.warn("No se pudo enviar el recordatorio de cobro por WhatsApp: {}", ex.getMessage());
                 exito = false;
-            } else {
-                exito = true;
             }
-        } catch (Exception ex) {
-            log.warn("No se pudo enviar el recordatorio de cobro por WhatsApp: {}", ex.getMessage());
-            exito = false;
+            registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.RECORDATORIO_COBRO,
+                    nombreCliente, celular, honorariosTexto, exito);
+            if (exito) {
+                algunExito = true;
+            }
         }
-        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.RECORDATORIO_COBRO,
-                nombreCliente, celular, honorariosTexto, exito);
-        return exito;
+        return algunExito;
     }
 
     // Motor de firma electrónica: enlace único de firma para una parte PERSONA_NATURAL que
@@ -376,36 +387,38 @@ public class WhatsAppService {
         if (!configurado) {
             return;
         }
-        String celular = normalizarCelular(telefono);
-        if (celular == null) {
+        List<String> celulares = extraerCelulares(telefono);
+        if (celulares.isEmpty()) {
             log.warn("No se pudo enviar el enlace de firma por WhatsApp: el teléfono guardado no es un celular "
                     + "colombiano reconocible.");
             return;
         }
-        boolean exito;
-        try {
-            String cuerpo = construirCuerpoPlantillaFirmaEnlace(celular, nombreParte, nombreDocumento, enlaceFirma);
-            HttpRequest solicitud = HttpRequest.newBuilder()
-                    .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
-                    .timeout(Duration.ofSeconds(8))
-                    .header("Authorization", "Bearer " + accessToken)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
-                    .build();
-            HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
-            if (respuesta.statusCode() >= 300) {
-                log.warn("Meta respondió {} al enviar el enlace de firma por WhatsApp: {}",
-                        respuesta.statusCode(), respuesta.body());
+        for (String celular : celulares) {
+            boolean exito;
+            try {
+                String cuerpo = construirCuerpoPlantillaFirmaEnlace(celular, nombreParte, nombreDocumento, enlaceFirma);
+                HttpRequest solicitud = HttpRequest.newBuilder()
+                        .uri(URI.create("https://graph.facebook.com/" + VERSION_API + "/" + phoneNumberId + "/messages"))
+                        .timeout(Duration.ofSeconds(8))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
+                        .build();
+                HttpResponse<String> respuesta = clienteHttp.send(solicitud, HttpResponse.BodyHandlers.ofString());
+                if (respuesta.statusCode() >= 300) {
+                    log.warn("Meta respondió {} al enviar el enlace de firma por WhatsApp: {}",
+                            respuesta.statusCode(), respuesta.body());
+                    exito = false;
+                } else {
+                    exito = true;
+                }
+            } catch (Exception ex) {
+                log.warn("No se pudo enviar el enlace de firma por WhatsApp: {}", ex.getMessage());
                 exito = false;
-            } else {
-                exito = true;
             }
-        } catch (Exception ex) {
-            log.warn("No se pudo enviar el enlace de firma por WhatsApp: {}", ex.getMessage());
-            exito = false;
+            registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.ENLACE_FIRMA_DOCUMENTO,
+                    nombreParte, celular, nombreDocumento, exito);
         }
-        registroEnvioService.registrar(CanalEnvio.WHATSAPP, TipoEnvio.ENLACE_FIRMA_DOCUMENTO,
-                nombreParte, celular, nombreDocumento, exito);
     }
 
     // Aviso interno (no al cliente): apenas llega una solicitud nueva del formulario público,

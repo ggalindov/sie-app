@@ -276,6 +276,9 @@ public class DocumentoAdminService {
         // se marca explícitamente con SET LOCAL, que vive solo dentro de esta transacción y
         // se resetea solo al terminar, sin dejar ninguna puerta abierta permanente.
         entityManager.createNativeQuery("SET LOCAL app.documento_eventos.permitir_borrado = 'on'").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM documento_eventos_checkpoints WHERE documento_id = :docId")
+                .setParameter("docId", documentoId)
+                .executeUpdate();
         documentoEventoRepository.deleteByDocumentoId(documentoId);
         documentoCambioSolicitudRepository.deleteByDocumentoId(documentoId);
         documentoVersionRepository.deleteByDocumentoId(documentoId);
