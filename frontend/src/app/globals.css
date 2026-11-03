@@ -210,22 +210,19 @@ body {
   }
 }
 
-/* Landing / Sitio público: Scrollbar negro con dorado, ultra delgado (6px) */
+/* Landing / Sitio público: Scrollbar negro con dorado, ultra delgado (4px, pedido explícito del usuario) */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
   background: #0e0d0b;
-  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--color-gold);
   border-radius: 999px;
-  border: 1px solid #0e0d0b;
-  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -242,41 +239,71 @@ body {
   background: #0e0d0b;
 }
 
-/* Panel administrativo y gerencia: Scrollbar blanco con dorado (pedido explícito del usuario) */
+/* Panel administrativo, gerencia y modales: Scrollbar blanco con dorado (pedido explícito del usuario) */
+html.panel-admin,
+body.panel-admin,
+body.panel-admin *,
 .panel-admin,
-.panel-admin * {
+.panel-admin *,
+[role="dialog"],
+[role="dialog"] *,
+[data-base-ui-dialog],
+[data-base-ui-dialog] * {
   scrollbar-width: thin;
   scrollbar-color: #c59b27 #ffffff;
 }
 
+html.panel-admin ::-webkit-scrollbar,
+body.panel-admin ::-webkit-scrollbar,
 .panel-admin ::-webkit-scrollbar,
-.panel-admin::-webkit-scrollbar {
+.panel-admin::-webkit-scrollbar,
+[role="dialog"] ::-webkit-scrollbar,
+[role="dialog"]::-webkit-scrollbar,
+[data-base-ui-dialog] ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
+html.panel-admin ::-webkit-scrollbar-track,
+body.panel-admin ::-webkit-scrollbar-track,
 .panel-admin ::-webkit-scrollbar-track,
-.panel-admin::-webkit-scrollbar-track {
-  background: #ffffff;
+.panel-admin::-webkit-scrollbar-track,
+[role="dialog"] ::-webkit-scrollbar-track,
+[role="dialog"]::-webkit-scrollbar-track,
+[data-base-ui-dialog] ::-webkit-scrollbar-track {
+  background: #ffffff !important;
   border-radius: 999px;
 }
 
+html.panel-admin ::-webkit-scrollbar-thumb,
+body.panel-admin ::-webkit-scrollbar-thumb,
 .panel-admin ::-webkit-scrollbar-thumb,
-.panel-admin::-webkit-scrollbar-thumb {
-  background-color: #c59b27;
+.panel-admin::-webkit-scrollbar-thumb,
+[role="dialog"] ::-webkit-scrollbar-thumb,
+[role="dialog"]::-webkit-scrollbar-thumb,
+[data-base-ui-dialog] ::-webkit-scrollbar-thumb {
+  background-color: #c59b27 !important;
   border-radius: 999px;
-  border: 1px solid #ffffff;
+  border: 1px solid #ffffff !important;
   background-clip: padding-box;
 }
 
+html.panel-admin ::-webkit-scrollbar-thumb:hover,
+body.panel-admin ::-webkit-scrollbar-thumb:hover,
 .panel-admin ::-webkit-scrollbar-thumb:hover,
-.panel-admin::-webkit-scrollbar-thumb:hover {
-  background-color: #9b7617;
+.panel-admin::-webkit-scrollbar-thumb:hover,
+[role="dialog"] ::-webkit-scrollbar-thumb:hover,
+[data-base-ui-dialog] ::-webkit-scrollbar-thumb:hover {
+  background-color: #9b7617 !important;
 }
 
+html.panel-admin ::-webkit-scrollbar-corner,
+body.panel-admin ::-webkit-scrollbar-corner,
 .panel-admin ::-webkit-scrollbar-corner,
-.panel-admin::-webkit-scrollbar-corner {
-  background: #ffffff;
+.panel-admin::-webkit-scrollbar-corner,
+[role="dialog"] ::-webkit-scrollbar-corner,
+[data-base-ui-dialog] ::-webkit-scrollbar-corner {
+  background: #ffffff !important;
 }
 
 /* Aceleración por hardware para capas dinámicas */

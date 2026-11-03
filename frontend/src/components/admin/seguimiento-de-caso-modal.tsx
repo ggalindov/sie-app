@@ -418,7 +418,7 @@ export function SeguimientoDeCasoModal({
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm" />
         {/* Vista de 2 Columnas lado a lado (Motor SIE a la izquierda | Motor Legal-Pro Croma a la derecha) */}
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[96vw] max-w-7xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-line">
+        <Dialog.Popup className="panel-admin fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[96vw] max-w-7xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-line">
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-8 py-5">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">

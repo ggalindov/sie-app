@@ -215,7 +215,7 @@ export function LegalProCromaModal({
     <Dialog.Root open={abierto} onOpenChange={(ab) => !ab && onClose()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink/65 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[96vw] max-w-6xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-line">
+        <Dialog.Popup className="panel-admin fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[96vw] max-w-6xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl ring-1 ring-line">
           {/* Encabezado Principal */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper px-6 py-4">
             <div className="flex items-center gap-3">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/lib/auth-context";
+import { AdminBodyClass } from "@/components/admin/admin-body-class";
 
 export const metadata: Metadata = {
   title: {
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <AuthProvider>
+      <AdminBodyClass />
       <div className="panel-admin min-h-screen">
         {children}
       </div>

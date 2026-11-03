@@ -138,7 +138,7 @@ export function BusquedaCromaModal({
     <Dialog.Root open={abierto} onOpenChange={(ab) => !ab && onClose()}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl ring-1 ring-line">
+        <Dialog.Popup className="panel-admin fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-surface p-6 shadow-2xl ring-1 ring-line">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-line pb-4">
             <div className="flex items-center gap-2.5">

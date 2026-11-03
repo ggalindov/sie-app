@@ -110,4 +110,12 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
             + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
     List<ActuacionJudicialRegistrada> listarPendientesNotificarPorAbogado(
             @org.springframework.data.repository.query.Param("abogadoId") Long abogadoId);
+
+    // Búsqueda con caso cargado para pruebas de reporte
+    @Query("SELECT a FROM ActuacionJudicialRegistrada a "
+            + "JOIN FETCH a.caso c "
+            + "LEFT JOIN FETCH c.abogadoAsignado ab "
+            + "LEFT JOIN FETCH c.cliente cl "
+            + "ORDER BY a.id DESC")
+    List<ActuacionJudicialRegistrada> listarRecientesConCaso(org.springframework.data.domain.Pageable pageable);
 }

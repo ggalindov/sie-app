@@ -181,17 +181,24 @@ public class WhatsAppWebhookController {
             return "";
         }
         String normalizado = textoBoton.strip().toLowerCase(Locale.ROOT);
+        // Primero descartamos negaciones explícitas para evitar falsos positivos con palabras compuestas
+        if (normalizado.startsWith("n") || normalizado.equals("no")
+                || normalizado.contains("no acept") || normalizado.contains("no pag")
+                || normalizado.contains("no he") || normalizado.contains("aun no")
+                || normalizado.contains("aún no") || normalizado.contains("todavia no")
+                || normalizado.contains("todavía no") || normalizado.contains("pendiente")
+                || normalizado.contains("rechaz") || normalizado.contains("después")
+                || normalizado.contains("despues")) {
+            return "No";
+        }
         if (normalizado.startsWith("s") || normalizado.equals("si") || normalizado.equals("sí")
                 || normalizado.contains("pague") || normalizado.contains("pagué")
                 || normalizado.contains("pagado") || normalizado.contains("listo")
-                || normalizado.contains("ya pag") || normalizado.equals("yes")) {
+                || normalizado.contains("ya pag") || normalizado.equals("yes")
+                || normalizado.contains("acept") || normalizado.contains("confirmo")
+                || normalizado.contains("confirmar") || normalizado.contains("de acuerdo")
+                || normalizado.contains("ok") || normalizado.contains("dale")) {
             return "Sí";
-        }
-        if (normalizado.startsWith("n") || normalizado.equals("no")
-                || normalizado.contains("no he") || normalizado.contains("aun no")
-                || normalizado.contains("aún no") || normalizado.contains("todavia no")
-                || normalizado.contains("todavía no") || normalizado.contains("pendiente")) {
-            return "No";
         }
         return textoBoton.strip();
     }

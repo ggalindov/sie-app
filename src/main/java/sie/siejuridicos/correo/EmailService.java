@@ -1014,9 +1014,8 @@ public class EmailService {
             log.info("Digest de boletín judicial al gerente omitido: BOLETIN_JUDICIAL_CORREO está apagado desde el panel.");
             return;
         }
-        boolean exito = enviarHtmlConAdjuntos(correoGerente,
-                "Boletín judicial diario (" + adjuntos.size() + " documento(s)) - " + nombreFirma, cuerpoHtml, adjuntos,
-                ANCHO_DIGEST_INTERNO);
+        String asunto = "REPORTE DE MOVIMIENTO PROCESAL - GERENCIA GENERAL";
+        boolean exito = enviarHtmlConAdjuntos(correoGerente, asunto, cuerpoHtml, adjuntos, ANCHO_DIGEST_INTERNO);
         registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
                 "Gerencia", correoGerente, adjuntos.size() + " boletín(es)", exito);
     }
@@ -1029,9 +1028,8 @@ public class EmailService {
             log.info("Digest de boletín judicial a '{}' omitido: BOLETIN_JUDICIAL_CORREO está apagado desde el panel.", nombreAbogado);
             return;
         }
-        boolean exito = enviarHtmlConAdjuntos(correoAbogado,
-                "Tus casos: boletín judicial diario (" + adjuntos.size() + " documento(s)) - " + nombreFirma, cuerpoHtml, adjuntos,
-                ANCHO_DIGEST_INTERNO);
+        String asunto = "REPORTE DE MOVIMIENTO PROCESAL - " + (nombreAbogado != null ? nombreAbogado.toUpperCase() : "ABOGADO");
+        boolean exito = enviarHtmlConAdjuntos(correoAbogado, asunto, cuerpoHtml, adjuntos, ANCHO_DIGEST_INTERNO);
         registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
                 nombreAbogado, correoAbogado, adjuntos.size() + " boletín(es)", exito);
     }

@@ -1,8 +1,20 @@
 package sie.siejuridicos.vigilancia;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.caso.Caso;
@@ -12,6 +24,7 @@ import sie.siejuridicos.usuario.UsuarioInterno;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
 import sie.siejuridicos.vigilancia.dto.ActuacionRegistradaResponse;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -74,7 +87,6 @@ public class BoletinJudicialDigestService {
             return;
         }
 
-        String fechaHoy = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String cuerpo = construirCuerpoReporteDiarioStaff(
                 "Gerencia General",
                 actuacionesPendientes,
@@ -83,7 +95,11 @@ public class BoletinJudicialDigestService {
         );
 
         List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(boletinesPendientes);
-        String asunto = "REPORTE DE MOVIMIENTO PROCESAL - SIE JURÍDICOS (" + fechaHoy + ")";
+        byte[] excelBytes = generarExcelMovimientos(actuacionesPendientes);
+        if (excelBytes.length > 0) {
+            adjuntos.add(0, new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+        }
+
         emailService.enviarDigestBoletinGerente(correoGerencia, cuerpo, adjuntos);
 
         LocalDateTime ahora = LocalDateTime.now();
@@ -104,7 +120,6 @@ public class BoletinJudicialDigestService {
     @Transactional
     public void enviarDigestAbogados() {
         List<UsuarioInterno> abogados = usuarioInternoRepository.findByActivoTrueOrderByNombreAsc();
-        String fechaHoy = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         LocalDateTime ahora = LocalDateTime.now();
 
         for (UsuarioInterno abogado : abogados) {
@@ -128,7 +143,11 @@ public class BoletinJudicialDigestService {
             );
 
             List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(boletinesAbogado);
-            String asunto = "REPORTE DE MOVIMIENTO PROCESAL - " + abogado.getNombre().toUpperCase() + " (" + fechaHoy + ")";
+            byte[] excelBytes = generarExcelMovimientos(actuacionesAbogado);
+            if (excelBytes.length > 0) {
+                adjuntos.add(0, new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+            }
+
             emailService.enviarDigestBoletinAbogado(abogado.getNombre(), abogado.getCorreo(), cuerpo, adjuntos);
 
             actuacionesAbogado.forEach(a -> {
@@ -199,28 +218,31 @@ public class BoletinJudicialDigestService {
     }
 
     // Prueba en vivo sin alterar marcas de enviado
+    @Transactional(readOnly = true)
     public boolean probarReporteDiario(String correoDestino) {
-        List<ActuacionJudicialRegistrada> actuaciones = actuacionRepository.findAll().stream()
-                .sorted(Comparator.comparing(ActuacionJudicialRegistrada::getId).reversed())
-                .limit(10)
-                .toList();
-        List<BoletinJudicialCache> boletines = boletinRepository.findAll().stream()
-                .sorted(Comparator.comparing(BoletinJudicialCache::getId).reversed())
-                .limit(5)
-                .toList();
+        List<ActuacionJudicialRegistrada> actuaciones =
+                actuacionRepository.listarRecientesConCaso(PageRequest.of(0, 15));
+        List<BoletinJudicialCache> boletines =
+                boletinRepository.listarTodosConCaso().stream().limit(5).toList();
 
         if (actuaciones.isEmpty() && boletines.isEmpty()) {
             return false;
         }
 
-        String fechaHoy = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String cuerpo = construirCuerpoReporteDiarioStaff(
-                "Prueba Formato",
+                "Gerencia General (Demostración)",
                 actuaciones,
                 boletines,
-                "PRUEBA DE FORMATO OPERATIVO -- Demostración del reporte diario integral con diseño estilo IUS Tech y Lupa Control."
+                "Demostración del reporte diario de vigilancia judicial inteligente según formato estándar de la firma con archivo Excel adjunto."
         );
-        emailService.enviarDigestBoletinGerente(correoDestino, cuerpo, adjuntosSegurosDe(boletines));
+
+        List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(boletines);
+        byte[] excelBytes = generarExcelMovimientos(actuaciones);
+        if (excelBytes.length > 0) {
+            adjuntos.add(0, new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+        }
+
+        emailService.enviarDigestBoletinGerente(correoDestino, cuerpo, adjuntos);
         return true;
     }
 
@@ -245,8 +267,110 @@ public class BoletinJudicialDigestService {
         return adjuntos;
     }
 
+    // Genera el archivo Excel oficial 'Reporte de Movimientos.xlsx' idéntico a las columnas de IUS Tech
+    public byte[] generarExcelMovimientos(List<ActuacionJudicialRegistrada> actuaciones) {
+        if (actuaciones == null || actuaciones.isEmpty()) {
+            return new byte[0];
+        }
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            XSSFSheet sheet = workbook.createSheet("Reporte de Movimientos");
+
+            // Estilo cabecera
+            XSSFCellStyle headerStyle = workbook.createCellStyle();
+            XSSFFont headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(new XSSFColor(new byte[]{(byte) 30, (byte) 58, (byte) 138}, null)); // Navy #1e3a8a
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+
+            // Estilo celdas normales
+            XSSFCellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+
+            Row headerRow = sheet.createRow(0);
+            String[] columns = {"Radicado", "Despacho", "Demandante", "Demandado", "FechaProvidencia", "Asunto", "Anotación", "Responsable"};
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowIdx = 1;
+            for (ActuacionJudicialRegistrada act : actuaciones) {
+                Row row = sheet.createRow(rowIdx++);
+                Caso c = act.getCaso();
+                String radicado = c != null && c.getRadicadoId() != null ? c.getRadicadoId() : "";
+                String despacho = c != null && c.getDespachoJudicial() != null ? c.getDespachoJudicial() : "";
+                String[] partes = extraerDemandanteYDemandado(c);
+                String demandante = partes[0];
+                String demandado = partes[1];
+                LocalDateTime f = act.getFechaActuacion() != null ? act.getFechaActuacion() : act.getFechaRegistro();
+                String fechaProv = f != null ? f.format(FECHA_CORTO) : "";
+                String asunto = act.getNombreActuacion() != null ? act.getNombreActuacion() : "";
+                String anotacion = act.getAnotacion() != null ? act.getAnotacion() : "";
+                String responsable = c != null && c.getAbogadoAsignado() != null ? c.getAbogadoAsignado().getNombre() : "DRA TATIANA BUSTOS";
+
+                Cell c0 = row.createCell(0); c0.setCellValue(radicado); c0.setCellStyle(dataStyle);
+                Cell c1 = row.createCell(1); c1.setCellValue(despacho); c1.setCellStyle(dataStyle);
+                Cell c2 = row.createCell(2); c2.setCellValue(demandante); c2.setCellStyle(dataStyle);
+                Cell c3 = row.createCell(3); c3.setCellValue(demandado); c3.setCellStyle(dataStyle);
+                Cell c4 = row.createCell(4); c4.setCellValue(fechaProv); c4.setCellStyle(dataStyle);
+                Cell c5 = row.createCell(5); c5.setCellValue(asunto); c5.setCellStyle(dataStyle);
+                Cell c6 = row.createCell(6); c6.setCellValue(anotacion); c6.setCellStyle(dataStyle);
+                Cell c7 = row.createCell(7); c7.setCellValue(responsable); c7.setCellStyle(dataStyle);
+            }
+
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.error("Error generando Excel de movimientos procesales", e);
+            return new byte[0];
+        }
+    }
+
+    // Extrae ordenadamente demandante y demandado de los sujetos procesales de la Rama Judicial
+    private static String[] extraerDemandanteYDemandado(Caso caso) {
+        if (caso == null) return new String[]{"", ""};
+        String sujetos = caso.getSujetosProcesales();
+        if (sujetos == null || sujetos.isBlank()) {
+            String cli = caso.getCliente() != null ? caso.getCliente().getNombre() : "";
+            return new String[]{cli, "Contraparte según proceso"};
+        }
+        String demandante = "";
+        String demandado = "";
+        String[] tokens = sujetos.split("\\|");
+        for (String token : tokens) {
+            String t = token.trim();
+            String tLower = t.toLowerCase();
+            if (tLower.startsWith("demandante") || tLower.startsWith("accionante") || tLower.startsWith("convocante")) {
+                int idx = t.indexOf(':');
+                demandante = idx >= 0 ? t.substring(idx + 1).trim() : t;
+            } else if (tLower.startsWith("demandado") || tLower.startsWith("accionado") || tLower.startsWith("convocado") || tLower.startsWith("indiciado")) {
+                int idx = t.indexOf(':');
+                demandado = idx >= 0 ? t.substring(idx + 1).trim() : t;
+            }
+        }
+        if (demandante.isBlank() && caso.getCliente() != null) {
+            demandante = caso.getCliente().getNombre();
+        }
+        return new String[]{demandante, demandado};
+    }
+
     // CONSTRUCTOR PRINCIPAL DEL REPORTE DIARIO AL STAFF
-    // Diseñado siguiendo fielmente las referencias de IUS Tech y Lupa Control
+    // Diseñado siguiendo exactamente la estructura y columnas de IUS Tech y Lupa Control (Radicado, Despacho, Demandante, Demandado, FechaProvidencia, Asunto, Anotación, Responsable)
     private String construirCuerpoReporteDiarioStaff(
             String destinatarioNombre,
             List<ActuacionJudicialRegistrada> actuaciones,
@@ -258,81 +382,63 @@ public class BoletinJudicialDigestService {
             if (b.getCaso() != null) casosConNovedades.add(b.getCaso().getId());
         }
 
-        // Mapeo de boletines por caso para enlazar en la tabla
-        Map<Long, List<BoletinJudicialCache>> boletinesPorCaso = new HashMap<>();
-        for (BoletinJudicialCache b : boletines) {
-            if (b.getCaso() != null) {
-                boletinesPorCaso.computeIfAbsent(b.getCaso().getId(), k -> new ArrayList<>()).add(b);
-            }
-        }
-
         StringBuilder html = new StringBuilder();
 
-        // 1. Tarjeta de resumen ejecutivo / KPIs
+        // 1. Encabezado de Marca y Título Central estilo IUS Tech
         html.append("""
-                <div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f1f5f9;padding-bottom:12px;margin-bottom:16px;">
-                    <div>
-                      <span style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;font-weight:bold;">Vigilancia Judicial Inteligente</span>
-                      <h2 style="margin:4px 0 0;font-size:20px;color:#0f172a;font-family:'Lexend',sans-serif;">Reporte Diario de Movimientos Procesales</h2>
-                    </div>
-                    <div style="text-align:right;">
-                      <span style="background-color:#fef3c7;color:#92400e;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px;border:1px solid #fde68a;">
-                        %s
-                      </span>
-                    </div>
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;line-height:1.5;">
+                  <div style="text-align:center;padding:16px 0 24px;border-bottom:1px solid #e2e8f0;margin-bottom:24px;">
+                    <h1 style="margin:0 0 6px;font-size:24px;color:#1e3a8a;font-weight:700;letter-spacing:-0.5px;">Vigilancia Judicial Inteligente</h1>
+                    <p style="margin:0;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600;">
+                      SIE Jurídicos &middot; Reporte Oficial de Movimientos Procesales
+                    </p>
                   </div>
-                  <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.5;">Estimado(a) <strong>%s</strong>, %s</p>
-                  
-                  <table style="width:100%%;border-collapse:separate;border-spacing:8px 0;margin:0 0 8px;">
+
+                  <p style="margin:0 0 8px;font-size:14px;color:#334155;">Estimado(a) <strong>%s</strong>,</p>
+                  <p style="margin:0 0 20px;font-size:13px;color:#475569;">
+                    Le informamos que se han registrado <strong>nuevos movimientos procesales</strong> en los expedientes bajo nuestra vigilancia, detallados a continuación y adjuntos en la hoja de cálculo <em>Reporte de Movimientos.xlsx</em>.
+                  </p>
+                """.formatted(escaparHtml(destinatarioNombre)));
+
+        // 2. Tarjeta Resumen de Indicadores
+        html.append("""
+                  <table style="width:100%%;border-collapse:separate;border-spacing:10px 0;margin:0 0 24px;">
                     <tr>
                       <td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;text-align:center;">
-                        <span style="display:block;font-size:24px;font-weight:bold;color:#0284c7;">%d</span>
-                        <span style="font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;">Casos con Novedades</span>
+                        <span style="display:block;font-size:22px;font-weight:bold;color:#1e3a8a;">%d</span>
+                        <span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600;">Expedientes</span>
                       </td>
                       <td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;text-align:center;">
-                        <span style="display:block;font-size:24px;font-weight:bold;color:#16a34a;">%d</span>
-                        <span style="font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;">Movimientos Nuevos</span>
+                        <span style="display:block;font-size:22px;font-weight:bold;color:#16a34a;">%d</span>
+                        <span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600;">Movimientos Nuevos</span>
                       </td>
                       <td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;text-align:center;">
-                        <span style="display:block;font-size:24px;font-weight:bold;color:#d97706;">%d</span>
-                        <span style="font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;">Boletines / Providencias</span>
+                        <span style="display:block;font-size:22px;font-weight:bold;color:#d97706;">%d</span>
+                        <span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600;">Providencias / Estados</span>
                       </td>
                     </tr>
                   </table>
-                </div>
-                """.formatted(
-                LocalDate.now().format(DateTimeFormatter.ofPattern("d 'de' MMMM, yyyy", new Locale("es", "CO"))),
-                escaparHtml(destinatarioNombre),
-                escaparHtml(descripcionIntro),
-                casosConNovedades.size(),
-                actuaciones.size(),
-                boletines.size()
-        ));
+                """.formatted(casosConNovedades.size(), actuaciones.size(), boletines.size()));
 
-        // 2. Tabla Principal de Movimientos Procesales (Estilo IUS Tech + Lupa Control)
+        // 3. Tabla Principal de Movimientos Procesales (8 Columnas exactas de IUS Tech)
         if (!actuaciones.isEmpty()) {
             html.append("""
-                    <div style="margin-bottom:28px;">
-                      <h3 style="margin:0 0 12px;font-size:16px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                        <span style="background-color:#0284c7;width:8px;height:16px;border-radius:2px;display:inline-block;"></span>
-                        Actuaciones Despachos Judiciales — Novedades (%d)
-                      </h3>
-                      
-                      <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px;background-color:#ffffff;">
-                        <table style="width:100%%;border-collapse:collapse;font-size:13px;text-align:left;">
-                          <thead>
-                            <tr style="background-color:#0f172a;color:#ffffff;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">
-                              <th style="padding:12px 14px;border-bottom:2px solid #D9A925;white-space:nowrap;">Radicado / Despacho</th>
-                              <th style="padding:12px 14px;border-bottom:2px solid #D9A925;white-space:nowrap;">Partes / Responsable</th>
-                              <th style="padding:12px 14px;border-bottom:2px solid #D9A925;white-space:nowrap;">Fecha Providencia</th>
-                              <th style="padding:12px 14px;border-bottom:2px solid #D9A925;">Asunto / Actuación</th>
-                              <th style="padding:12px 14px;border-bottom:2px solid #D9A925;min-width:280px;">Anotación Judicial</th>
-                              <th style="padding:12px 14px;border-bottom:2px solid #D9A925;text-align:center;">Documento</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                    """.formatted(actuaciones.size()));
+                  <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px;background-color:#ffffff;margin-bottom:28px;">
+                    <table style="width:100%%;border-collapse:collapse;font-size:12px;text-align:left;">
+                      <thead>
+                        <tr style="background-color:#f8fafc;color:#1e293b;font-size:11px;font-weight:700;border-bottom:2px solid #cbd5e1;">
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Radicado</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Despacho</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Demandante</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Demandado</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">FechaProvidencia</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Asunto</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;min-width:280px;">Anotación</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Responsable</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                """);
 
             boolean alterno = false;
             for (ActuacionJudicialRegistrada act : actuaciones) {
@@ -340,128 +446,97 @@ public class BoletinJudicialDigestService {
                 String fondo = alterno ? "#f8fafc" : "#ffffff";
                 alterno = !alterno;
 
-                String radicadoLegible = RadicadoUtil.formatearLegible(caso.getRadicadoId());
-                String enlaceConsulta = emailService.enlaceConsultaDirecto(caso.getRadicadoId());
-                String despacho = caso.getDespachoJudicial() != null ? caso.getDespachoJudicial() : "Despacho no informado";
+                String radicado = caso != null && caso.getRadicadoId() != null ? caso.getRadicadoId() : "";
+                String enlaceConsulta = caso != null && caso.getRadicadoId() != null ? emailService.enlaceConsultaDirecto(caso.getRadicadoId()) : "#";
+                String despacho = caso != null && caso.getDespachoJudicial() != null ? caso.getDespachoJudicial().toUpperCase() : "JUZGADO NO INFORMADO";
 
-                // Sujetos procesales / Partes
-                String partes = caso.getSujetosProcesales() != null && !caso.getSujetosProcesales().isBlank()
-                        ? caso.getSujetosProcesales().replace(" | ", "<br>")
-                        : (caso.getCliente() != null ? "Cliente: " + caso.getCliente().getNombre() : "Partes reservadas");
+                String[] partes = extraerDemandanteYDemandado(caso);
+                String demandante = partes[0];
+                String demandado = partes[1];
 
-                String responsable = caso.getAbogadoAsignado() != null
-                        ? caso.getAbogadoAsignado().getNombre()
-                        : "Sin abogado asignado";
+                String responsable = caso != null && caso.getAbogadoAsignado() != null
+                        ? caso.getAbogadoAsignado().getNombre().toUpperCase()
+                        : "DRA TATIANA BUSTOS";
 
-                // Fechas
                 LocalDateTime fFecha = act.getFechaActuacion() != null ? act.getFechaActuacion() : act.getFechaRegistro();
-                String fechaStr = fFecha != null ? fFecha.format(FECHA_CORTO) : "Reciente";
+                String fechaStr = fFecha != null ? fFecha.format(FECHA_CORTO) : LocalDate.now().format(FECHA_CORTO);
 
-                // Badges y alertas
+                // Badges discretos si es actuación de fondo o término
                 ActuacionRegistradaResponse resp = ActuacionRegistradaResponse.desde(act);
-                StringBuilder badges = new StringBuilder();
+                StringBuilder badgeHtml = new StringBuilder();
                 if (resp.esFundamental()) {
-                    badges.append("<span style=\"background-color:#fee2e2;color:#b91c1c;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px;\">De Fondo</span> ");
-                }
-                if (resp.posibleAcreedorSubrogatorio()) {
-                    badges.append("<span style=\"background-color:#fef2f2;color:#dc2626;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid #fecaca;display:inline-block;margin-top:4px;\">Acreedor Subrogatorio</span> ");
+                    badgeHtml.append("<br><span style=\"background-color:#fee2e2;color:#b91c1c;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;\">De Fondo</span>");
                 }
                 if (resp.posibleMedidaCautelar()) {
-                    badges.append("<span style=\"background-color:#fef2f2;color:#dc2626;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid #fecaca;display:inline-block;margin-top:4px;\">Medida Cautelar</span> ");
+                    badgeHtml.append("<br><span style=\"background-color:#fef2f2;color:#dc2626;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;border:1px solid #fecaca;\">Medida Cautelar</span>");
                 }
-                if (resp.posibleLiquidacionCostas()) {
-                    badges.append("<span style=\"background-color:#fef2f2;color:#dc2626;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid #fecaca;display:inline-block;margin-top:4px;\">Liq. Costas</span> ");
-                }
-                if (resp.fechaVencimientoTermino() != null) {
-                    badges.append("<span style=\"background-color:#fef3c7;color:#b45309;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid #fde68a;display:inline-block;margin-top:4px;\">Vence: %s</span> ".formatted(resp.fechaVencimientoTermino()));
+                if (resp.posibleAcreedorSubrogatorio()) {
+                    badgeHtml.append("<br><span style=\"background-color:#fef2f2;color:#dc2626;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;border:1px solid #fecaca;\">Acreedor Subrogatorio</span>");
                 }
 
-                // Boletines / Documentos para esta fila
-                List<BoletinJudicialCache> bolsCaso = boletinesPorCaso.getOrDefault(caso.getId(), List.of());
-                StringBuilder celdaDoc = new StringBuilder();
-                if (!bolsCaso.isEmpty()) {
-                    BoletinJudicialCache primerBol = bolsCaso.get(0);
-                    celdaDoc.append("""
-                            <a href="%s" style="background-color:#D9A925;color:#ffffff;font-size:11px;font-weight:bold;padding:5px 9px;border-radius:4px;text-decoration:none;display:inline-block;white-space:nowrap;">
-                              Ver Providencia &darr;
-                            </a>
-                            """.formatted(primerBol.getUrlOrigen()));
-                } else if (act.isConDocumentos()) {
-                    celdaDoc.append("<span style=\"color:#64748b;font-size:11px;\">En Rama Judicial</span>");
-                } else {
-                    celdaDoc.append("<span style=\"color:#cbd5e1;font-size:11px;\">—</span>");
-                }
+                String asunto = act.getNombreActuacion() != null ? act.getNombreActuacion().toUpperCase() : "ACTUACIÓN JUDICIAL";
+                String anotacion = act.getAnotacion() != null && !act.getAnotacion().isBlank()
+                        ? act.getAnotacion()
+                        : "Actuación registrada en despacho judicial.";
 
                 html.append("""
-                        <tr style="background-color:%s;border-bottom:1px solid #e2e8f0;vertical-align:top;">
-                          <td style="padding:12px 14px;">
-                            <a href="%s" style="font-family:monospace;font-size:12px;font-weight:bold;color:#0284c7;text-decoration:none;">%s</a>
-                            <div style="font-size:11px;color:#64748b;margin-top:3px;max-width:240px;line-height:1.3;">%s</div>
+                        <tr style="background-color:%s;vertical-align:top;">
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;font-weight:600;white-space:nowrap;">
+                            <a href="%s" style="color:#0284c7;text-decoration:none;">%s</a>
                           </td>
-                          <td style="padding:12px 14px;">
-                            <div style="font-size:12px;color:#1e293b;max-width:220px;line-height:1.3;">%s</div>
-                            <div style="font-size:11px;color:#94a3b8;margin-top:4px;"><strong>Resp:</strong> %s</div>
-                          </td>
-                          <td style="padding:12px 14px;white-space:nowrap;font-size:12px;color:#475569;font-weight:500;">
-                            %s
-                          </td>
-                          <td style="padding:12px 14px;">
-                            <div style="font-weight:bold;color:#0f172a;font-size:13px;">%s</div>
-                            <div>%s</div>
-                          </td>
-                          <td style="padding:12px 14px;color:#334155;font-size:12px;line-height:1.4;">
-                            %s
-                          </td>
-                          <td style="padding:12px 14px;text-align:center;">
-                            %s
-                          </td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#334155;max-width:200px;line-height:1.3;">%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#334155;max-width:160px;">%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#334155;max-width:160px;">%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#475569;white-space:nowrap;">%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#0f172a;font-weight:600;">%s%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#334155;line-height:1.4;">%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#475569;white-space:nowrap;font-weight:600;">%s</td>
                         </tr>
                         """.formatted(
                         fondo,
                         enlaceConsulta,
-                        escaparHtml(radicadoLegible),
+                        escaparHtml(radicado),
                         escaparHtml(despacho),
-                        partes,
-                        escaparHtml(responsable),
+                        escaparHtml(demandante),
+                        escaparHtml(demandado),
                         escaparHtml(fechaStr),
-                        escaparHtml(act.getNombreActuacion()),
-                        badges,
-                        act.getAnotacion() != null && !act.getAnotacion().isBlank() ? escaparHtml(act.getAnotacion()) : "<em style=\"color:#94a3b8;\">Sin anotación registrada</em>",
-                        celdaDoc
+                        escaparHtml(asunto),
+                        badgeHtml,
+                        escaparHtml(anotacion),
+                        escaparHtml(responsable)
                 ));
             }
 
             html.append("""
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                    """);
+                      </tbody>
+                    </table>
+                  </div>
+                """);
         }
 
-        // 3. Sección de Boletines / Providencias oficiales del mes
+        // 4. Sección de Boletines / Providencias oficiales descargables
         if (!boletines.isEmpty()) {
             html.append("""
-                    <div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px 20px;margin-bottom:24px;">
-                      <h3 style="margin:0 0 12px;font-size:15px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                        <span style="background-color:#D9A925;width:8px;height:16px;border-radius:2px;display:inline-block;"></span>
-                        Boletines y Providencias Judiciales Disponibles (%d)
-                      </h3>
-                      <table style="width:100%%;border-collapse:collapse;font-size:12px;">
-                        <thead>
-                          <tr style="background-color:#f1f5f9;color:#475569;text-transform:uppercase;font-size:11px;">
-                            <th style="padding:8px 12px;text-align:left;">Expediente</th>
-                            <th style="padding:8px 12px;text-align:left;">Documento Oficial</th>
-                            <th style="padding:8px 12px;text-align:left;">Fecha Descarga</th>
-                            <th style="padding:8px 12px;text-align:center;">Acción</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                    """.formatted(boletines.size()));
+                  <div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px 20px;margin-bottom:24px;">
+                    <h3 style="margin:0 0 12px;font-size:15px;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                      <span style="background-color:#D9A925;width:8px;height:16px;border-radius:2px;display:inline-block;"></span>
+                      Providencias y Estados Electrónicos Descargables (%d)
+                    </h3>
+                    <table style="width:100%%;border-collapse:collapse;font-size:12px;">
+                      <thead>
+                        <tr style="background-color:#f1f5f9;color:#475569;text-transform:uppercase;font-size:11px;">
+                          <th style="padding:8px 12px;text-align:left;">Radicado</th>
+                          <th style="padding:8px 12px;text-align:left;">Documento Oficial</th>
+                          <th style="padding:8px 12px;text-align:left;">Fecha Publicación</th>
+                          <th style="padding:8px 12px;text-align:center;">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                  """.formatted(boletines.size()));
 
             for (BoletinJudicialCache b : boletines) {
                 Caso caso = b.getCaso();
-                String rad = caso != null ? RadicadoUtil.formatearLegible(caso.getRadicadoId()) : "Sin radicado";
+                String rad = caso != null ? caso.getRadicadoId() : "Sin radicado";
                 String fDesc = b.getFechaDescarga() != null ? b.getFechaDescarga().format(FECHA_CORTO) : "Reciente";
 
                 html.append("""
@@ -477,18 +552,19 @@ public class BoletinJudicialDigestService {
             }
 
             html.append("""
-                        </tbody>
-                      </table>
-                    </div>
-                    """);
+                      </tbody>
+                    </table>
+                  </div>
+                """);
         }
 
-        // 4. Footer con advertencia de seguridad legal
+        // 5. Footer con advertencia de seguridad legal
         html.append("""
-                <div style="font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:16px;line-height:1.4;">
-                  Este informe es emitido por el sistema automatizado de <strong>Vigilancia Judicial Inteligente de SIE Jurídicos</strong>.
-                  La información contenida proviene directamente de las fuentes oficiales de la Rama Judicial de Colombia y Publicaciones Procesales.
-                  Para soporte o asignación de casos, contacte a la gerencia jurídica.
+                  <div style="font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:16px;line-height:1.4;">
+                    Este informe es emitido por el sistema automatizado de <strong>Vigilancia Judicial Inteligente de SIE Jurídicos</strong>.
+                    La información contenida proviene directamente de las fuentes oficiales de la Rama Judicial de Colombia y Publicaciones Procesales.
+                    Para soporte o asignación de casos, contacte a la gerencia jurídica.
+                  </div>
                 </div>
                 """);
 
