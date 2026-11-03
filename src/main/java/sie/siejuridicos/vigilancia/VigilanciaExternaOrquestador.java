@@ -91,9 +91,16 @@ public class VigilanciaExternaOrquestador {
         this.eventPublisher = eventPublisher;
     }
 
-    @Scheduled(cron = "${app.vigilancia.ciclo-nocturno-cron}")
-    public void ejecutarCicloNocturno() {
-        ejecutarSiLibre("ciclo nocturno automático");
+    // Primer recorrido matutino: 7:00 AM (pedido explícito del usuario)
+    @Scheduled(cron = "${app.vigilancia.ciclo-matutino-cron:${app.vigilancia.ciclo-nocturno-cron:0 0 7 * * *}}")
+    public void ejecutarCicloMatutino() {
+        ejecutarSiLibre("ciclo matutino automático (7:00 AM)");
+    }
+
+    // Segundo recorrido vespertino: 1:00 PM (13:00) (pedido explícito del usuario)
+    @Scheduled(cron = "${app.vigilancia.ciclo-vespertino-cron:0 0 13 * * *}")
+    public void ejecutarCicloVespertino() {
+        ejecutarSiLibre("ciclo vespertino automático (1:00 PM)");
     }
 
     // Disparo manual desde el panel admin (ver VigilanciaAdminController: los tres botones

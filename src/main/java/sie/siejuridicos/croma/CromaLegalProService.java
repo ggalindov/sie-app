@@ -359,21 +359,25 @@ public class CromaLegalProService {
         if (request.debeBuscarBoletinesEnVivo()) {
             Map<String, DocumentoProvidenciaCandidato> porUrl = new LinkedHashMap<>();
 
-            // 6.a y 6.b en paralelo con presupuesto máximo de 5 segundos para nunca dejar colgada la interfaz
+            // 6.a y 6.b: Búsqueda de boletines y estados electrónicos acotada a los últimos boletines del mes (pedido del usuario)
+            LocalDate hoy = LocalDate.now();
+            LocalDate inicioMes = hoy.withDayOfMonth(1);
+            LocalDate ventanaBoletines = hoy.getDayOfMonth() <= 5 ? hoy.minusDays(30) : inicioMes;
+
             java.util.LinkedHashSet<LocalDate> fechasEstadoDelCaso = new java.util.LinkedHashSet<>();
             for (ActuacionRegistradaResponse act : actuacionesConsolidada) {
                 LocalDate fReg = act.fechaRegistro() != null ? act.fechaRegistro().toLocalDate() : null;
                 LocalDate fAct = act.fechaActuacion() != null ? act.fechaActuacion().toLocalDate() : null;
                 String nom = act.nombreActuacion() != null ? act.nombreActuacion().toLowerCase() : "";
                 if (nom.contains("estado") || nom.contains("traslado") || nom.contains("auto") || nom.contains("sentencia") || fechasEstadoDelCaso.size() < 4) {
-                    if (fReg != null) fechasEstadoDelCaso.add(fReg);
-                    if (fAct != null) fechasEstadoDelCaso.add(fAct);
+                    if (fReg != null && !fReg.isBefore(ventanaBoletines)) fechasEstadoDelCaso.add(fReg);
+                    if (fAct != null && !fAct.isBefore(ventanaBoletines)) fechasEstadoDelCaso.add(fAct);
                 }
                 if (fechasEstadoDelCaso.size() >= 10) {
                     break;
                 }
             }
-            if (fechasEstadoDelCaso.isEmpty() && exp.fechaUltimaActuacion() != null) {
+            if (fechasEstadoDelCaso.isEmpty() && exp.fechaUltimaActuacion() != null && !exp.fechaUltimaActuacion().isBefore(ventanaBoletines)) {
                 fechasEstadoDelCaso.add(exp.fechaUltimaActuacion());
             }
 
@@ -451,9 +455,18 @@ public class CromaLegalProService {
             documentosEnVivo = new ArrayList<>(porUrl.values());
         }
 
+        LocalDate hoyMes = LocalDate.now();
+        LocalDate ventanaBoletinesCacheados = hoyMes.getDayOfMonth() <= 5 ? hoyMes.minusDays(30) : hoyMes.withDayOfMonth(1);
+
         List<BoletinJudicialResponse> boletinesCacheados = caso != null
                 ? boletinRepository.listarConCasoPorCasoId(caso.getId())
                         .stream()
+                        .filter(b -> {
+                            LocalDate fDesc = b.getFechaDescarga() != null ? b.getFechaDescarga().toLocalDate() : null;
+                            LocalDate fPub = b.getActuacion() != null && b.getActuacion().getFechaRegistro() != null
+                                    ? b.getActuacion().getFechaRegistro().toLocalDate() : fDesc;
+                            return fPub != null && !fPub.isBefore(ventanaBoletinesCacheados);
+                        })
                         .map(BoletinJudicialResponse::desde)
                         .toList()
                 : List.of();

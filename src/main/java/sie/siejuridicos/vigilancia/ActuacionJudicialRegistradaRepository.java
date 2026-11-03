@@ -90,4 +90,24 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
             + "WHERE a.fechaRegistro IS NOT NULL AND a.fechaRegistro >= :desde")
     List<ActuacionJudicialRegistrada> conFechaRegistroDesde(
             @org.springframework.data.repository.query.Param("desde") LocalDateTime desde);
+
+    // Actuaciones pendientes de notificar a staff (gerencia y abogados) en el reporte diario matutino.
+    // JOIN FETCH de caso, abogado asignado y cliente para tener toda la ficha lista sin N+1.
+    @Query("SELECT a FROM ActuacionJudicialRegistrada a "
+            + "JOIN FETCH a.caso c "
+            + "LEFT JOIN FETCH c.abogadoAsignado ab "
+            + "LEFT JOIN FETCH c.cliente cl "
+            + "WHERE a.notificadaStaff = false "
+            + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
+    List<ActuacionJudicialRegistrada> listarPendientesNotificarStaff();
+
+    // Actuaciones pendientes de notificar para un abogado asignado específico
+    @Query("SELECT a FROM ActuacionJudicialRegistrada a "
+            + "JOIN FETCH a.caso c "
+            + "LEFT JOIN FETCH c.abogadoAsignado ab "
+            + "LEFT JOIN FETCH c.cliente cl "
+            + "WHERE a.notificadaStaff = false AND c.abogadoAsignado.id = :abogadoId "
+            + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
+    List<ActuacionJudicialRegistrada> listarPendientesNotificarPorAbogado(
+            @org.springframework.data.repository.query.Param("abogadoId") Long abogadoId);
 }

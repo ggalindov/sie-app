@@ -80,6 +80,12 @@ public class ActuacionJudicialRegistrada {
     @Column(name = "fecha_detectada", updatable = false)
     private LocalDateTime fechaDetectada;
 
+    @Column(name = "notificada_staff", nullable = false)
+    private boolean notificadaStaff = false;
+
+    @Column(name = "fecha_notificada_staff")
+    private LocalDateTime fechaNotificadaStaff;
+
     public static ActuacionJudicialRegistrada desde(Caso caso, ActuacionJudicial actuacion, boolean esFundamental) {
         ActuacionJudicialRegistrada entidad = new ActuacionJudicialRegistrada();
         entidad.caso = caso;
@@ -93,6 +99,7 @@ public class ActuacionJudicialRegistrada {
         entidad.consecutivo = actuacion.consActuacion();
         entidad.fechaInicialTermino = actuacion.fechaInicialTermino();
         entidad.fechaFinalTermino = actuacion.fechaFinalTermino();
+        entidad.notificadaStaff = false;
         return entidad;
     }
 
@@ -158,5 +165,21 @@ public class ActuacionJudicialRegistrada {
 
     public LocalDateTime getFechaDetectada() {
         return fechaDetectada;
+    }
+
+    public boolean isNotificadaStaff() {
+        return notificadaStaff;
+    }
+
+    public void setNotificadaStaff(boolean notificadaStaff) {
+        this.notificadaStaff = notificadaStaff;
+    }
+
+    public LocalDateTime getFechaNotificadaStaff() {
+        return fechaNotificadaStaff;
+    }
+
+    public void setFechaNotificadaStaff(LocalDateTime fechaNotificadaStaff) {
+        this.fechaNotificadaStaff = fechaNotificadaStaff;
     }
 }

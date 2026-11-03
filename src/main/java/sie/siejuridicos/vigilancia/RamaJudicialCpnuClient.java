@@ -54,11 +54,8 @@ public class RamaJudicialCpnuClient {
     // no encontrado o parámetro inválido son resultados válidos del negocio, no evidencia de
     // que el CPNU esté caído, ver obtener() más abajo).
     private final AtomicInteger fallosConsecutivos = new AtomicInteger(0);
-    // Subido de 5 a 10 el 2026-11-01 -- mismo criterio que PublicacionesProcesalesClient (ver
-    // su comentario): con el timeout de lectura ya subido a 30s y el reintento de obtener()
-    // de abajo, 10 da más margen ante una racha corta de mala suerte sin dejar de proteger
-    // contra un apagón real sostenido del CPNU.
-    private static final int UMBRAL_FALLOS_CONSECUTIVOS = 10;
+    // Subido de 10 a 20 con enfriamiento automático ante 403 para evitar cortes prematuros
+    private static final int UMBRAL_FALLOS_CONSECUTIVOS = 20;
 
     public RamaJudicialCpnuClient(
             @Value("${app.vigilancia.cpnu.url-base}") String urlBase,
@@ -528,8 +525,20 @@ public class RamaJudicialCpnuClient {
             }
         }
         if (response.statusCode() == 403) {
+            log.warn("Rama Judicial (CPNU) respondió HTTP 403 en {}. Aplicando pausa de enfriamiento de 30s...", url);
+            try {
+                Thread.sleep(30000);
+                response = enviar(url);
+                if (response.statusCode() == 200) {
+                    log.info("Rama Judicial (CPNU) recuperada tras enfriamiento (HTTP 200).");
+                    fallosConsecutivos.set(0);
+                    return Optional.of(objectMapper.readTree(new String(response.body(), StandardCharsets.UTF_8)));
+                }
+            } catch (Exception ex) {
+                log.debug("Error durante enfriamiento 403: {}", ex.getMessage());
+            }
             fallosConsecutivos.incrementAndGet();
-            log.warn("Rama Judicial (CPNU) respondió HTTP 403 en {}", url);
+            log.warn("Rama Judicial (CPNU) continúa en HTTP 403 tras enfriamiento en {}", url);
             return Optional.empty();
         }
         if (response.statusCode() != 200) {

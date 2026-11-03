@@ -172,6 +172,17 @@ public class SeguimientoJudicialService {
     // de prueba contra el CPNU sin esperar el ciclo completo de ~364 casos.
     ResultadoCaso sincronizarCaso(Caso caso) {
         try {
+            if (!sie.siejuridicos.caso.RadicadoUtil.esFormatoCpnuValido(caso.getRadicadoId())) {
+                log.debug("Caso {} tiene radicado no judicial/no CPNU ('{}') -- se omite consulta externa.",
+                        caso.getId(), caso.getRadicadoId());
+                marcarSeguimiento(caso, true);
+                return new ResultadoCaso(false, 0, 0);
+            }
+            String radicadoLimpio = sie.siejuridicos.caso.RadicadoUtil.limpiar(caso.getRadicadoId());
+            if (!radicadoLimpio.equals(caso.getRadicadoId())) {
+                caso.setRadicadoId(radicadoLimpio);
+                casoRepository.save(caso);
+            }
             Long idProceso = caso.getIdProcesoCpnu();
             // Gap real pedido por el usuario: "lupa nos da un seguimiento mas robusto" y
             // luego "trae absolutamente toda la informacion... entre mas datos mucho mejor"

@@ -418,6 +418,21 @@ public class VigilanciaAdminController {
         return caso;
     }
 
+    @PostMapping("/reporte-diario/enviar")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<Map<String, Object>> enviarReporteDiarioManual() {
+        boletinJudicialDigestService.enviarDigestGerente();
+        boletinJudicialDigestService.enviarDigestAbogados();
+        return ResponseEntity.ok(Map.of("mensaje", "Reporte diario enviado exitosamente a gerencia y abogados."));
+    }
+
+    @PostMapping("/reporte-diario/probar")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<Map<String, Object>> probarReporteDiario(@RequestParam String correo) {
+        boolean enviado = boletinJudicialDigestService.probarReporteDiario(correo);
+        return ResponseEntity.ok(Map.of("enviado", enviado, "mensaje", enviado ? "Reporte de prueba enviado a " + correo : "Sin registros para probar."));
+    }
+
     private static String nombreMostrado(Caso caso) {
         return caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : caso.getCliente().getNombre();
     }

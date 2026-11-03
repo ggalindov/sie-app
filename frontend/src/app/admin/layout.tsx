@@ -10,5 +10,11 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <div className="panel-admin min-h-screen">
+        {children}
+      </div>
+    </AuthProvider>
+  );
 }
