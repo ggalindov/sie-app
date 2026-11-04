@@ -58,6 +58,12 @@ public class BoletinJudicialCache {
     @Column(name = "hash_sha256", nullable = false)
     private String hashSha256;
 
+    // Identificador opaco para el link público de descarga (ver BoletinPublicoController),
+    // nunca el id autoincremental de la fila -- evita que alguien adivine/enumere documentos
+    // de otros casos recorriendo ids consecutivos.
+    @Column(name = "token_publico", nullable = false, unique = true)
+    private String tokenPublico;
+
     // Ver migración V64: solo true cuando el nombre del boletín coincide por palabras clave
     // con la actuación esperada -- el único caso en el que se le puede enviar
     // AUTOMÁTICAMENTE al cliente sin que un humano lo confirme primero.
@@ -129,6 +135,14 @@ public class BoletinJudicialCache {
 
     public void setHashSha256(String hashSha256) {
         this.hashSha256 = hashSha256;
+    }
+
+    public String getTokenPublico() {
+        return tokenPublico;
+    }
+
+    public void setTokenPublico(String tokenPublico) {
+        this.tokenPublico = tokenPublico;
     }
 
     public boolean isEnviadoGerente() {

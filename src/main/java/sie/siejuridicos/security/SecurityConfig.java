@@ -91,6 +91,10 @@ public class SecurityConfig {
                         // diseño. Protegidos por RateLimitFilter, no por JWT.
                         .requestMatchers("/api/v1/firmas/**").permitAll()
                         .requestMatchers("/api/v1/verificacion/**").permitAll()
+                        // Link directo a un documento desde el reporte diario de vigilancia por
+                        // correo (gerencia/abogados/clientes): su única protección es el token
+                        // opaco de la fila (ver BoletinPublicoController), nunca JWT de staff.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/boletines/documento/**").permitAll()
                         .requestMatchers("/api/admin/usuarios/**").hasRole("ADMIN_GENERAL")
                         // Interruptores de envíos automáticos por categoría/canal (pedido
                         // explícito del usuario) -- solo el administrador general decide

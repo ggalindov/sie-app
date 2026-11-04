@@ -60,19 +60,30 @@ public class BoletinJudicialDigestService {
     private final EmailService emailService;
     private final String correoGerencia;
     private final boolean envioClientesActivo;
+    private final String sitioWeb;
 
     public BoletinJudicialDigestService(BoletinJudicialCacheRepository boletinRepository,
                                          ActuacionJudicialRegistradaRepository actuacionRepository,
                                          UsuarioInternoRepository usuarioInternoRepository,
                                          EmailService emailService,
                                          @Value("${app.correo.gerencia}") String correoGerencia,
-                                         @Value("${app.vigilancia.envio-clientes-activo:false}") boolean envioClientesActivo) {
+                                         @Value("${app.vigilancia.envio-clientes-activo:false}") boolean envioClientesActivo,
+                                         @Value("${app.firma.sitio-web}") String sitioWeb) {
         this.boletinRepository = boletinRepository;
         this.actuacionRepository = actuacionRepository;
         this.usuarioInternoRepository = usuarioInternoRepository;
         this.emailService = emailService;
         this.correoGerencia = correoGerencia;
         this.envioClientesActivo = envioClientesActivo;
+        this.sitioWeb = sitioWeb;
+    }
+
+    // Link directo al documento alojado en NUESTRO servidor (ver BoletinPublicoController),
+    // nunca una URL de la fuente original -- pedido explícito del usuario, 2026-11-04, tras
+    // un correo real con 149 PDF adjuntos: "por cada fila que tenga el linkcito directo al
+    // documento dentro de nuestro servdor".
+    private String enlaceDocumentoPropio(BoletinJudicialCache boletin) {
+        return sitioWeb + "/api/v1/boletines/documento/" + boletin.getTokenPublico();
     }
 
     // Diario 10:00 AM (ver BoletinJudicialScheduler). Envía a Gerencia TODOS los movimientos procesales
@@ -94,10 +105,10 @@ public class BoletinJudicialDigestService {
                 "Resumen consolidado de todos los movimientos procesales y boletines oficiales registrados en las últimas 24 horas para los expedientes bajo vigilancia de la firma."
         );
 
-        List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(boletinesPendientes);
+        List<EmailService.Adjunto> adjuntos = new ArrayList<>();
         byte[] excelBytes = generarExcelMovimientos(actuacionesPendientes);
         if (excelBytes.length > 0) {
-            adjuntos.add(0, new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+            adjuntos.add(new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
         }
 
         emailService.enviarDigestBoletinGerente(correoGerencia, cuerpo, adjuntos);
@@ -142,10 +153,10 @@ public class BoletinJudicialDigestService {
                     "Resumen de movimientos procesales y boletines oficiales registrados en las últimas 24 horas en tus expedientes asignados."
             );
 
-            List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(boletinesAbogado);
+            List<EmailService.Adjunto> adjuntos = new ArrayList<>();
             byte[] excelBytes = generarExcelMovimientos(actuacionesAbogado);
             if (excelBytes.length > 0) {
-                adjuntos.add(0, new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+                adjuntos.add(new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
             }
 
             emailService.enviarDigestBoletinAbogado(abogado.getNombre(), abogado.getCorreo(), cuerpo, adjuntos);
@@ -186,7 +197,7 @@ public class BoletinJudicialDigestService {
             String cuerpo = construirCuerpoDigestCliente(caso, nombreMostrado, pendientes,
                     "Esta semana hubo novedades en tu proceso. Te resumimos abajo la última actualización y los "
                             + "documentos oficiales publicados por el despacho.");
-            List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(pendientes);
+            List<EmailService.Adjunto> adjuntos = new ArrayList<>();
             boolean exito = emailService.enviarDigestBoletinCliente(
                     nombreMostrado, caso.getCliente().getCorreo(), caso.getRadicadoId(), cuerpo, adjuntos);
             if (exito) {
@@ -214,7 +225,7 @@ public class BoletinJudicialDigestService {
         String cuerpo = construirCuerpoDigestCliente(caso, nombreMostrado, boletines,
                 "PRUEBA -- formato de reporte al cliente (boletines de prueba).");
         return emailService.enviarDigestBoletinCliente(
-                nombreMostrado, correoDestino, caso.getRadicadoId(), cuerpo, adjuntosSegurosDe(boletines));
+                nombreMostrado, correoDestino, caso.getRadicadoId(), cuerpo, new ArrayList<>());
     }
 
     // Prueba en vivo sin alterar marcas de enviado
@@ -236,35 +247,14 @@ public class BoletinJudicialDigestService {
                 "Demostración del reporte diario de vigilancia judicial inteligente según formato estándar de la firma con archivo Excel adjunto."
         );
 
-        List<EmailService.Adjunto> adjuntos = adjuntosSegurosDe(boletines);
+        List<EmailService.Adjunto> adjuntos = new ArrayList<>();
         byte[] excelBytes = generarExcelMovimientos(actuaciones);
         if (excelBytes.length > 0) {
-            adjuntos.add(0, new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+            adjuntos.add(new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
         }
 
         emailService.enviarDigestBoletinGerente(correoDestino, cuerpo, adjuntos);
         return true;
-    }
-
-    // Adjuntos que no sobrepasen 15MB en total para evitar rebotes de correo
-    private List<EmailService.Adjunto> adjuntosSegurosDe(List<BoletinJudicialCache> boletines) {
-        List<EmailService.Adjunto> adjuntos = new ArrayList<>();
-        long tamanoTotal = 0;
-        long limiteMaximo = 15 * 1024 * 1024; // 15 MB
-
-        for (BoletinJudicialCache b : boletines) {
-            byte[] bytes = b.getContenidoBytes();
-            if (bytes != null && bytes.length > 0) {
-                if (tamanoTotal + bytes.length <= limiteMaximo) {
-                    adjuntos.add(new EmailService.Adjunto(b.getNombreArchivo(), bytes));
-                    tamanoTotal += bytes.length;
-                } else {
-                    log.info("Boletín '{}' omitido como archivo adjunto por superar el límite total de 15MB (descarga vía link).",
-                            b.getNombreArchivo());
-                }
-            }
-        }
-        return adjuntos;
     }
 
     // Genera el archivo Excel oficial 'Reporte de Movimientos.xlsx' idéntico a las columnas de IUS Tech
@@ -420,7 +410,14 @@ public class BoletinJudicialDigestService {
                   </table>
                 """.formatted(casosConNovedades.size(), actuaciones.size(), boletines.size()));
 
-        // 3. Tabla Principal de Movimientos Procesales (8 Columnas exactas de IUS Tech)
+        // 3. Tabla Principal de Movimientos Procesales (8 columnas de IUS Tech + columna propia
+        // "Documento" con el link directo al PDF en nuestro servidor -- pedido explícito del
+        // usuario, 2026-11-04: "por cada fila que tenga el linkcito directo al documento
+        // dentro de nuestro servdor", en reemplazo de adjuntar cada PDF al correo.
+        Map<Long, List<BoletinJudicialCache>> boletinesPorActuacion = boletines.stream()
+                .filter(b -> b.getActuacion() != null)
+                .collect(Collectors.groupingBy(b -> b.getActuacion().getId()));
+
         if (!actuaciones.isEmpty()) {
             html.append("""
                   <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px;background-color:#ffffff;margin-bottom:28px;">
@@ -435,6 +432,7 @@ public class BoletinJudicialDigestService {
                           <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Asunto</th>
                           <th style="padding:10px 12px;border:1px solid #e2e8f0;min-width:280px;">Anotación</th>
                           <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;">Responsable</th>
+                          <th style="padding:10px 12px;border:1px solid #e2e8f0;white-space:nowrap;text-align:center;">Documento</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -492,6 +490,23 @@ public class BoletinJudicialDigestService {
                         ? act.getAnotacion()
                         : "Actuación registrada en despacho judicial.";
 
+                // Link directo al documento en nuestro servidor (nunca un adjunto): si hay más
+                // de un documento para la misma actuación (ambos canales, exacto y heurístico,
+                // pueden coincidir), se listan todos.
+                List<BoletinJudicialCache> documentosActuacion = boletinesPorActuacion.getOrDefault(act.getId(), List.of());
+                String celdaDocumento;
+                if (documentosActuacion.isEmpty()) {
+                    celdaDocumento = "<span style=\"color:#cbd5e1;\">&mdash;</span>";
+                } else {
+                    StringBuilder enlacesDoc = new StringBuilder();
+                    for (BoletinJudicialCache doc : documentosActuacion) {
+                        enlacesDoc.append("""
+                                <a href="%s" style="display:inline-block;margin:0 0 4px;color:#D9A925;font-weight:bold;text-decoration:underline;white-space:nowrap;">Ver documento &rarr;</a><br>
+                                """.formatted(enlaceDocumentoPropio(doc)));
+                    }
+                    celdaDocumento = enlacesDoc.toString();
+                }
+
                 html.append("""
                         <tr style="background-color:%s;vertical-align:top;">
                           <td style="padding:10px 12px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;font-weight:600;white-space:nowrap;">
@@ -504,6 +519,7 @@ public class BoletinJudicialDigestService {
                           <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#0f172a;font-weight:600;">%s%s</td>
                           <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#334155;line-height:1.4;">%s</td>
                           <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;color:#475569;white-space:nowrap;font-weight:600;">%s</td>
+                          <td style="padding:10px 12px;border:1px solid #e2e8f0;font-size:11px;text-align:center;">%s</td>
                         </tr>
                         """.formatted(
                         fondo,
@@ -516,7 +532,8 @@ public class BoletinJudicialDigestService {
                         escaparHtml(asunto),
                         badgeHtml,
                         escaparHtml(anotacion),
-                        escaparHtml(responsable)
+                        escaparHtml(responsable),
+                        celdaDocumento
                 ));
             }
 
@@ -561,7 +578,7 @@ public class BoletinJudicialDigestService {
                             <a href="%s" style="color:#D9A925;font-weight:bold;text-decoration:underline;">Descargar PDF &rarr;</a>
                           </td>
                         </tr>
-                        """.formatted(escaparHtml(rad), escaparHtml(b.getNombreArchivo()), escaparHtml(fDesc), b.getUrlOrigen()));
+                        """.formatted(escaparHtml(rad), escaparHtml(b.getNombreArchivo()), escaparHtml(fDesc), enlaceDocumentoPropio(b)));
             }
 
             html.append("""
@@ -597,8 +614,9 @@ public class BoletinJudicialDigestService {
                     : "Documento oficial del despacho";
             docs.append("""
                     <li style="margin-bottom:6px;"><strong>%s</strong><br>
-                    <span style="font-size:12px;color:#64748b;">%s</span></li>
-                    """.formatted(escaparHtml(boletin.getNombreArchivo()), escaparHtml(descripcion)));
+                    <span style="font-size:12px;color:#64748b;">%s</span><br>
+                    <a href="%s" style="font-size:12px;color:#D9A925;font-weight:bold;text-decoration:underline;">Ver documento &rarr;</a></li>
+                    """.formatted(escaparHtml(boletin.getNombreArchivo()), escaparHtml(descripcion), enlaceDocumentoPropio(boletin)));
         }
 
         return """

@@ -96,7 +96,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             // sin autenticación -- el límite evita que se use para raspar en volumen o
             // probar códigos de verificación al azar.
             new RegistroLimite("GET", "/api/v1/verificacion", 30),
-            new RegistroLimite("POST", "/api/v1/verificacion", 10)
+            new RegistroLimite("POST", "/api/v1/verificacion", 10),
+            // Link directo a un documento desde el reporte diario de vigilancia por correo:
+            // el token opaco de 36 caracteres ya hace la fuerza bruta inviable, este límite
+            // solo frena un raspado automatizado en volumen.
+            new RegistroLimite("GET", "/api/v1/boletines/documento", 60)
     );
 
     private static final class Contador {

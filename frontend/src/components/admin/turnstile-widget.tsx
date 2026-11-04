@@ -35,6 +35,11 @@ class TurnstileErrorBoundary extends Component<
   }
 }
 
+// Clave pública de sitio de Cloudflare Turnstile para producción (siejuridicos.com).
+// Es pública por diseño; se incluye como valor por defecto para asegurar que el widget
+// siempre se renderice aun si la variable no fue inyectada en el build de Docker.
+const CLOUDFLARE_PROD_SITE_KEY = "0x4AAAAAAFxfn_9OihBXTzth";
+
 // Widget oficial de Cloudflare Turnstile para protección contra bots en el login.
 export const TurnstileWidget = forwardRef<
   TurnstileWidgetHandle,
@@ -45,7 +50,7 @@ export const TurnstileWidget = forwardRef<
   const [errorWidget, setErrorWidget] = useState<string | null>(null);
   const [intentos, setIntentos] = useState(0);
 
-  const envSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const envSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || CLOUDFLARE_PROD_SITE_KEY;
 
   useImperativeHandle(ref, () => ({
     reset: () => {
@@ -61,9 +66,6 @@ export const TurnstileWidget = forwardRef<
     setMounted(true);
   }, []);
 
-  if (!envSiteKey) return null;
-  if (!mounted) return null;
-
   // En localhost / 127.0.0.1, Cloudflare bloquea la clave de producción si el dominio no se
   // ha autorizado manualmente en el panel de Cloudflare. Por ende, en localhost se utiliza
   // la clave de prueba oficial de Cloudflare ("1x00000000000000000000AA") que siempre
@@ -75,6 +77,16 @@ export const TurnstileWidget = forwardRef<
       window.location.hostname === "");
 
   const siteKeyEfectiva = isLocalhost ? "1x00000000000000000000AA" : envSiteKey;
+
+  if (!mounted) {
+    return (
+      <div className="my-3 flex flex-col items-center justify-center">
+        <div className="flex h-[65px] min-w-[300px] items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xs text-night-ink/40">
+          Cargando verificación de seguridad...
+        </div>
+      </div>
+    );
+  }
 
   const fallbackUI = (
     <div className="flex flex-col items-center justify-center p-3 text-center">

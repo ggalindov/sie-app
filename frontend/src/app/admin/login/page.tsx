@@ -24,6 +24,8 @@ const bloqueVariants = {
   }),
 };
 
+const CLOUDFLARE_PROD_SITE_KEY = "0x4AAAAAAFxfn_9OihBXTzth";
+
 export default function LoginPage() {
   const { login, cargando: cargandoSesion, sesion } = useAuth();
   const router = useRouter();
@@ -33,6 +35,8 @@ export default function LoginPage() {
   const [enviando, setEnviando] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState("");
   const recaptchaRef = useRef<TurnstileWidgetHandle>(null);
+
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || CLOUDFLARE_PROD_SITE_KEY;
 
   const handleTurnstileToken = useCallback((token: string) => {
     setRecaptchaToken(token);
@@ -55,7 +59,7 @@ export default function LoginPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !recaptchaToken) {
+    if (turnstileSiteKey && !recaptchaToken) {
       setError("Por favor completa la verificación de seguridad antes de ingresar.");
       return;
     }

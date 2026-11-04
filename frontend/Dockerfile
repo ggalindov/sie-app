@@ -18,9 +18,9 @@ COPY . .
 # NEXT_PUBLIC_* se incrusta en el JavaScript del navegador durante el build, no se puede
 # cambiar después en tiempo de ejecución (a diferencia de las variables del backend): por
 # eso entra como ARG aquí y no como variable de entorno del contenedor en producción.
-ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_URL=https://siejuridicos.com
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAFxfn_9OihBXTzth
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
 ENV NODE_ENV=production
 

@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJudicialCache, Long> {
 
@@ -88,4 +89,8 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     @Query("SELECT b FROM BoletinJudicialCache b JOIN FETCH b.caso c LEFT JOIN FETCH c.cliente "
             + "WHERE c.id = :casoId ORDER BY b.fechaDescarga DESC")
     List<BoletinJudicialCache> listarConCasoPorCasoId(@Param("casoId") Long casoId);
+
+    // Link público de descarga por correo (BoletinPublicoController) -- búsqueda por token
+    // opaco, nunca por id autoincremental (evita enumeración de documentos de otros casos).
+    Optional<BoletinJudicialCache> findByTokenPublico(String tokenPublico);
 }

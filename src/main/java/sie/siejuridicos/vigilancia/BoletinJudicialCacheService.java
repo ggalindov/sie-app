@@ -581,6 +581,7 @@ public class BoletinJudicialCacheService {
         nuevo.setUrlOrigen(urlOrigen);
         nuevo.setContenidoBytes(bytes);
         nuevo.setHashSha256(sha256(bytes));
+        nuevo.setTokenPublico(java.util.UUID.randomUUID().toString());
         nuevo.setCoincideNombreActuacion(coincideNombre);
         LocalDateTime ahora = LocalDateTime.now();
         nuevo.setFechaDescarga(ahora);

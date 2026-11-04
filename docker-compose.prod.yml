@@ -164,8 +164,8 @@ services:
         # (sin pasar por este código del navegador), y las pruebas en navegador de la
         # sesión eran contra localhost en desarrollo, donde esta variable no lleva
         # "/api" y por eso nunca reproducía el bug.
-        NEXT_PUBLIC_API_URL: https://${DOMAIN}
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+        NEXT_PUBLIC_API_URL: https://${DOMAIN:-siejuridicos.com}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAAAAFxfn_9OihBXTzth}
     restart: unless-stopped
     environment:
       # Variable normal (sin prefijo NEXT_PUBLIC_): solo la lee el servidor en tiempo de
