@@ -59,6 +59,7 @@ public class VigilanciaAdminController {
     private final WhatsAppService whatsAppService;
     private final VigilanciaExternaOrquestador orquestador;
     private final PortalSaludRepository portalSaludRepository;
+    private final CorreoDespachoJudicialService correoDespachoJudicialService;
 
     public VigilanciaAdminController(SeguimientoJudicialService seguimientoJudicialService,
                                       ActuacionJudicialRegistradaRepository actuacionRepository,
@@ -72,7 +73,8 @@ public class VigilanciaAdminController {
                                       CasoService casoService,
                                       WhatsAppService whatsAppService,
                                       VigilanciaExternaOrquestador orquestador,
-                                      PortalSaludRepository portalSaludRepository) {
+                                      PortalSaludRepository portalSaludRepository,
+                                      CorreoDespachoJudicialService correoDespachoJudicialService) {
         this.portalSaludRepository = portalSaludRepository;
         this.seguimientoJudicialService = seguimientoJudicialService;
         this.actuacionRepository = actuacionRepository;
@@ -86,6 +88,7 @@ public class VigilanciaAdminController {
         this.procesoCandidatoDetectadoRepository = procesoCandidatoDetectadoRepository;
         this.casoService = casoService;
         this.orquestador = orquestador;
+        this.correoDespachoJudicialService = correoDespachoJudicialService;
     }
 
     // ================= Detección de procesos nuevos (pedido explícito del usuario:
@@ -491,6 +494,28 @@ public class VigilanciaAdminController {
                 ? boletinJudicialDigestService.probarDigestCliente(id, correo)
                 : boletinJudicialDigestService.probarDigestInterno(id, correo);
         return ResponseEntity.ok(exito);
+    }
+
+    // Pedido explícito del usuario (2026-11-04): "mandame una prueba de como se enviaria a
+    // juagdg12@gmail.com" -- demuestra el correo + PDF de presentación/autorización que el
+    // sistema le enviaría a un despacho judicial real (ver CorreoDespachoJudicialService),
+    // pero SIEMPRE al correo explícito del request, nunca a un despacho real. Usa el radicado/
+    // despacho ya resueltos del caso de prueba (casoDePrueba) con un nombre de actuación de
+    // demostración si no se indica uno. El interruptor CORREO_DESPACHO_JUDICIAL sigue apagado
+    // en el panel -- este endpoint lo ignora a propósito (ver EmailService.
+    // probarSolicitudDocumentoDespacho), así que no activa el flujo automático real.
+    @Transactional(readOnly = true)
+    @PostMapping("/casos/{id}/pruebas/correo-despacho")
+    public ResponseEntity<Map<String, Object>> probarCorreoDespacho(
+            @PathVariable Long id,
+            @RequestParam String correo,
+            @RequestParam(defaultValue = "Auto que corre traslado de la demanda") String actuacion) {
+        Caso caso = casoDePrueba(id);
+        boolean enviado = correoDespachoJudicialService.probarSolicitudAlDespacho(caso, actuacion, correo);
+        return ResponseEntity.ok(Map.of(
+                "enviado", enviado,
+                "mensaje", enviado ? "Correo de prueba (despacho judicial) enviado a " + correo
+                        : "No se pudo enviar el correo de prueba."));
     }
 
     private Caso casoDePrueba(Long id) {

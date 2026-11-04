@@ -13,6 +13,7 @@ import {
   type TipoPqrs,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -41,6 +42,7 @@ const filtros: { label: string; valor: EstadoPqrs | "TODOS" }[] = [
 ];
 
 export default function PqrsAdminPage() {
+  const { sesion } = useAuth();
   const [items, setItems] = useState<PqrsAdmin[] | null>(null);
   const [filtro, setFiltro] = useState<EstadoPqrs | "TODOS">("RECIBIDO");
   const [respondiendoId, setRespondiendoId] = useState<number | null>(null);
@@ -55,6 +57,18 @@ export default function PqrsAdminPage() {
     listarPqrs()
       .then(setItems)
       .catch(() => toast.error("No se pudieron cargar las PQRS."));
+  }
+
+  // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ... PQRS" --
+  // ahora exclusivo de ADMIN_GENERAL (reforzado también en el backend, ver
+  // PqrsAdminController y SecurityConfig).
+  if (sesion && sesion.rol !== "ADMIN_GENERAL") {
+    return (
+      <EmptyState
+        title="No tienes acceso a esta sección"
+        description="Solo el administrador general puede gestionar las PQRS."
+      />
+    );
   }
 
   async function onCambiarEstado(id: number, nuevoEstado: EstadoPqrs) {

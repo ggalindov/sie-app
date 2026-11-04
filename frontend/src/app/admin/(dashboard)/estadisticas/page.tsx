@@ -83,6 +83,18 @@ export default function EstadisticasPage() {
       .catch(() => setError(true));
   }, []);
 
+  // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina
+  // estadisticas" -- ahora exclusivo de ADMIN_GENERAL (reforzado también en el backend,
+  // ver EstadisticasController y SecurityConfig).
+  if (sesion && !esAdminGeneral) {
+    return (
+      <EmptyState
+        title="No tienes acceso a esta sección"
+        description="Solo el administrador general puede ver las estadísticas de la firma."
+      />
+    );
+  }
+
   if (error) {
     return (
       <div>

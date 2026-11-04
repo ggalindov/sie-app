@@ -9,12 +9,14 @@ import {
   type PreguntaFrecuenteAdmin,
 } from "@/lib/admin-api";
 import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
+import { useAuth } from "@/lib/auth-context";
 
 function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function FaqAdminPage() {
+  const { sesion } = useAuth();
   const [preguntas, setPreguntas] = useState<PreguntaFrecuenteAdmin[] | null>(null);
   const [respuestas, setRespuestas] = useState<Record<number, string>>({});
   const [procesando, setProcesando] = useState<number | null>(null);
@@ -69,6 +71,19 @@ export default function FaqAdminPage() {
     } finally {
       setProcesando(null);
     }
+  }
+
+  // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ...
+  // Preguntas frecuentes" -- revierte la decisión anterior ("el abogado la aprueba con un
+  // clic"), ahora exclusivo de ADMIN_GENERAL (reforzado también en el backend, ver
+  // PreguntaFrecuenteAdminController y SecurityConfig).
+  if (sesion && sesion.rol !== "ADMIN_GENERAL") {
+    return (
+      <EmptyState
+        title="No tienes acceso a esta sección"
+        description="Solo el administrador general puede moderar las preguntas frecuentes."
+      />
+    );
   }
 
   return (

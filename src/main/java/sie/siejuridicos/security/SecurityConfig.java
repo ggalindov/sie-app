@@ -102,10 +102,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/configuracion-envios/**").hasRole("ADMIN_GENERAL")
                         // Testimonios, marketing y boletines quedan fuera del alcance del rol
                         // ABOGADO (pedido explícito: "que se queden más como abogados y ya", el
-                        // lado de moderación de contenido/marketing es del administrador). FAQ y
-                        // Casos sí están al alcance de ambos roles (pedido explícito para FAQ:
-                        // "el abogado la aprueba con un clic"; para Casos: "esto lo crea el
-                        // abogado o administrador"), por eso caen en el catch-all de abajo.
+                        // lado de moderación de contenido/marketing es del administrador). Casos
+                        // sí está al alcance de ambos roles (pedido explícito: "esto lo crea el
+                        // abogado o administrador"), por eso cae en el catch-all de abajo.
                         .requestMatchers("/api/admin/testimonios/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/marketing/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/boletines/**").hasRole("ADMIN_GENERAL")
@@ -113,6 +112,14 @@ public class SecurityConfig {
                         // Cobros Pendientes: pedido explícito del usuario, solo visible/accesible
                         // para el administrador general, ABOGADO pierde el acceso por completo.
                         .requestMatchers("/api/admin/cobros/**").hasRole("ADMIN_GENERAL")
+                        // Pedido explícito del usuario (2026-11-04): "para el rol de abogado
+                        // elimina estadisticas, PQRS, blog y Preguntas frecuentes" -- revierte la
+                        // decisión anterior que dejaba FAQ y PQRS al alcance de ambos roles,
+                        // ahora los cuatro quedan exclusivos de ADMIN_GENERAL.
+                        .requestMatchers("/api/admin/estadisticas/**").hasRole("ADMIN_GENERAL")
+                        .requestMatchers("/api/admin/pqrs/**").hasRole("ADMIN_GENERAL")
+                        .requestMatchers("/api/admin/articulos/**").hasRole("ADMIN_GENERAL")
+                        .requestMatchers("/api/admin/faq/**").hasRole("ADMIN_GENERAL")
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN_GENERAL", "ABOGADO")
                         .anyRequest().authenticated()
                 )

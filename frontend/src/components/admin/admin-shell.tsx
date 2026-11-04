@@ -71,7 +71,9 @@ const navGroups: NavGroup[] = [
     titulo: "General",
     items: [
       { href: "/admin", label: "Resumen", descripcion: "Panorama general de la firma, de un vistazo.", icon: ChartBar, roles: ["ADMIN_GENERAL", "ABOGADO"] },
-      { href: "/admin/estadisticas", label: "Estadísticas", descripcion: "Leads, conversión y casos activos en el tiempo.", icon: ChartLineUp, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina
+      // estadisticas" -- antes al alcance de ambos roles.
+      { href: "/admin/estadisticas", label: "Estadísticas", descripcion: "Leads, conversión y casos activos en el tiempo.", icon: ChartLineUp, roles: ["ADMIN_GENERAL"] },
     ],
   },
   {
@@ -107,7 +109,9 @@ const navGroups: NavGroup[] = [
   {
     titulo: "Trabajo interno",
     items: [
-      { href: "/admin/pqrs", label: "PQRS", descripcion: "Peticiones, quejas, reclamos y sugerencias.", icon: Flag, roles: ["ADMIN_GENERAL", "ABOGADO"], contadorId: "pqrs" },
+      // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ... PQRS"
+      // -- revierte la decisión anterior que la dejaba al alcance de ambos roles.
+      { href: "/admin/pqrs", label: "PQRS", descripcion: "Peticiones, quejas, reclamos y sugerencias.", icon: Flag, roles: ["ADMIN_GENERAL"], contadorId: "pqrs" },
       // Pedido explícito del usuario: "El Admin si tendra la seccion de la nav de tareas para
       // que vea todas las tareas del sistema" -- un ABOGADO ya no tiene esta entrada en el
       // menú, ve sus propias tareas pendientes desde la campanita de notificaciones (ver
@@ -119,8 +123,11 @@ const navGroups: NavGroup[] = [
   {
     titulo: "Contenido del sitio",
     items: [
-      { href: "/admin/articulos", label: "Blog y Noticias", descripcion: "Artículos publicados en el sitio público.", icon: Article, roles: ["ADMIN_GENERAL", "ABOGADO"] },
-      { href: "/admin/faq", label: "Preguntas frecuentes", descripcion: "FAQ que se muestra en el sitio público.", icon: Question, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ...
+      // blog ... Preguntas frecuentes" -- revierte la decisión anterior que dejaba ambas al
+      // alcance de los dos roles (incluida la de FAQ, "el abogado la aprueba con un clic").
+      { href: "/admin/articulos", label: "Blog y Noticias", descripcion: "Artículos publicados en el sitio público.", icon: Article, roles: ["ADMIN_GENERAL"] },
+      { href: "/admin/faq", label: "Preguntas frecuentes", descripcion: "FAQ que se muestra en el sitio público.", icon: Question, roles: ["ADMIN_GENERAL"] },
       { href: "/admin/testimonios", label: "Testimonios", descripcion: "Moderación de testimonios enviados por clientes.", icon: Quotes, roles: ["ADMIN_GENERAL"] },
     ],
   },

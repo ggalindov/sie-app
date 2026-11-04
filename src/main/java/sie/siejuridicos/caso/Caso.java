@@ -165,6 +165,16 @@ public class Caso {
     @Column(name = "departamento_judicial")
     private String departamentoJudicial;
 
+    // Cache del correo oficial del despacho judicial de este caso, resuelto vía Croma
+    // Legal-Pro (API de pago por crédito, ver CromaClient.consultarCorreosDespachoPorRadicado)
+    // -- se reutiliza para TODAS las actuaciones futuras de este mismo caso sin volver a
+    // gastar un crédito nuevo cada vez (ver CorreoDespachoJudicialService).
+    @Column(name = "correo_oficial_despacho")
+    private String correoOficialDespacho;
+
+    @Column(name = "correo_oficial_despacho_fecha")
+    private LocalDateTime correoOficialDespachoFecha;
+
     @Column(name = "fecha_radicacion_proceso")
     private LocalDate fechaRadicacionProceso;
 
@@ -375,6 +385,22 @@ public class Caso {
 
     public void setDepartamentoJudicial(String departamentoJudicial) {
         this.departamentoJudicial = departamentoJudicial;
+    }
+
+    public String getCorreoOficialDespacho() {
+        return correoOficialDespacho;
+    }
+
+    public void setCorreoOficialDespacho(String correoOficialDespacho) {
+        this.correoOficialDespacho = correoOficialDespacho;
+    }
+
+    public LocalDateTime getCorreoOficialDespachoFecha() {
+        return correoOficialDespachoFecha;
+    }
+
+    public void setCorreoOficialDespachoFecha(LocalDateTime correoOficialDespachoFecha) {
+        this.correoOficialDespachoFecha = correoOficialDespachoFecha;
     }
 
     public LocalDate getFechaRadicacionProceso() {

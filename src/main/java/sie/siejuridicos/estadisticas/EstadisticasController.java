@@ -7,11 +7,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import sie.siejuridicos.estadisticas.dto.EstadisticasResponse;
 
-// Reglas de rol reforzadas también en SecurityConfig (/api/admin/**); @PreAuthorize
-// queda como segunda capa de defensa a nivel de método.
+// Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina estadisticas"
+// -- queda exclusivo de ADMIN_GENERAL. Regla reforzada también en SecurityConfig
+// (/api/admin/estadisticas/**), @PreAuthorize queda como segunda capa de defensa a nivel
+// de método.
 @RestController
 @RequestMapping("/api/admin/estadisticas")
-@PreAuthorize("hasAnyRole('ADMIN_GENERAL', 'ABOGADO')")
+@PreAuthorize("hasRole('ADMIN_GENERAL')")
 public class EstadisticasController {
 
     private final EstadisticasService estadisticasService;

@@ -986,6 +986,75 @@ public class EmailService {
         return exito;
     }
 
+    // Pedido explícito del usuario (2026-11-04, replicando el flujo real de LUPA Jurídica):
+    // correo automático al correo OFICIAL del despacho judicial solicitando la pieza
+    // procesal de una actuación que ningún canal (CPNU exacto ni heurístico de boletines)
+    // pudo resolver -- ver sie.siejuridicos.vigilancia.CorreoDespachoJudicialService, único
+    // llamador. Va SIEMPRE con el documento de presentación y autorización del sistema
+    // adjunto (cita el artículo 123 del CGP y la Ley 1712 de 2014): es lo que sustenta la
+    // solicitud ante el despacho, nunca se envía sin él. replyTo = correoAdmin (igual que
+    // el resto de este servicio) para que una eventual respuesta del despacho llegue a una
+    // bandeja que el staff sí revisa.
+    public boolean enviarSolicitudDocumentoDespacho(String nombreCliente, String correoDespacho,
+                                                     String radicadoId, String despachoJudicial,
+                                                     String nombreActuacion, byte[] pdfAutorizacion) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.CORREO_DESPACHO_JUDICIAL)) {
+            log.info("Correo a despacho judicial omitido: CORREO_DESPACHO_JUDICIAL está apagado desde el panel.");
+            return false;
+        }
+        return enviarSolicitudDocumentoDespachoInterno(nombreCliente, correoDespacho, radicadoId,
+                despachoJudicial, nombreActuacion, pdfAutorizacion);
+    }
+
+    // Mismo envío de arriba, pero ignorando a propósito el interruptor CORREO_DESPACHO_JUDICIAL
+    // -- pedido explícito del usuario: "mandame una prueba de como se enviaria a
+    // juagdg12@gmail.com" (el mismo contacto de prueba autorizado que ya usa
+    // VigilanciaAdminController para el resto de "pruebas de envío"). El interruptor sigue
+    // APAGADO en el panel a propósito (ver V82): esto demuestra el formato real sin activar el
+    // flujo automático que le escribiría a despachos judiciales reales en el próximo ciclo de
+    // vigilancia. Solo accesible vía el endpoint de prueba, nunca desde el flujo automático.
+    public boolean probarSolicitudDocumentoDespacho(String nombreCliente, String correoDespacho,
+                                                      String radicadoId, String despachoJudicial,
+                                                      String nombreActuacion, byte[] pdfAutorizacion) {
+        return enviarSolicitudDocumentoDespachoInterno(nombreCliente, correoDespacho, radicadoId,
+                despachoJudicial, nombreActuacion, pdfAutorizacion);
+    }
+
+    private boolean enviarSolicitudDocumentoDespachoInterno(String nombreCliente, String correoDespacho,
+                                                              String radicadoId, String despachoJudicial,
+                                                              String nombreActuacion, byte[] pdfAutorizacion) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Señor(a) Juez / Secretario(a),</p>
+                <p style="margin:0 0 16px;">%s actúa como apoderado judicial dentro del proceso con radicado
+                <strong>%s</strong>%s, y solicita respetuosamente copia de la pieza procesal correspondiente a
+                la siguiente actuación, de la cual el despacho reportó la existencia de documento sin que este
+                se encuentre disponible en el portal público de la Rama Judicial:</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 16px;background-color:#F7F4EC;border-left:3px solid %s;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 16px;">La presente solicitud se formula al amparo del artículo 123 del Código
+                General del Proceso y de la Ley 1712 de 2014, en los términos del documento de presentación y
+                autorización adjunto, expedido por el sistema de gestión judicial de %s.</p>
+                <p style="margin:0 0 20px;">Agradecemos remitir el documento solicitado a este mismo correo
+                electrónico.</p>
+                %s
+                """.formatted(
+                nombreFirma, escaparHtml(radicadoId),
+                despachoJudicial != null && !despachoJudicial.isBlank() ? " (" + escaparHtml(despachoJudicial) + ")" : "",
+                COLOR_DORADO, escaparHtml(nombreActuacion),
+                nombreFirma,
+                firmaCierre()
+        );
+        boolean exito = enviarHtmlConAdjunto(correoDespacho,
+                "Solicitud de pieza procesal - Radicado " + radicadoId + " - " + nombreFirma,
+                cuerpo, "Autorizacion_" + radicadoId + ".pdf", pdfAutorizacion);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.CORREO_DESPACHO_JUDICIAL,
+                nombreCliente, correoDespacho, "Radicado " + radicadoId + " - " + nombreActuacion, exito);
+        return exito;
+    }
+
     // Gap real detectado en la auditoría del plan de desarrollo: digest automático de
     // boletines judiciales nuevos (gerente diario, abogado diario, cliente semanal, ver
     // sie.siejuridicos.vigilancia.BoletinJudicialDigestService) -- un solo correo puede

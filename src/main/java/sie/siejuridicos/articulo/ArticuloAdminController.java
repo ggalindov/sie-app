@@ -25,11 +25,12 @@ import sie.siejuridicos.security.UsuarioInternoPrincipal;
 
 import java.util.List;
 
-// Reglas de rol reforzadas también en SecurityConfig (/api/admin/**); @PreAuthorize
-// queda como segunda capa de defensa a nivel de método.
+// Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ... blog" --
+// revierte la decisión anterior (antes al alcance de ambos roles): ahora exclusivo de
+// ADMIN_GENERAL. Regla reforzada también en SecurityConfig (/api/admin/articulos/**).
 @RestController
 @RequestMapping("/api/admin/articulos")
-@PreAuthorize("hasAnyRole('ADMIN_GENERAL', 'ABOGADO')")
+@PreAuthorize("hasRole('ADMIN_GENERAL')")
 public class ArticuloAdminController {
 
     private final ArticuloService articuloService;

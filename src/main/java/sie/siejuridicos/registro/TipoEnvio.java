@@ -44,7 +44,11 @@ public enum TipoEnvio {
     // anuncios de caidas") -- correo automático a todo ADMIN_GENERAL activo cuando
     // RamaJudicialCpnuClient/PublicacionesProcesalesClient/SamaiClient "pareceCaido()" tras
     // un paso del ciclo nocturno, ver VigilanciaCaidaAlertaListener.
-    ALERTA_VIGILANCIA_CAIDA("Alerta de caída de vigilancia judicial");
+    ALERTA_VIGILANCIA_CAIDA("Alerta de caída de vigilancia judicial"),
+    // Pedido explícito del usuario (2026-11-04, replicando el flujo real de LUPA Jurídica):
+    // correo saliente a un despacho judicial solicitando el documento de una actuación que
+    // ningún canal automático pudo resolver -- ver CorreoDespachoJudicialService.
+    CORREO_DESPACHO_JUDICIAL("Correo a despacho judicial");
 
     private final String nombreVisible;
 

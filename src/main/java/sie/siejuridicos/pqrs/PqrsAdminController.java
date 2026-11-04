@@ -17,14 +17,12 @@ import sie.siejuridicos.security.UsuarioInternoPrincipal;
 
 import java.util.List;
 
-// Mismo nivel de acceso que Solicitudes (ADMIN_GENERAL o ABOGADO): a diferencia de
-// Testimonios (moderación de contenido de marketing, solo admin), responder una PQRS es
-// atención al cliente con plazo legal de referencia, cualquier abogado de la firma debe
-// poder hacerlo. Cae en el catch-all "/api/admin/**" de SecurityConfig, no necesita regla
-// propia ahí.
+// Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ... PQRS" --
+// revierte la decisión anterior (antes al alcance de ambos roles): ahora exclusivo de
+// ADMIN_GENERAL. Regla reforzada también en SecurityConfig (/api/admin/pqrs/**).
 @RestController
 @RequestMapping("/api/admin/pqrs")
-@PreAuthorize("hasAnyRole('ADMIN_GENERAL', 'ABOGADO')")
+@PreAuthorize("hasRole('ADMIN_GENERAL')")
 public class PqrsAdminController {
 
     private final PqrsService pqrsService;

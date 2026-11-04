@@ -90,16 +90,24 @@ export default function ResumenPage() {
           </div>
           <AdminCard>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { titulo: "Notificaciones", correo: "NOTIFICACIONES_CORREO", whatsapp: "NOTIFICACIONES_WHATSAPP" },
-                { titulo: "Reporte periódico", correo: "REPORTE_PERIODICO_CORREO", whatsapp: "REPORTE_PERIODICO_WHATSAPP" },
-                { titulo: "Boletín judicial", correo: "BOLETIN_JUDICIAL_CORREO", whatsapp: "BOLETIN_JUDICIAL_WHATSAPP" },
-                { titulo: "Marketing", correo: "MARKETING_CORREO", whatsapp: "MARKETING_WHATSAPP" },
-              ].map((grupo) => (
+              {(
+                [
+                  { titulo: "Notificaciones", correo: "NOTIFICACIONES_CORREO", whatsapp: "NOTIFICACIONES_WHATSAPP" },
+                  { titulo: "Reporte periódico", correo: "REPORTE_PERIODICO_CORREO", whatsapp: "REPORTE_PERIODICO_WHATSAPP" },
+                  { titulo: "Boletín judicial", correo: "BOLETIN_JUDICIAL_CORREO", whatsapp: "BOLETIN_JUDICIAL_WHATSAPP" },
+                  { titulo: "Marketing", correo: "MARKETING_CORREO", whatsapp: "MARKETING_WHATSAPP" },
+                  // Pedido explícito del usuario (2026-11-04): "deja en el panel principal un
+                  // boton para apagar o prender" -- correo automático al despacho judicial
+                  // solicitando el documento de una actuación que ningún canal pudo resolver
+                  // (ver CorreoDespachoJudicialService). Sin variante de WhatsApp: un despacho
+                  // judicial nunca recibe WhatsApp.
+                  { titulo: "Correo a despachos judiciales", correo: "CORREO_DESPACHO_JUDICIAL" },
+                ] as { titulo: string; correo: string; whatsapp?: string }[]
+              ).map((grupo) => (
                 <div key={grupo.titulo} className="rounded-xl border border-line p-4">
                   <p className="text-sm font-medium text-ink">{grupo.titulo}</p>
                   <div className="mt-3 space-y-2">
-                    {[grupo.correo, grupo.whatsapp].map((clave) => {
+                    {[grupo.correo, grupo.whatsapp].filter((clave): clave is string => Boolean(clave)).map((clave) => {
                       const item = configuracionEnvios.find((c) => c.clave === clave);
                       if (!item) return null;
                       return (

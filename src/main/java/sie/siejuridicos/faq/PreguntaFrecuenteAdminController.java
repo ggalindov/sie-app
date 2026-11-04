@@ -14,13 +14,12 @@ import sie.siejuridicos.faq.dto.PreguntaFrecuenteAdminResponse;
 
 import java.util.List;
 
-// A diferencia de testimonios/marketing, la FAQ sí está al alcance del rol ABOGADO (pedido
-// explícito del usuario: "el abogado la aprueba con un clic"), por eso no hay restricción
-// extra de rol aquí ni en SecurityConfig: hereda el hasAnyRole(ADMIN_GENERAL, ABOGADO) por
-// defecto de /api/admin/**.
+// Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ... preguntas
+// frecuentes" -- revierte la decisión anterior ("el abogado la aprueba con un clic"): ahora
+// exclusivo de ADMIN_GENERAL. Regla reforzada también en SecurityConfig (/api/admin/faq/**).
 @RestController
 @RequestMapping("/api/admin/faq")
-@PreAuthorize("hasAnyRole('ADMIN_GENERAL', 'ABOGADO')")
+@PreAuthorize("hasRole('ADMIN_GENERAL')")
 public class PreguntaFrecuenteAdminController {
 
     private final PreguntaFrecuenteService preguntaFrecuenteService;

@@ -7,6 +7,7 @@ import { Plus, PencilSimple, Trash, Eye } from "@phosphor-icons/react";
 import { listarArticulosAdmin, eliminarArticulo, ApiError, type ArticuloAdmin } from "@/lib/admin-api";
 import { AdminPageHeader, AdminButton, AdminCard, Badge, EmptyState, AdminLoader } from "@/components/admin/ui";
 import { CompartirArticuloButton } from "@/components/admin/compartir-articulo-button";
+import { useAuth } from "@/lib/auth-context";
 
 // timeZone explícito: ver el mismo comentario en blog-grid.tsx -- sin esto, la fecha se
 // muestra en la zona de quien renderiza (navegador de quien administre el panel), no en la
@@ -21,6 +22,7 @@ function formatearFecha(iso: string) {
 }
 
 export default function ArticulosPage() {
+  const { sesion } = useAuth();
   const [articulos, setArticulos] = useState<ArticuloAdmin[] | null>(null);
   const [eliminandoId, setEliminandoId] = useState<number | null>(null);
 
@@ -46,6 +48,18 @@ export default function ArticulosPage() {
     } finally {
       setEliminandoId(null);
     }
+  }
+
+  // Pedido explícito del usuario (2026-11-04): "para el rol de abogado elimina ... blog" --
+  // ahora exclusivo de ADMIN_GENERAL (reforzado también en el backend, ver
+  // ArticuloAdminController y SecurityConfig).
+  if (sesion && sesion.rol !== "ADMIN_GENERAL") {
+    return (
+      <EmptyState
+        title="No tienes acceso a esta sección"
+        description="Solo el administrador general puede gestionar el blog y las noticias."
+      />
+    );
   }
 
   return (

@@ -21,7 +21,14 @@ public enum ClaveConfiguracionEnvio {
     BOLETIN_JUDICIAL_WHATSAPP("Boletín judicial (WhatsApp)"),
     // Avisos de blog/newsletter a suscriptores de marketing.
     MARKETING_CORREO("Marketing (correo)"),
-    MARKETING_WHATSAPP("Marketing (WhatsApp)");
+    MARKETING_WHATSAPP("Marketing (WhatsApp)"),
+    // Pedido explícito del usuario (2026-11-04): "termina toda la configuracion para que
+    // caso que detecte que no tenga auto/boletin retorne peticion al buzon del juzgado" --
+    // correo automático al despacho judicial solicitando el documento de una actuación que
+    // ningún canal (CPNU exacto ni heurístico de boletines) pudo resolver, con el documento
+    // de presentación y autorización del sistema adjunto (ver CorreoDespachoJudicialService).
+    // Solo correo: un despacho judicial no recibe WhatsApp.
+    CORREO_DESPACHO_JUDICIAL("Correo a despachos judiciales (solicitud de documento)");
 
     private final String nombreVisible;
 

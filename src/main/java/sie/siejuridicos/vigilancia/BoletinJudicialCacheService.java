@@ -107,6 +107,7 @@ public class BoletinJudicialCacheService {
     private final long pausaEntreConsultasMs;
 
     private final BoletinPendienteRepository pendienteRepository;
+    private final CorreoDespachoJudicialService correoDespachoJudicialService;
 
     public BoletinJudicialCacheService(ActuacionJudicialRegistradaRepository actuacionRepository,
                                         BoletinJudicialCacheRepository boletinRepository,
@@ -114,6 +115,7 @@ public class BoletinJudicialCacheService {
                                         BoletinPendienteRepository pendienteRepository,
                                         PublicacionesProcesalesClient publicacionesProcesalesClient,
                                         RamaJudicialCpnuClient cpnuClient,
+                                        CorreoDespachoJudicialService correoDespachoJudicialService,
                                         @Value("${app.vigilancia.boletin-pausa-entre-casos-ms}") long pausaEntreConsultasMs) {
         this.actuacionRepository = actuacionRepository;
         this.boletinRepository = boletinRepository;
@@ -121,6 +123,7 @@ public class BoletinJudicialCacheService {
         this.pendienteRepository = pendienteRepository;
         this.publicacionesProcesalesClient = publicacionesProcesalesClient;
         this.cpnuClient = cpnuClient;
+        this.correoDespachoJudicialService = correoDespachoJudicialService;
         this.pausaEntreConsultasMs = pausaEntreConsultasMs;
     }
 
@@ -552,7 +555,19 @@ public class BoletinJudicialCacheService {
         }
         PublicacionesProcesalesClient.ResultadoBusqueda busqueda = publicacionesProcesalesClient.buscarDocumentosConEstado(
                 caso.getRadicadoId(), fechaDeBoletin(actuacion), actuacion.getNombreActuacion());
-        return descargarYGuardarCandidatos(caso, actuacion, busqueda.candidatos(), busqueda.incompleta());
+        ResultadoActuacion resultado = descargarYGuardarCandidatos(caso, actuacion, busqueda.candidatos(), busqueda.incompleta());
+
+        // Pedido explícito del usuario (2026-11-04, replicando el flujo real de LUPA
+        // Jurídica): si NI el canal exacto de la CPNU NI el heurístico de Publicaciones
+        // Procesales encontraron nada para una actuación que la propia Rama Judicial marcó
+        // con conDocumentos=true, se le solicita el documento por correo directamente al
+        // despacho (ver CorreoDespachoJudicialService). "incompleta" (el portal falló a
+        // mitad de la búsqueda) no cuenta como "no existe": en ese caso se reintentará en un
+        // ciclo posterior, nunca se le escribe al despacho por una falla transitoria propia.
+        if (actuacion.isConDocumentos() && resultado.nuevos() == 0 && !busqueda.incompleta()) {
+            correoDespachoJudicialService.intentarSolicitarAlDespacho(caso, actuacion);
+        }
+        return resultado;
     }
 
     // Descarga y cachea cada candidato nuevo (ver guardarBoletin) -- mismo flujo tanto para el

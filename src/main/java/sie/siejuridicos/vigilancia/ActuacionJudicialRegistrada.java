@@ -86,6 +86,13 @@ public class ActuacionJudicialRegistrada {
     @Column(name = "fecha_notificada_staff")
     private LocalDateTime fechaNotificadaStaff;
 
+    // Cuando el sistema le solicitó por correo el documento de ESTA actuación directamente
+    // al despacho judicial (ver CorreoDespachoJudicialService) -- null mientras no se le ha
+    // pedido nada, nunca se vuelve a solicitar la misma actuación dos veces. Distinto de
+    // notificadaStaff: esto es una solicitud saliente al despacho, no un aviso interno.
+    @Column(name = "correo_despacho_solicitado_en")
+    private LocalDateTime correoDespachoSolicitadoEn;
+
     public static ActuacionJudicialRegistrada desde(Caso caso, ActuacionJudicial actuacion, boolean esFundamental) {
         ActuacionJudicialRegistrada entidad = new ActuacionJudicialRegistrada();
         entidad.caso = caso;
@@ -181,5 +188,13 @@ public class ActuacionJudicialRegistrada {
 
     public void setFechaNotificadaStaff(LocalDateTime fechaNotificadaStaff) {
         this.fechaNotificadaStaff = fechaNotificadaStaff;
+    }
+
+    public LocalDateTime getCorreoDespachoSolicitadoEn() {
+        return correoDespachoSolicitadoEn;
+    }
+
+    public void setCorreoDespachoSolicitadoEn(LocalDateTime correoDespachoSolicitadoEn) {
+        this.correoDespachoSolicitadoEn = correoDespachoSolicitadoEn;
     }
 }
