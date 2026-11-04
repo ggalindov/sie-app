@@ -14,7 +14,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.caso.Caso;
@@ -84,6 +83,29 @@ public class BoletinJudicialDigestService {
     // documento dentro de nuestro servdor".
     private String enlaceDocumentoPropio(BoletinJudicialCache boletin) {
         return sitioWeb + "/api/v1/boletines/documento/" + boletin.getTokenPublico();
+    }
+
+    // CORREGIDO -- bug real reportado por el usuario (2026-11-04): esta columna se rotulaba
+    // "Fecha Publicación" pero mostraba boletin.getFechaDescarga(), que es el instante en que
+    // NUESTRO sistema descargó el PDF (ver BoletinJudicialCacheService.guardarBoletin()), no
+    // la fecha real en que el despacho lo publicó/reportó el estado. Cuando el boletín está
+    // ligado a una actuación (el caso normal desde el canal exacto de CPNU), se usa la fecha
+    // oficial de esa actuación (fechaActuacion, con respaldo en fechaRegistro) -- igual
+    // criterio que ya usa la tabla principal del reporte. Solo cuando no hay actuación ligada
+    // (boletín cacheado por una consulta manual antigua, sin ese vínculo) se rotula
+    // honestamente como fecha de descarga, en vez de hacerla pasar por la fecha oficial.
+    private String fechaOficialPublicacion(BoletinJudicialCache boletin) {
+        ActuacionJudicialRegistrada actuacion = boletin.getActuacion();
+        if (actuacion != null) {
+            LocalDateTime fechaOficial = actuacion.getFechaActuacion() != null
+                    ? actuacion.getFechaActuacion() : actuacion.getFechaRegistro();
+            if (fechaOficial != null) {
+                return fechaOficial.format(FECHA_CORTO);
+            }
+        }
+        return boletin.getFechaDescarga() != null
+                ? boletin.getFechaDescarga().format(FECHA_CORTO) + " (fecha de descarga, sin fecha oficial)"
+                : "Reciente";
     }
 
     // Diario 10:00 AM (ver BoletinJudicialScheduler). Envía a Gerencia TODOS los movimientos procesales
@@ -228,13 +250,21 @@ public class BoletinJudicialDigestService {
                 nombreMostrado, correoDestino, caso.getRadicadoId(), cuerpo, new ArrayList<>());
     }
 
-    // Prueba en vivo sin alterar marcas de enviado
+    // Prueba en vivo sin alterar marcas de enviado.
+    //
+    // CORREGIDO -- bug real reportado por el usuario (2026-11-04): esta prueba traía las
+    // últimas 15 actuaciones insertadas EN NUESTRA BASE (ORDER BY id DESC), sin relación
+    // alguna con la fecha real en que el despacho las publicó -- podía mezclar actuaciones de
+    // hace meses (de un backfill) con las de hoy, y los "boletines" que se mostraban eran una
+    // muestra cualquiera de la caché, sin ningún vínculo con esas actuaciones concretas, por
+    // eso la columna "Documento" nunca encontraba con qué emparejar. Ahora usa
+    // actuacionesRecientesParaDemostracion(), que sí trae las actuaciones por fecha REAL de
+    // registro (las últimas detectadas, ampliando la ventana hacia atrás si el día de hoy no
+    // tuvo novedades), y los boletines que de verdad están ligados a ESAS actuaciones.
     @Transactional(readOnly = true)
     public boolean probarReporteDiario(String correoDestino) {
-        List<ActuacionJudicialRegistrada> actuaciones =
-                actuacionRepository.listarRecientesConCaso(PageRequest.of(0, 15));
-        List<BoletinJudicialCache> boletines =
-                boletinRepository.listarTodosConCaso().stream().limit(5).toList();
+        List<ActuacionJudicialRegistrada> actuaciones = actuacionesRecientesParaDemostracion();
+        List<BoletinJudicialCache> boletines = boletinesLigadosA(actuaciones);
 
         if (actuaciones.isEmpty() && boletines.isEmpty()) {
             return false;
@@ -265,10 +295,8 @@ public class BoletinJudicialDigestService {
     // enviarDigestBoletinAbogado).
     @Transactional(readOnly = true)
     public boolean probarReporteDiarioAbogado(String correoDestino, String nombreAbogado) {
-        List<ActuacionJudicialRegistrada> actuaciones =
-                actuacionRepository.listarRecientesConCaso(PageRequest.of(0, 15));
-        List<BoletinJudicialCache> boletines =
-                boletinRepository.listarTodosConCaso().stream().limit(5).toList();
+        List<ActuacionJudicialRegistrada> actuaciones = actuacionesRecientesParaDemostracion();
+        List<BoletinJudicialCache> boletines = boletinesLigadosA(actuaciones);
 
         if (actuaciones.isEmpty() && boletines.isEmpty()) {
             return false;
@@ -289,6 +317,38 @@ public class BoletinJudicialDigestService {
 
         emailService.enviarDigestBoletinAbogado(nombreAbogado, correoDestino, cuerpo, adjuntos);
         return true;
+    }
+
+    private static final int LIMITE_DEMOSTRACION = 30;
+
+    // Actuaciones reales más recientemente detectadas, por fecha REAL de registro del
+    // despacho (nunca por id de inserción en nuestra base ni por cuándo nosotros las
+    // detectamos) -- amplía la ventana un día más hacia atrás solo si el día más reciente no
+    // tuvo novedades (fin de semana, despacho sin movimiento), para que la prueba siempre
+    // muestre algo útil sin mezclar meses de historial viejo.
+    private List<ActuacionJudicialRegistrada> actuacionesRecientesParaDemostracion() {
+        LocalDateTime hasta = LocalDate.now().plusDays(1).atStartOfDay();
+        for (int diasAtras = 1; diasAtras <= 14; diasAtras++) {
+            LocalDateTime desde = LocalDate.now().minusDays(diasAtras).atStartOfDay();
+            List<ActuacionJudicialRegistrada> encontradas = actuacionRepository.findByFechaRegistroEntre(desde, hasta);
+            if (!encontradas.isEmpty()) {
+                return encontradas.size() > LIMITE_DEMOSTRACION
+                        ? encontradas.subList(0, LIMITE_DEMOSTRACION)
+                        : encontradas;
+            }
+        }
+        return List.of();
+    }
+
+    // Solo los boletines que de verdad están ligados a estas actuaciones -- así la columna
+    // "Documento" de la prueba tiene con qué emparejar de verdad, en vez de una muestra de la
+    // caché sin relación alguna con las actuaciones mostradas.
+    private List<BoletinJudicialCache> boletinesLigadosA(List<ActuacionJudicialRegistrada> actuaciones) {
+        if (actuaciones.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = actuaciones.stream().map(ActuacionJudicialRegistrada::getId).toList();
+        return boletinRepository.findByActuacion_IdIn(ids);
     }
 
     // Genera el archivo Excel oficial 'Reporte de Movimientos.xlsx' idéntico a las columnas de IUS Tech
@@ -601,7 +661,7 @@ public class BoletinJudicialDigestService {
             for (BoletinJudicialCache b : boletines) {
                 Caso caso = b.getCaso();
                 String rad = caso != null ? caso.getRadicadoId() : "Sin radicado";
-                String fDesc = b.getFechaDescarga() != null ? b.getFechaDescarga().format(FECHA_CORTO) : "Reciente";
+                String fDesc = fechaOficialPublicacion(b);
 
                 html.append("""
                         <tr style="border-bottom:1px solid #f1f5f9;">

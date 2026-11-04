@@ -198,10 +198,22 @@ public class BoletinJudicialCacheService {
     // deja de reintentarse: evita insistir para siempre con un documento que no aparece.
     private static final int MAX_INTENTOS_PENDIENTE = 12;
 
-    // Una fila por (caso, fecha de la actuacion): las ultimas actuaciones de cada caso y las de
-    // los ultimos DIAS_VENTANA_BUSQUEDA dias, sin repetir. Antes la consulta devolvia todas las
-    // actuaciones de la ultima fecha (350 filas para 232 casos) y la misma busqueda se hacia
-    // varias veces; y solo miraba la fecha mas reciente, perdiendo estados de fechas anteriores.
+    // Las ultimas actuaciones de cada caso y las de los ultimos DIAS_VENTANA_BUSQUEDA dias, sin
+    // repetir la MISMA actuacion dos veces (puede aparecer en ambas consultas de origen).
+    //
+    // CORREGIDO -- bug real encontrado en auditoria del 2026-11-04 (el usuario reporto "no esta
+    // trayendo todas las actuaciones ni todos los autos"): la version anterior deduplicaba por
+    // (idCaso, fecha), no por actuacion -- si un despacho publicaba DOS O MAS actuaciones el
+    // mismo dia para el mismo caso (muy comun: un auto de fondo y su fijacion en estado el mismo
+    // dia, por ejemplo), solo la primera de esa pareja entraba a procesarActuacion() y las demas
+    // se descartaban en silencio, SIN buscarles documento por ningun canal (ni el exacto de CPNU
+    // ni el heuristico de Publicaciones Procesales). Confirmado en produccion: de 233 actuaciones
+    // en la ventana de 30 dias, solo 158 parejas (caso, dia) unicas se procesaban -- 75
+    // actuaciones reales nunca se consultaban. Deduplicar por el id propio de la actuacion
+    // (en vez de por caso+fecha) procesa cada una por separado sin perder ninguna, a costa de
+    // alguna consulta heuristica repetida al portal para el mismo (caso, dia) cuando hay varias
+    // actuaciones ese dia -- aceptable: ya hay pausa entre cada una y el circuit breaker
+    // (pareceCaido()) sigue protegiendo contra una racha de fallos.
     private List<ActuacionJudicialRegistrada> construirObjetivos() {
         List<ActuacionJudicialRegistrada> todas = new ArrayList<>(actuacionRepository.ultimaActuacionConFechaPorCaso());
         todas.addAll(actuacionRepository.conFechaRegistroDesde(
@@ -209,7 +221,7 @@ public class BoletinJudicialCacheService {
         todas.sort(Comparator
                 .comparing((ActuacionJudicialRegistrada a) -> a.getCaso().getId())
                 .thenComparing(a -> fechaDeBoletin(a), Comparator.nullsLast(Comparator.reverseOrder())));
-        LinkedHashMap<String, ActuacionJudicialRegistrada> porClave = new LinkedHashMap<>();
+        LinkedHashMap<Long, ActuacionJudicialRegistrada> porId = new LinkedHashMap<>();
         for (ActuacionJudicialRegistrada a : todas) {
             LocalDate fecha = fechaDeBoletin(a);
             // Sin radicado CPNU valido el cliente ni siquiera consulta la red, pero igual se
@@ -217,9 +229,9 @@ public class BoletinJudicialCacheService {
             if (fecha == null || !RadicadoUtil.esFormatoCpnuValido(a.getCaso().getRadicadoId())) {
                 continue;
             }
-            porClave.putIfAbsent(a.getCaso().getId() + "|" + fecha, a);
+            porId.putIfAbsent(a.getId(), a);
         }
-        return new ArrayList<>(porClave.values());
+        return new ArrayList<>(porId.values());
     }
 
     private static LocalDate fechaDeBoletin(ActuacionJudicialRegistrada a) {

@@ -93,4 +93,11 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     // Link público de descarga por correo (BoletinPublicoController) -- búsqueda por token
     // opaco, nunca por id autoincremental (evita enumeración de documentos de otros casos).
     Optional<BoletinJudicialCache> findByTokenPublico(String tokenPublico);
+
+    // Para las pruebas de visualización del reporte diario (ver BoletinJudicialDigestService.
+    // probarReporteDiario/probarReporteDiarioAbogado) -- los boletines YA ligados a un grupo
+    // concreto de actuaciones (las del día que se está demostrando), para que la columna
+    // "Documento" de la tabla principal tenga con qué emparejar de verdad, en vez de una
+    // muestra de boletines sin relación con las actuaciones mostradas.
+    List<BoletinJudicialCache> findByActuacion_IdIn(List<Long> actuacionIds);
 }
