@@ -248,12 +248,13 @@ body {
   background: var(--scrollbar-track, #0e0d0b) !important;
 }
 
-/* Panel administrativo, gerencia y modales: Scrollbar blanco con dorado (pedido explícito del usuario) */
+/* Panel administrativo, gerencia y modales: Scrollbar blanco con dorado para el contenido claro (pedido explícito del usuario) */
 html.panel-admin,
 body.panel-admin,
-body.panel-admin *,
-.panel-admin,
-.panel-admin *,
+body.panel-admin main,
+body.panel-admin main *,
+.panel-admin main,
+.panel-admin main *,
 [role="dialog"],
 [role="dialog"] *,
 [data-base-ui-dialog],
@@ -271,12 +272,12 @@ dialog * {
   scrollbar-color: #c59b27 #ffffff;
 }
 
-html.panel-admin ::-webkit-scrollbar,
-html.panel-admin::-webkit-scrollbar,
-body.panel-admin ::-webkit-scrollbar,
-body.panel-admin::-webkit-scrollbar,
-.panel-admin ::-webkit-scrollbar,
-.panel-admin::-webkit-scrollbar,
+html.panel-admin main ::-webkit-scrollbar,
+html.panel-admin main::-webkit-scrollbar,
+body.panel-admin main ::-webkit-scrollbar,
+body.panel-admin main::-webkit-scrollbar,
+.panel-admin main ::-webkit-scrollbar,
+.panel-admin main::-webkit-scrollbar,
 [role="dialog"] ::-webkit-scrollbar,
 [role="dialog"]::-webkit-scrollbar,
 [data-base-ui-dialog] ::-webkit-scrollbar,
@@ -289,12 +290,12 @@ dialog::-webkit-scrollbar {
   height: 5px;
 }
 
-html.panel-admin ::-webkit-scrollbar-track,
-html.panel-admin::-webkit-scrollbar-track,
-body.panel-admin ::-webkit-scrollbar-track,
-body.panel-admin::-webkit-scrollbar-track,
-.panel-admin ::-webkit-scrollbar-track,
-.panel-admin::-webkit-scrollbar-track,
+html.panel-admin main ::-webkit-scrollbar-track,
+html.panel-admin main::-webkit-scrollbar-track,
+body.panel-admin main ::-webkit-scrollbar-track,
+body.panel-admin main::-webkit-scrollbar-track,
+.panel-admin main ::-webkit-scrollbar-track,
+.panel-admin main::-webkit-scrollbar-track,
 [role="dialog"] ::-webkit-scrollbar-track,
 [role="dialog"]::-webkit-scrollbar-track,
 [data-base-ui-dialog] ::-webkit-scrollbar-track,
@@ -307,12 +308,12 @@ dialog::-webkit-scrollbar-track {
   border-radius: 999px;
 }
 
-html.panel-admin ::-webkit-scrollbar-thumb,
-html.panel-admin::-webkit-scrollbar-thumb,
-body.panel-admin ::-webkit-scrollbar-thumb,
-body.panel-admin::-webkit-scrollbar-thumb,
-.panel-admin ::-webkit-scrollbar-thumb,
-.panel-admin::-webkit-scrollbar-thumb,
+html.panel-admin main ::-webkit-scrollbar-thumb,
+html.panel-admin main::-webkit-scrollbar-thumb,
+body.panel-admin main ::-webkit-scrollbar-thumb,
+body.panel-admin main::-webkit-scrollbar-thumb,
+.panel-admin main ::-webkit-scrollbar-thumb,
+.panel-admin main::-webkit-scrollbar-thumb,
 [role="dialog"] ::-webkit-scrollbar-thumb,
 [role="dialog"]::-webkit-scrollbar-thumb,
 [data-base-ui-dialog] ::-webkit-scrollbar-thumb,
@@ -327,12 +328,12 @@ dialog::-webkit-scrollbar-thumb {
   background-clip: padding-box;
 }
 
-html.panel-admin ::-webkit-scrollbar-thumb:hover,
-html.panel-admin::-webkit-scrollbar-thumb:hover,
-body.panel-admin ::-webkit-scrollbar-thumb:hover,
-body.panel-admin::-webkit-scrollbar-thumb:hover,
-.panel-admin ::-webkit-scrollbar-thumb:hover,
-.panel-admin::-webkit-scrollbar-thumb:hover,
+html.panel-admin main ::-webkit-scrollbar-thumb:hover,
+html.panel-admin main::-webkit-scrollbar-thumb:hover,
+body.panel-admin main ::-webkit-scrollbar-thumb:hover,
+body.panel-admin main::-webkit-scrollbar-thumb:hover,
+.panel-admin main ::-webkit-scrollbar-thumb:hover,
+.panel-admin main::-webkit-scrollbar-thumb:hover,
 [role="dialog"] ::-webkit-scrollbar-thumb:hover,
 [role="dialog"]::-webkit-scrollbar-thumb:hover,
 [data-base-ui-dialog] ::-webkit-scrollbar-thumb:hover,
@@ -344,12 +345,12 @@ dialog::-webkit-scrollbar-thumb:hover {
   background-color: #9b7617 !important;
 }
 
-html.panel-admin ::-webkit-scrollbar-corner,
-html.panel-admin::-webkit-scrollbar-corner,
-body.panel-admin ::-webkit-scrollbar-corner,
-body.panel-admin::-webkit-scrollbar-corner,
-.panel-admin ::-webkit-scrollbar-corner,
-.panel-admin::-webkit-scrollbar-corner,
+html.panel-admin main ::-webkit-scrollbar-corner,
+html.panel-admin main::-webkit-scrollbar-corner,
+body.panel-admin main ::-webkit-scrollbar-corner,
+body.panel-admin main::-webkit-scrollbar-corner,
+.panel-admin main ::-webkit-scrollbar-corner,
+.panel-admin main::-webkit-scrollbar-corner,
 [role="dialog"] ::-webkit-scrollbar-corner,
 [role="dialog"]::-webkit-scrollbar-corner,
 [data-base-ui-dialog] ::-webkit-scrollbar-corner,
@@ -361,33 +362,140 @@ dialog::-webkit-scrollbar-corner {
   background: #ffffff !important;
 }
 
+/* Ocultar botones/flechas de scrollbar en todos los navegadores webkit */
+::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button,
+html.panel-admin ::-webkit-scrollbar-button,
+body.panel-admin ::-webkit-scrollbar-button,
+.panel-admin ::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Sidebar oscuro del panel admin (admin-shell.tsx):
+   Scrollbar OSCURA con dorado, ultra delgada (pedido explícito del usuario: "deja este scroll si en oscuro").
+   Sobrescribe totalmente cualquier regla blanca en el sidebar. */
+html.panel-admin aside,
+html.panel-admin aside *,
+body.panel-admin aside,
+body.panel-admin aside *,
+.panel-admin aside,
+.panel-admin aside *,
+[data-sidebar],
+[data-sidebar] *,
+.sidebar-scroll,
+.sidebar-scroll * {
+  --scrollbar-track: #14120e !important;
+  --scrollbar-thumb: #c59b27 !important;
+  --scrollbar-thumb-hover: #e5bc42 !important;
+  --scrollbar-width: 4px !important;
+  --scrollbar-border: none !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #c59b27 #14120e !important;
+}
+
+html.panel-admin aside ::-webkit-scrollbar,
+html.panel-admin aside::-webkit-scrollbar,
+body.panel-admin aside ::-webkit-scrollbar,
+body.panel-admin aside::-webkit-scrollbar,
+.panel-admin aside ::-webkit-scrollbar,
+.panel-admin aside::-webkit-scrollbar,
+[data-sidebar] ::-webkit-scrollbar,
+[data-sidebar]::-webkit-scrollbar,
+html.panel-admin .sidebar-scroll::-webkit-scrollbar,
+body.panel-admin .sidebar-scroll::-webkit-scrollbar,
+.panel-admin .sidebar-scroll::-webkit-scrollbar,
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+}
+
+html.panel-admin aside ::-webkit-scrollbar-track,
+html.panel-admin aside::-webkit-scrollbar-track,
+body.panel-admin aside ::-webkit-scrollbar-track,
+body.panel-admin aside::-webkit-scrollbar-track,
+.panel-admin aside ::-webkit-scrollbar-track,
+.panel-admin aside::-webkit-scrollbar-track,
+[data-sidebar] ::-webkit-scrollbar-track,
+[data-sidebar]::-webkit-scrollbar-track,
+html.panel-admin .sidebar-scroll::-webkit-scrollbar-track,
+body.panel-admin .sidebar-scroll::-webkit-scrollbar-track,
+.panel-admin .sidebar-scroll::-webkit-scrollbar-track,
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: #14120e !important;
+  border-radius: 999px !important;
+}
+
+html.panel-admin aside ::-webkit-scrollbar-thumb,
+html.panel-admin aside::-webkit-scrollbar-thumb,
+body.panel-admin aside ::-webkit-scrollbar-thumb,
+body.panel-admin aside::-webkit-scrollbar-thumb,
+.panel-admin aside ::-webkit-scrollbar-thumb,
+.panel-admin aside::-webkit-scrollbar-thumb,
+[data-sidebar] ::-webkit-scrollbar-thumb,
+[data-sidebar]::-webkit-scrollbar-thumb,
+html.panel-admin .sidebar-scroll::-webkit-scrollbar-thumb,
+body.panel-admin .sidebar-scroll::-webkit-scrollbar-thumb,
+.panel-admin .sidebar-scroll::-webkit-scrollbar-thumb,
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: #c59b27 !important;
+  border-radius: 999px !important;
+  border: none !important;
+  background-clip: padding-box !important;
+}
+
+html.panel-admin aside ::-webkit-scrollbar-thumb:hover,
+html.panel-admin aside::-webkit-scrollbar-thumb:hover,
+body.panel-admin aside ::-webkit-scrollbar-thumb:hover,
+body.panel-admin aside::-webkit-scrollbar-thumb:hover,
+.panel-admin aside ::-webkit-scrollbar-thumb:hover,
+.panel-admin aside::-webkit-scrollbar-thumb:hover,
+[data-sidebar] ::-webkit-scrollbar-thumb:hover,
+[data-sidebar]::-webkit-scrollbar-thumb:hover,
+html.panel-admin .sidebar-scroll::-webkit-scrollbar-thumb:hover,
+body.panel-admin .sidebar-scroll::-webkit-scrollbar-thumb:hover,
+.panel-admin .sidebar-scroll::-webkit-scrollbar-thumb:hover,
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #e5bc42 !important;
+}
+
+html.panel-admin aside ::-webkit-scrollbar-button,
+html.panel-admin aside::-webkit-scrollbar-button,
+body.panel-admin aside ::-webkit-scrollbar-button,
+body.panel-admin aside::-webkit-scrollbar-button,
+.panel-admin aside ::-webkit-scrollbar-button,
+.panel-admin aside::-webkit-scrollbar-button,
+[data-sidebar] ::-webkit-scrollbar-button,
+[data-sidebar]::-webkit-scrollbar-button,
+html.panel-admin .sidebar-scroll::-webkit-scrollbar-button,
+body.panel-admin .sidebar-scroll::-webkit-scrollbar-button,
+.panel-admin .sidebar-scroll::-webkit-scrollbar-button,
+.sidebar-scroll::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+html.panel-admin aside ::-webkit-scrollbar-corner,
+html.panel-admin aside::-webkit-scrollbar-corner,
+body.panel-admin aside ::-webkit-scrollbar-corner,
+body.panel-admin aside::-webkit-scrollbar-corner,
+.panel-admin aside ::-webkit-scrollbar-corner,
+.panel-admin aside::-webkit-scrollbar-corner,
+[data-sidebar] ::-webkit-scrollbar-corner,
+[data-sidebar]::-webkit-scrollbar-corner,
+html.panel-admin .sidebar-scroll::-webkit-scrollbar-corner,
+body.panel-admin .sidebar-scroll::-webkit-scrollbar-corner,
+.panel-admin .sidebar-scroll::-webkit-scrollbar-corner,
+.sidebar-scroll::-webkit-scrollbar-corner {
+  background: #14120e !important;
+}
+
 /* Aceleración por hardware para capas dinámicas */
 .will-change-transform {
   will-change: transform;
   transform: translateZ(0);
-}
-
-/* Scrollbar delgada y dorada para el sidebar oscuro del panel admin (admin-shell.tsx):
-   sin esto, el scrollbar nativo del sistema operativo (gris claro, grueso) queda horrible
-   sobre un fondo oscuro -- rompe por completo la sensación de panel cuidado. Siempre
-   visible (no solo al pasar el mouse): ocultarla del todo escondería que hay más ítems de
-   menú para desplazar. */
-.sidebar-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(217, 169, 37, 0.3) transparent;
-}
-.sidebar-scroll::-webkit-scrollbar {
-  width: 5px;
-}
-.sidebar-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(217, 169, 37, 0.3);
-  border-radius: 999px;
-}
-.sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(217, 169, 37, 0.55);
 }
 
 .card-edged,

@@ -23,6 +23,14 @@ import { useAuth } from "@/lib/auth-context";
 
 type ParteSeleccionada = { cliente: ClienteCrm; canal: CanalNotificacionFirma };
 
+// Pedido explícito del usuario (2026-11-04): "sie APP es un rol de programador, solo
+// TATIANA y ANTONIO" -- existe una cuenta ADMIN_GENERAL de uso técnico/programático ("SIE
+// App") que aparecía junto a los gerentes reales como cofirmante opcional; esa cuenta nunca
+// debe poder firmar un documento. Se filtra por una lista explícita de correos de gerentes
+// reales (no solo por rol ADMIN_GENERAL), así la cuenta de sistema queda excluida sin
+// depender de su nombre visible en el panel.
+const CORREOS_GERENTES_FIRMANTES = ["gerencia@siejuridicos.com", "siejuridicoafb@gmail.com"];
+
 export default function NuevoDocumentoPage() {
   const router = useRouter();
   const { sesion } = useAuth();
@@ -62,7 +70,10 @@ export default function NuevoDocumentoPage() {
     listarUsuarios()
       .then((todos) => {
         setAbogados(todos.filter((u) => u.rol === "ABOGADO" && u.activo));
-        setOtrosGerentes(todos.filter((u) => u.rol === "ADMIN_GENERAL" && u.activo && u.correo !== sesion?.correo));
+        setOtrosGerentes(todos.filter((u) =>
+          u.rol === "ADMIN_GENERAL" && u.activo && u.correo !== sesion?.correo
+          && CORREOS_GERENTES_FIRMANTES.includes(u.correo)
+        ));
       })
       .catch(() => toast.error("No se pudieron cargar los abogados."));
     listarCasos()

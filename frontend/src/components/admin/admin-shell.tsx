@@ -221,14 +221,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
           (shadow inset) remata el borde en vez de dejarlo cortado en seco contra el panel
           claro. El resto del panel admin se queda en la paleta clara original a propósito
           (ver CLAUDE.md 5.1/5.8). */}
-      <aside className="hidden w-72 min-h-0 shrink-0 flex-col bg-gradient-to-b from-[#1e1a12] via-[#15120d] to-[#0a0907] shadow-[inset_-1px_0_0_rgba(217,169,37,0.1)] lg:flex">
+      <aside data-sidebar="true" className="hidden w-72 min-h-0 shrink-0 flex-col bg-gradient-to-b from-[#1e1a12] via-[#15120d] to-[#0a0907] shadow-[inset_-1px_0_0_rgba(217,169,37,0.1)] lg:flex">
         <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} contadores={contadores} />
       </aside>
 
       {/* Sidebar móvil */}
       {menuAbierto && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div className="flex w-80 min-h-0 flex-col bg-gradient-to-b from-[#1e1a12] via-[#15120d] to-[#0a0907] shadow-[inset_-1px_0_0_rgba(217,169,37,0.1)]">
+          <div data-sidebar="true" className="flex w-80 min-h-0 flex-col bg-gradient-to-b from-[#1e1a12] via-[#15120d] to-[#0a0907] shadow-[inset_-1px_0_0_rgba(217,169,37,0.1)]">
             <SidebarContent grupos={grupos} pathname={pathname} sesion={sesion} onLogout={logout} contadores={contadores} />
           </div>
           <button
