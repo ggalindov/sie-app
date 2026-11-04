@@ -78,14 +78,12 @@ public class SamaiClient {
             @Value("${app.vigilancia.samai.timeout-lectura-ms}") long timeoutLecturaMs,
             ObjectMapper objectMapper) {
         this.urlBase = urlBase;
-        // CookieManager propio (no cosmético): el endpoint de búsqueda exige la cookie
-        // __AntiXsrfToken que SOLO entrega un GET previo a procesos.aspx -- sin un
-        // CookieHandler compartido entre esas dos llamadas, el POST llegaría sin ella y
-        // SAMAI lo rechazaría. ACCEPT_ALL porque es el mismo host en ambas llamadas, nunca
-        // se reutiliza este HttpClient para otro dominio.
+        // Se prescinde del CookieHandler por defecto de Java HttpClient porque interfiere
+        // con la política de cookies entre dominios de Azure App Gateway en SAMAI (provoca HTTP 403).
+        // Las cookies (__AntiXsrfToken, TiPMix, etc.) se gestionan manualmente en cookieSesion
+        // e inyectan directamente en el header 'Cookie', garantizando HTTP 200 OK consistente.
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(timeoutConexionMs))
-                .cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
                 .build();
         this.objectMapper = objectMapper;
         this.timeoutLectura = Duration.ofMillis(timeoutLecturaMs);

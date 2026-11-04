@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class BusquedaMultirramaService {
 
     private static final Logger log = LoggerFactory.getLogger(BusquedaMultirramaService.class);
-    private static final long TIMEOUT_POR_RAMA_SEGUNDOS = 9;
+    private static final long TIMEOUT_POR_RAMA_SEGUNDOS = 18;
 
     private final CromaClient cromaClient;
     private final CromaCreditosService creditosService;
