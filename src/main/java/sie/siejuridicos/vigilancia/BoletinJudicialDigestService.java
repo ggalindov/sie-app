@@ -257,6 +257,40 @@ public class BoletinJudicialDigestService {
         return true;
     }
 
+    // Misma prueba en vivo que probarReporteDiario, pero con el asunto/saludo de ABOGADO
+    // (pedido explícito del usuario: visualizar los 3 formatos -- gerencia, abogado y
+    // cliente -- antes de confiar en el envío real). El cuerpo HTML es idéntico al de
+    // gerencia (mismo construirCuerpoReporteDiarioStaff), la diferencia real entre ambos
+    // destinatarios es el asunto del correo y el nombre de saludo (ver EmailService.
+    // enviarDigestBoletinAbogado).
+    @Transactional(readOnly = true)
+    public boolean probarReporteDiarioAbogado(String correoDestino, String nombreAbogado) {
+        List<ActuacionJudicialRegistrada> actuaciones =
+                actuacionRepository.listarRecientesConCaso(PageRequest.of(0, 15));
+        List<BoletinJudicialCache> boletines =
+                boletinRepository.listarTodosConCaso().stream().limit(5).toList();
+
+        if (actuaciones.isEmpty() && boletines.isEmpty()) {
+            return false;
+        }
+
+        String cuerpo = construirCuerpoReporteDiarioStaff(
+                nombreAbogado,
+                actuaciones,
+                boletines,
+                "Demostración del reporte diario de vigilancia judicial inteligente según formato estándar de la firma con archivo Excel adjunto."
+        );
+
+        List<EmailService.Adjunto> adjuntos = new ArrayList<>();
+        byte[] excelBytes = generarExcelMovimientos(actuaciones);
+        if (excelBytes.length > 0) {
+            adjuntos.add(new EmailService.Adjunto("Reporte de Movimientos.xlsx", excelBytes));
+        }
+
+        emailService.enviarDigestBoletinAbogado(nombreAbogado, correoDestino, cuerpo, adjuntos);
+        return true;
+    }
+
     // Genera el archivo Excel oficial 'Reporte de Movimientos.xlsx' idéntico a las columnas de IUS Tech
     public byte[] generarExcelMovimientos(List<ActuacionJudicialRegistrada> actuaciones) {
         if (actuaciones == null || actuaciones.isEmpty()) {

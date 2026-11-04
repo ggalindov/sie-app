@@ -517,6 +517,18 @@ public class VigilanciaAdminController {
         return ResponseEntity.ok(Map.of("enviado", enviado, "mensaje", enviado ? "Reporte de prueba enviado a " + correo : "Sin registros para probar."));
     }
 
+    // Mismo reporte de prueba, pero con el asunto/saludo de ABOGADO en vez de gerencia --
+    // pedido explícito del usuario para visualizar los 3 formatos (gerencia/abogado/cliente)
+    // antes de confiar en el envío real.
+    @PostMapping("/reporte-diario/probar-abogado")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<Map<String, Object>> probarReporteDiarioAbogado(
+            @RequestParam String correo,
+            @RequestParam(defaultValue = "Abogado de Prueba") String nombre) {
+        boolean enviado = boletinJudicialDigestService.probarReporteDiarioAbogado(correo, nombre);
+        return ResponseEntity.ok(Map.of("enviado", enviado, "mensaje", enviado ? "Reporte de prueba (abogado) enviado a " + correo : "Sin registros para probar."));
+    }
+
     private static String nombreMostrado(Caso caso) {
         return caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : caso.getCliente().getNombre();
     }
