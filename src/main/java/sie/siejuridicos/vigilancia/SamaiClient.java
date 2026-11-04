@@ -69,10 +69,7 @@ public class SamaiClient {
     // (ya visto en vivo esta sesión: "SAMAI respondió HTTP 403"), nunca otro código de
     // negocio (proceso no encontrado, petición inválida).
     private final AtomicInteger fallosConsecutivos = new AtomicInteger(0);
-    // Subido de 5 a 10 el 2026-11-01 -- mismo criterio que PublicacionesProcesalesClient y
-    // RamaJudicialCpnuClient (ver sus comentarios): con el timeout ya subido a 30s y el
-    // reintento de enviarJson()/establecerSesion() de abajo, 10 da más margen ante una racha
-    // corta de mala suerte sin dejar de proteger contra un apagón real sostenido de SAMAI.
+    private final java.util.concurrent.atomic.AtomicReference<String> cookieSesion = new java.util.concurrent.atomic.AtomicReference<>("");
     private static final int UMBRAL_FALLOS_CONSECUTIVOS = 10;
 
     public SamaiClient(
@@ -275,6 +272,18 @@ public class SamaiClient {
         }
         if (response.statusCode() == 200) {
             fallosConsecutivos.set(0);
+            List<String> setCookies = response.headers().allValues("set-cookie");
+            if (!setCookies.isEmpty()) {
+                List<String> pares = new ArrayList<>();
+                for (String sc : setCookies) {
+                    int p = sc.indexOf(';');
+                    String cookiePar = (p != -1 ? sc.substring(0, p) : sc).trim();
+                    if (!cookiePar.isBlank()) {
+                        pares.add(cookiePar);
+                    }
+                }
+                cookieSesion.set(String.join("; ", pares));
+            }
             return true;
         }
         fallosConsecutivos.incrementAndGet();
@@ -352,11 +361,18 @@ public class SamaiClient {
     }
 
     private HttpResponse<byte[]> enviarPost(String url, String cuerpoJson) throws java.io.IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(timeoutLectura)
                 .header("User-Agent", USER_AGENT)
                 .header("Content-Type", "application/json")
-                .header("Accept", "application/json, text/plain, */*")
+                .header("Accept", "application/json, text/plain, */*");
+
+        String cookie = cookieSesion.get();
+        if (cookie != null && !cookie.isBlank()) {
+            builder.header("Cookie", cookie);
+        }
+
+        HttpRequest request = builder
                 .POST(HttpRequest.BodyPublishers.ofString(cuerpoJson, StandardCharsets.UTF_8))
                 .build();
         // Mismo bug real confirmado en vivo (ver enviarGetSesion() arriba y el comentario de
