@@ -72,6 +72,14 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado ORDER BY c.fechaCreacion DESC")
     List<Caso> listarTodosConDetalle();
 
+    // Casos estándar no confidenciales (visibles para el panel general de casos)
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.esPrivadoCifrado = false ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarPublicosConDetalle();
+
+    // Bóveda de Casos Privados y Cifrados: exclusivos de Gerencia (ADMIN_GENERAL)
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.esPrivadoCifrado = true ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarPrivadosConDetalle();
+
     // Cuántos casos comparten este mismo Cliente (ver
     // CasoService.actualizarDatosCliente()): si un cliente tiene más de un caso, la columna
     // de "nombre" de cada fila de la hoja suele traer una etiqueta corta específica de ESE

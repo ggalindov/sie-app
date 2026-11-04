@@ -21,9 +21,9 @@ public interface TerminoProcesalRepository extends JpaRepository<TerminoProcesal
     List<TerminoProcesal> findByCaso_IdAndTareaIsNull(Long casoId);
 
     // Para /admin/calendario (ver VigilanciaAdminController.terminosCalendario()): todos los
-    // terminos cuyo vencimiento cae dentro del rango visible del mes, con el caso y el
+    // terminos cuyo vencimiento cae dentro del rango visible del mes, con el caso, la actuacion y el
     // abogado asignado ya cargados en la misma consulta (evita N+1 al armar la respuesta).
-    @Query("SELECT t FROM TerminoProcesal t JOIN FETCH t.caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+    @Query("SELECT t FROM TerminoProcesal t JOIN FETCH t.caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado JOIN FETCH t.actuacion a "
             + "WHERE t.fechaVencimiento BETWEEN :desde AND :hasta "
             + "ORDER BY t.fechaVencimiento ASC")
     List<TerminoProcesal> listarEnRango(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);

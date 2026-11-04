@@ -28,6 +28,8 @@ export function EditarCasoModal({
   const [radicadoId, setRadicadoId] = useState("");
   const [notasInternas, setNotasInternas] = useState("");
   const [abogadoAsignadoId, setAbogadoAsignadoId] = useState<string>("");
+  const [esPrivadoCifrado, setEsPrivadoCifrado] = useState(false);
+  const [motivoConfidencialidad, setMotivoConfidencialidad] = useState("");
   const [usuarios, setUsuarios] = useState<UsuarioInterno[]>([]);
   const [guardando, setGuardando] = useState(false);
 
@@ -39,6 +41,8 @@ export function EditarCasoModal({
     setRadicadoId(caso.radicadoId ?? "");
     setNotasInternas(caso.notasInternas ?? "");
     setAbogadoAsignadoId(caso.abogadoAsignadoId ? String(caso.abogadoAsignadoId) : "");
+    setEsPrivadoCifrado(caso.esPrivadoCifrado ?? false);
+    setMotivoConfidencialidad(caso.motivoConfidencialidad ?? "");
     listarUsuarios()
       .then((lista) => setUsuarios(lista.filter((u) => u.activo)))
       .catch(() => {
@@ -59,6 +63,8 @@ export function EditarCasoModal({
         radicadoId: radicadoId.trim() || "",
         notasInternas: notasInternas.trim() || "",
         abogadoAsignadoId: abogadoAsignadoId ? Number(abogadoAsignadoId) : null,
+        esPrivadoCifrado,
+        motivoConfidencialidad: esPrivadoCifrado ? (motivoConfidencialidad.trim() || null) : null,
       });
       toast.success("Caso actualizado.");
       onActualizado(actualizado);
@@ -158,6 +164,34 @@ export function EditarCasoModal({
                 placeholder="Nunca visibles para el cliente"
                 className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-gold-deep focus:outline-none"
               />
+            </div>
+
+            <div className="rounded-xl border border-line bg-ink/[0.02] p-3.5 space-y-2.5">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={esPrivadoCifrado}
+                  onChange={(e) => setEsPrivadoCifrado(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-line text-gold-deep focus:ring-gold-deep"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-ink">Bóveda Privada y Cifrada (Solo Gerencia)</span>
+                  <p className="text-ink-soft text-[11px] mt-0.5">
+                    Oculta este caso de las vistas generales de abogados y público. Solo accesible para administradores generales.
+                  </p>
+                </div>
+              </label>
+              {esPrivadoCifrado && (
+                <div className="pt-1">
+                  <label className="mb-1 block text-xs font-medium text-ink-soft">Motivo de confidencialidad</label>
+                  <input
+                    value={motivoConfidencialidad}
+                    onChange={(e) => setMotivoConfidencialidad(e.target.value)}
+                    placeholder="Ej: Caso ultra sensible, secreto profesional estricto..."
+                    className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-xs text-ink focus:border-gold-deep focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
 
             <AdminButton type="submit" disabled={guardando} className="w-full">

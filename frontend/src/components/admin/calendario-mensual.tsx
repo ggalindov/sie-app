@@ -59,6 +59,7 @@ export function CalendarioMensual({
   terminos = [],
   diaSeleccionado,
   onSeleccionarDia,
+  onSeleccionarTermino,
   mostrarResponsable,
 }: {
   mes: Date;
@@ -69,6 +70,7 @@ export function CalendarioMensual({
   terminos?: TerminoCalendario[];
   diaSeleccionado: Date | null;
   onSeleccionarDia: (dia: Date) => void;
+  onSeleccionarTermino?: (termino: TerminoCalendario) => void;
   /** true para ADMIN_GENERAL (necesita distinguir de quién es cada reunión). */
   mostrarResponsable: boolean;
 }) {
@@ -167,18 +169,23 @@ export function CalendarioMensual({
                 {terminosVisibles.map((termino) => {
                   const color = colorEstadoTermino(termino.estado);
                   return (
-                    <span
+                    <button
                       key={termino.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSeleccionarTermino?.(termino);
+                      }}
                       className={cn(
-                        "flex items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-[10.5px] font-medium leading-tight sm:text-[11px]",
+                        "flex w-full items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-left text-[10.5px] font-medium leading-tight transition-transform hover:scale-[1.02] active:scale-[0.98] sm:text-[11px]",
                         color.bg,
                         color.text,
                       )}
-                      title={`${termino.nombreCliente} · ${termino.descripcion}${termino.abogadoAsignadoNombre ? ` · ${termino.abogadoAsignadoNombre}` : ""}`}
+                      title={`${termino.nombreCliente} · ${termino.descripcion}${termino.abogadoAsignadoNombre ? ` · ${termino.abogadoAsignadoNombre}` : ""} (Clic para ver providencia o notificación oficial)`}
                     >
                       <Scales className="h-3 w-3 shrink-0" weight="bold" />
-                      {termino.nombreCliente}
-                    </span>
+                      <span className="truncate">{termino.nombreCliente}</span>
+                    </button>
                   );
                 })}
                 {terminosRestantes > 0 && (

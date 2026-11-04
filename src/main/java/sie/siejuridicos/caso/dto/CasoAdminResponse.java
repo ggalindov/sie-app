@@ -95,7 +95,9 @@ public record CasoAdminResponse(
         // esté mal -- hay jurisdicciones reales sin radicado CPNU (comisaría de familia,
         // inspección de policía) -- solo que este caso puntual no tendrá seguimiento
         // automático 24/7 hasta que se corrija o se confirme que es de otro tipo.
-        boolean radicadoFormatoInvalido
+        boolean radicadoFormatoInvalido,
+        boolean esPrivadoCifrado,
+        String motivoConfidencialidad
 ) {
     public static CasoAdminResponse desde(
             Caso caso, boolean tieneActualizacionSinRevisar, LocalDateTime fechaUltimaActuacionDetectada,
@@ -142,7 +144,9 @@ public record CasoAdminResponse(
                 caso.getRecursoProceso(),
                 caso.getUbicacionProceso(),
                 caso.getUltimaActualizacionRama(),
-                caso.isRadicadoFormatoInvalido()
+                caso.isRadicadoFormatoInvalido(),
+                caso.isEsPrivadoCifrado(),
+                caso.getMotivoConfidencialidad()
         );
     }
 }

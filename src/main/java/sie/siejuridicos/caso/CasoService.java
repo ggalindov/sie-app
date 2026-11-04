@@ -23,6 +23,7 @@ import sie.siejuridicos.hojacalculo.dto.ResultadoSincronizacionHoja;
 import sie.siejuridicos.registro.RegistroSistemaService;
 import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.usuario.UsuarioInterno;
+import sie.siejuridicos.usuario.RolUsuario;
 import sie.siejuridicos.usuario.UsuarioInternoRepository;
 import sie.siejuridicos.vigilancia.ActuacionJudicialRegistradaRepository;
 import sie.siejuridicos.vigilancia.BoletinJudicialCacheRepository;
@@ -165,6 +166,10 @@ public class CasoService {
         caso.setFuente(FuenteCaso.MANUAL);
         caso.setRadicadoId(radicadoId);
         caso.setNotasInternas(request.notasInternas());
+        if (request.esPrivado()) {
+            caso.setEsPrivadoCifrado(true);
+            caso.setMotivoConfidencialidad(request.motivoConfidencialidad());
+        }
 
         Caso guardado = casoRepository.save(caso);
         registrarSiRadicadoInvalido(guardado);
@@ -339,6 +344,13 @@ public class CasoService {
             terminoProcesalService.asignarTareasPendientes(caso, abogado);
         }
 
+        if (request.esPrivadoCifrado() != null) {
+            caso.setEsPrivadoCifrado(request.esPrivadoCifrado());
+        }
+        if (request.motivoConfidencialidad() != null) {
+            caso.setMotivoConfidencialidad(request.motivoConfidencialidad().isBlank() ? null : request.motivoConfidencialidad().strip());
+        }
+
         boolean contactoActualizado = actualizarContactoCliente(caso, request.correoCliente(), request.telefonoCliente());
 
         casoRepository.save(caso);
@@ -437,7 +449,7 @@ public class CasoService {
                         BoletinJudicialCacheRepository.ProximaExpiracionPorCaso::getCasoId,
                         p -> (int) Math.max(0, ChronoUnit.DAYS.between(ahora, p.getProximaExpiracion()))));
 
-        return casoRepository.listarTodosConDetalle().stream()
+        return casoRepository.listarPublicosConDetalle().stream()
                 .sorted(Comparator.comparing(Caso::getFuente).thenComparingLong(CasoService::numeroOrdenable))
                 .map(caso -> {
                     LocalDateTime ultimaDeteccion = ultimaDeteccionPorCaso.get(caso.getId());
@@ -449,6 +461,84 @@ public class CasoService {
                             diasParaBorrarPorCaso.get(caso.getId()));
                 })
                 .toList();
+    }
+
+    // Bóveda de Casos Privados y Cifrados: exclusivos de la Gerencia (ADMIN_GENERAL).
+    // Casos ultra sensibles con acceso restringido, cifrado de campos y aislamiento total de abogados.
+    @Transactional(readOnly = true)
+    public List<CasoAdminResponse> listarPrivados(Long usuarioActualId) {
+        if (usuarioActualId != null) {
+            UsuarioInterno usuario = usuarioInternoRepository.findById(usuarioActualId).orElse(null);
+            if (usuario != null && usuario.getRol() != RolUsuario.ADMIN_GENERAL) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Acceso restringido: Los Casos Privados y Cifrados son de acceso exclusivo para la Gerencia.");
+            }
+        }
+
+        Map<Long, LocalDateTime> ultimaDeteccionPorCaso = actuacionJudicialRegistradaRepository
+                .ultimaFechaDetectadaPorCaso().stream()
+                .collect(Collectors.toMap(
+                        ActuacionJudicialRegistradaRepository.UltimaDeteccionPorCaso::getCasoId,
+                        ActuacionJudicialRegistradaRepository.UltimaDeteccionPorCaso::getUltimaFechaDetectada));
+        Map<Long, LocalDateTime> ultimoMovimientoPorCaso = actuacionJudicialRegistradaRepository
+                .ultimaFechaMovimientoPorCaso().stream()
+                .collect(Collectors.toMap(
+                        ActuacionJudicialRegistradaRepository.UltimoMovimientoPorCaso::getCasoId,
+                        ActuacionJudicialRegistradaRepository.UltimoMovimientoPorCaso::getUltimaFechaMovimiento));
+        Map<Long, LocalDateTime> fechaVistaPorCaso = usuarioActualId == null
+                ? Map.of()
+                : seguimientoVistoUsuarioRepository.listarPorUsuario(usuarioActualId).stream()
+                        .collect(Collectors.toMap(
+                                SeguimientoVistoUsuarioRepository.VistoPorCaso::getCasoId,
+                                SeguimientoVistoUsuarioRepository.VistoPorCaso::getFechaVista));
+        LocalDateTime ahora = LocalDateTime.now();
+        Map<Long, Integer> diasParaBorrarPorCaso = boletinJudicialCacheRepository.proximaExpiracionPorCaso().stream()
+                .collect(Collectors.toMap(
+                        BoletinJudicialCacheRepository.ProximaExpiracionPorCaso::getCasoId,
+                        p -> (int) Math.max(0, ChronoUnit.DAYS.between(ahora, p.getProximaExpiracion()))));
+
+        return casoRepository.listarPrivadosConDetalle().stream()
+                .sorted(Comparator.comparing(Caso::getFechaCreacion).reversed())
+                .map(caso -> {
+                    LocalDateTime ultimaDeteccion = ultimaDeteccionPorCaso.get(caso.getId());
+                    LocalDateTime fechaVista = fechaVistaPorCaso.get(caso.getId());
+                    boolean sinRevisar = ultimaDeteccion != null
+                            && (fechaVista == null || ultimaDeteccion.isAfter(fechaVista));
+                    return CasoAdminResponse.desde(caso, sinRevisar, ultimaDeteccion,
+                            ultimoMovimientoPorCaso.get(caso.getId()),
+                            diasParaBorrarPorCaso.get(caso.getId()));
+                })
+                .toList();
+    }
+
+    @Transactional
+    public CasoAdminResponse marcarPrivado(Long id, boolean esPrivado, String motivo, UsuarioInterno actor) {
+        if (actor.getRol() != RolUsuario.ADMIN_GENERAL) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Solo la Gerencia puede clasificar o desclasificar casos en la Bóveda Privada.");
+        }
+        Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+
+        caso.setEsPrivadoCifrado(esPrivado);
+        if (motivo != null && !motivo.isBlank()) {
+            caso.setMotivoConfidencialidad(motivo.strip());
+        } else if (!esPrivado) {
+            caso.setMotivoConfidencialidad(null);
+        }
+
+        casoRepository.save(caso);
+
+        registroSistemaService.registrar(
+                TipoRegistroSistema.EDICION_CASO,
+                "'%s' %s el caso #%d (%s) como Caso Privado y Cifrado (Bóveda de Gerencia)".formatted(
+                        actor.getNombre(),
+                        esPrivado ? "clasificó" : "desclasificó",
+                        caso.getId(),
+                        caso.getRadicadoId() != null ? caso.getRadicadoId() : "Sin radicado"),
+                true);
+
+        return CasoAdminResponse.desde(caso, false, null, null, null);
     }
 
     // Solo la PRIMERA racha de dígitos, no todos los dígitos del texto: "40-2" (un número

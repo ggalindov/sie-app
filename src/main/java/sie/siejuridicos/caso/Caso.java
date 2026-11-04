@@ -227,6 +227,16 @@ public class Caso {
     @JoinColumn(name = "id_abogado_asignado")
     private UsuarioInterno abogadoAsignado;
 
+    // Casos Privados y Cifrados: casos ultra sensibles con acceso exclusivo para Gerencia (ADMIN_GENERAL).
+    // Bloqueados al 100% para abogados y otros roles del sistema.
+    @Column(name = "es_privado_cifrado", nullable = false)
+    private boolean esPrivadoCifrado = false;
+
+    // Motivo o notas de alta confidencialidad (cifrado con AES-256-GCM via CampoCifradoConverter).
+    @Convert(converter = CampoCifradoConverter.class)
+    @Column(name = "motivo_confidencialidad")
+    private String motivoConfidencialidad;
+
     public Long getId() {
         return id;
     }
@@ -461,5 +471,21 @@ public class Caso {
 
     public void setAbogadoAsignado(UsuarioInterno abogadoAsignado) {
         this.abogadoAsignado = abogadoAsignado;
+    }
+
+    public boolean isEsPrivadoCifrado() {
+        return esPrivadoCifrado;
+    }
+
+    public void setEsPrivadoCifrado(boolean esPrivadoCifrado) {
+        this.esPrivadoCifrado = esPrivadoCifrado;
+    }
+
+    public String getMotivoConfidencialidad() {
+        return motivoConfidencialidad;
+    }
+
+    public void setMotivoConfidencialidad(String motivoConfidencialidad) {
+        this.motivoConfidencialidad = motivoConfidencialidad;
     }
 }

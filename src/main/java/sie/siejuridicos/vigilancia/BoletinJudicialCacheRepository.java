@@ -49,6 +49,9 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     // boletín nunca se haya mandado antes).
     List<BoletinJudicialCache> findByCaso_Id(Long casoId);
 
+    // Pre-carga por lote para enriquecer términos en el calendario sin N+1
+    List<BoletinJudicialCache> findByCaso_IdIn(List<Long> casoIds);
+
     // Para saber qué casos tienen algo pendiente para el cliente esta semana, sin recorrer
     // los 362 casos uno por uno preguntando.
     @Query("SELECT DISTINCT b.caso.id FROM BoletinJudicialCache b "

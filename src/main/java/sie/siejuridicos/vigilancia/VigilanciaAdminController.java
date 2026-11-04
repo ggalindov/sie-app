@@ -307,11 +307,39 @@ public class VigilanciaAdminController {
         Long filtroAbogadoId = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL
                 ? abogadoId
                 : principal.getId();
-        List<TerminoCalendarioResponse> resultado = terminoProcesalRepository.listarEnRango(desde, hasta).stream()
+        boolean esAdmin = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL;
+
+        List<TerminoProcesal> terminos = terminoProcesalRepository.listarEnRango(desde, hasta).stream()
                 .filter(t -> filtroAbogadoId == null
                         || (t.getCaso().getAbogadoAsignado() != null
                                 && filtroAbogadoId.equals(t.getCaso().getAbogadoAsignado().getId())))
-                .map(TerminoCalendarioResponse::desde)
+                .filter(t -> esAdmin || !t.getCaso().isEsPrivadoCifrado())
+                .toList();
+
+        List<Long> casoIds = terminos.stream().map(t -> t.getCaso().getId()).distinct().toList();
+        Map<Long, BoletinJudicialCache> boletinPorActuacion = new java.util.HashMap<>();
+        Map<Long, BoletinJudicialCache> boletinPorCaso = new java.util.HashMap<>();
+        if (!casoIds.isEmpty()) {
+            List<BoletinJudicialCache> bList = boletinJudicialCacheRepository.findByCaso_IdIn(casoIds);
+            for (BoletinJudicialCache b : bList) {
+                if (b.getActuacion() != null) {
+                    boletinPorActuacion.putIfAbsent(b.getActuacion().getId(), b);
+                }
+                boletinPorCaso.putIfAbsent(b.getCaso().getId(), b);
+            }
+        }
+
+        List<TerminoCalendarioResponse> resultado = terminos.stream()
+                .map(t -> {
+                    BoletinJudicialCache bol = null;
+                    if (t.getActuacion() != null) {
+                        bol = boletinPorActuacion.get(t.getActuacion().getId());
+                    }
+                    if (bol == null) {
+                        bol = boletinPorCaso.get(t.getCaso().getId());
+                    }
+                    return TerminoCalendarioResponse.desde(t, bol);
+                })
                 .toList();
         return ResponseEntity.ok(resultado);
     }

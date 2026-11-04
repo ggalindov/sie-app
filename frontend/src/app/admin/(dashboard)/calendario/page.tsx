@@ -14,6 +14,9 @@ import {
   Scales,
   WhatsappLogo,
   X,
+  FilePdf,
+  ArrowSquareOut,
+  Eye,
 } from "@phosphor-icons/react";
 import {
   listarCalendario,
@@ -32,6 +35,8 @@ import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminButton, AdminCard, AdminLoader, Badge, EmptyState } from "@/components/admin/ui";
 import { AgendarReunionModal } from "@/components/admin/agendar-reunion-modal";
 import { CalendarioMensual, colorEstadoTermino, colorResponsable, diasDeLaCuadricula } from "@/components/admin/calendario-mensual";
+import { TerminoDetalleModal } from "@/components/admin/termino-detalle-modal";
+import { SeguimientoDeCasoModal, type CasoParaSeguimiento } from "@/components/admin/seguimiento-de-caso-modal";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -53,6 +58,8 @@ export default function CalendarioPage() {
   // veía como una insignia dentro del modal de Seguimiento -- esto lo trae con semáforo
   // para este calendario (ver TerminoCalendario y VigilanciaAdminController.terminosCalendario).
   const [terminos, setTerminos] = useState<TerminoCalendario[]>([]);
+  const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoCalendario | null>(null);
+  const [casoSeguimiento, setCasoSeguimiento] = useState<CasoParaSeguimiento | null>(null);
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [filtroAbogadoId, setFiltroAbogadoId] = useState<number | undefined>(undefined);
 
@@ -197,6 +204,7 @@ export default function CalendarioPage() {
             terminos={terminos}
             diaSeleccionado={diaSeleccionado}
             onSeleccionarDia={setDiaSeleccionado}
+            onSeleccionarTermino={setTerminoSeleccionado}
             mostrarResponsable={esAdmin}
           />
 
@@ -284,32 +292,74 @@ export default function CalendarioPage() {
                 compromiso agendado, un término es un plazo legal que corre solo). */}
             {terminosDelDiaSeleccionado.length > 0 && (
               <div className="mt-4 space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-soft/70">Términos que vencen hoy</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                  Términos que vencen hoy ({terminosDelDiaSeleccionado.length})
+                </p>
                 {terminosDelDiaSeleccionado.map((termino) => {
                   const color = colorEstadoTermino(termino.estado);
                   return (
-                    <AdminCard key={termino.id} className="!p-4">
-                      <div className="flex items-start gap-2">
-                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${color.bg} ${color.text}`}>
-                          <Scales className="h-3 w-3" weight="bold" />
+                    <div
+                      key={termino.id}
+                      className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all hover:ring-1 hover:ring-gold-deep/40 cursor-pointer"
+                      onClick={() => setTerminoSeleccionado(termino)}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${color.bg} ${color.text} ring-1 ring-current/20`}>
+                          <Scales className="h-3.5 w-3.5" weight="bold" />
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-ink">{termino.nombreCliente}</p>
-                          <p className="mt-0.5 text-xs text-ink-soft">{termino.descripcion}</p>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-medium ${color.bg} ${color.text}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-ink leading-snug">{termino.nombreCliente}</p>
+                          <p className="mt-0.5 text-xs text-ink-soft line-clamp-2">{termino.descripcion}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${color.bg} ${color.text}`}>
                               {termino.estado === "VENCIDO" ? "Vencido" : termino.estado === "POR_VENCER" ? "Por vencer" : "Corriendo"}
                             </span>
                             {termino.radicadoId && (
-                              <span className="font-mono text-[10.5px] text-gold-deep">{termino.radicadoId}</span>
+                              <span className="font-mono text-[10.5px] font-semibold text-gold-deep">{termino.radicadoId}</span>
                             )}
                           </div>
                           {esAdmin && termino.abogadoAsignadoNombre && (
-                            <p className="mt-1 text-[10.5px] text-ink-soft">Asignado a {termino.abogadoAsignadoNombre}</p>
+                            <p className="mt-1 text-[11px] text-ink-soft">Asignado a {termino.abogadoAsignadoNombre}</p>
                           )}
                         </div>
                       </div>
-                    </AdminCard>
+
+                      {/* Botones de acción directa a documento / notificación de la rama */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/60 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                        {termino.urlBoletinPdf && (
+                          <a
+                            href={termino.urlBoletinPdf}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg bg-gold/15 px-2 py-1 text-[11px] font-bold text-gold-deep hover:bg-gold/25"
+                            title="Abrir Providencia Judicial Oficial (PDF)"
+                          >
+                            <FilePdf className="h-3.5 w-3.5" weight="bold" />
+                            PDF Providencia
+                          </a>
+                        )}
+                        {termino.enlaceRamaJudicial && (
+                          <a
+                            href={termino.enlaceRamaJudicial}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg bg-ink/[0.05] px-2 py-1 text-[11px] font-medium text-ink-soft hover:bg-ink/[0.08] hover:text-ink"
+                            title="Ir a notificación en Rama Judicial"
+                          >
+                            <ArrowSquareOut className="h-3.5 w-3.5" weight="bold" />
+                            Rama Judicial
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setTerminoSeleccionado(termino)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-ink-soft hover:bg-ink/5 hover:text-ink"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Detalle
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -345,6 +395,20 @@ export default function CalendarioPage() {
         rolActual={esAdmin ? "ADMIN_GENERAL" : "ABOGADO"}
         onClose={() => setReunionEnCurso(null)}
         onAgendada={onAgendada}
+      />
+
+      <TerminoDetalleModal
+        termino={terminoSeleccionado}
+        onClose={() => setTerminoSeleccionado(null)}
+        onAbrirSeguimiento={(casoId, radicado, nombre) => {
+          setTerminoSeleccionado(null);
+          setCasoSeguimiento({ id: casoId, radicadoId: radicado, nombreCliente: nombre });
+        }}
+      />
+
+      <SeguimientoDeCasoModal
+        caso={casoSeguimiento}
+        onClose={() => setCasoSeguimiento(null)}
       />
     </div>
   );

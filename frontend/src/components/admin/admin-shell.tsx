@@ -28,12 +28,13 @@ import {
   Binoculars,
   FilePdf,
   ChartPieSlice,
+  ShieldCheck,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
 import { NotificacionesPanel } from "@/components/admin/notificaciones-panel";
 import { BuscadorGlobal } from "@/components/admin/buscador-global";
-import { listarSolicitudes, listarPqrs, listarCasos, listarCobros, listarTareasPendientes, listarProcesosDetectados } from "@/lib/admin-api";
+import { listarSolicitudes, listarPqrs, listarCasos, listarCasosPrivados, listarCobros, listarTareasPendientes, listarProcesosDetectados } from "@/lib/admin-api";
 
 type Rol = "ADMIN_GENERAL" | "ABOGADO";
 
@@ -85,6 +86,7 @@ const navGroups: NavGroup[] = [
     titulo: "Casos y seguimiento judicial",
     items: [
       { href: "/admin/casos", label: "Casos", descripcion: "Expedientes activos con seguimiento judicial 24/7.", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"], contadorId: "casos" },
+      { href: "/admin/casos-privados", label: "Casos Privados y Cifrados", descripcion: "Bóveda ultra sensible de Gerencia con cifrado AES-256.", icon: ShieldCheck, roles: ["ADMIN_GENERAL"], contadorId: "casosPrivados" },
       // Pedido explícito del usuario: "implementa todas las mejoras identificadas"
       // (comparando contra Lupa Jurídica) -- procesos que el CPNU encontró buscando por el
       // nombre de un cliente, que todavía no están en nuestra tabla de casos. Ver
@@ -169,6 +171,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
       // que false.
       listarCobros()
         .then((rows) => setContadores((c) => ({ ...c, cobros: rows.filter((r) => r.pagoEsteMes !== true).length })))
+        .catch(() => {});
+      listarCasosPrivados()
+        .then((rows) => setContadores((c) => ({ ...c, casosPrivados: rows.length })))
         .catch(() => {});
     }
   }, [sesion]);

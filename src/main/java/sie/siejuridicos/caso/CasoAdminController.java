@@ -79,6 +79,23 @@ public class CasoAdminController {
         return ResponseEntity.ok(casoService.listarTodos(principal != null ? principal.getId() : null));
     }
 
+    // Bóveda de Casos Privados y Cifrados: exclusivo para la Gerencia (ADMIN_GENERAL)
+    @GetMapping("/privados")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<List<CasoAdminResponse>> listarPrivados(@AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(casoService.listarPrivados(principal != null ? principal.getId() : null));
+    }
+
+    @PatchMapping("/{id}/marcar-privado")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<CasoAdminResponse> marcarPrivado(
+            @PathVariable Long id,
+            @org.springframework.web.bind.annotation.RequestParam boolean esPrivado,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String motivo,
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(casoService.marcarPrivado(id, esPrivado, motivo, principal.getUsuario()));
+    }
+
     // Pedido explícito del usuario: "una variable para editar los casos, la idea es
     // desligarnos del excel, un boton para editar caso para administrador unicamente y
     // asignacion de caso por abogado" -- a diferencia de todo lo demás en este controlador
