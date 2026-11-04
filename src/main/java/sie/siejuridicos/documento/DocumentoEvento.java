@@ -40,6 +40,10 @@ public class DocumentoEvento {
     public static final String TIPO_LLAVE_APLICACION_ROTADA = "LLAVE_APLICACION_ROTADA";
     public static final String TIPO_SELLO_TIEMPO_APLICADO = "SELLO_TIEMPO_APLICADO";
     public static final String TIPO_SELLO_TIEMPO_FALLIDO = "SELLO_TIEMPO_FALLIDO";
+    // Fallo del PASO de sellado (estampado/firma de aplicacion), distinto de
+    // TIPO_SELLO_TIEMPO_FALLIDO (ese es solo la TSA externa RFC3161 y nunca bloquea nada). Ver
+    // DocumentoSellaInfoService#intentarSellarYRemitir y DocumentoSellaInfoRetryScheduler.
+    public static final String TIPO_SELLADO_FALLIDO = "SELLADO_FALLIDO";
     public static final String TIPO_CERTIFICADO_EVIDENCIA_DESCARGADO = "CERTIFICADO_EVIDENCIA_DESCARGADO";
     public static final String TIPO_DOCUMENTO_FINAL_DESCARGADO = "DOCUMENTO_FINAL_DESCARGADO";
     public static final String TIPO_DOCUMENTO_REVISION_CONSULTADA = "DOCUMENTO_REVISION_CONSULTADA";

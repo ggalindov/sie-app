@@ -118,4 +118,19 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
             + "LEFT JOIN FETCH c.cliente cl "
             + "ORDER BY a.id DESC")
     List<ActuacionJudicialRegistrada> listarRecientesConCaso(org.springframework.data.domain.Pageable pageable);
+
+    // Para VigilanciaAdminController.controlDiario() (pedido explícito del usuario, 2026-11-04:
+    // réplica del "Control diario procesal" de LUPA) -- todas las actuaciones con fecha de
+    // registro dentro del rango, caso + abogado ya cargados para poder filtrar y mostrar sin
+    // N+1. Usa fechaRegistro (cuándo el despacho publicó la actuación), el mismo criterio ya
+    // establecido en ultimaFechaMovimientoPorCaso/conFechaRegistroDesde de esta misma clase
+    // para "cuándo pasó esto realmente".
+    @Query("SELECT a FROM ActuacionJudicialRegistrada a "
+            + "JOIN FETCH a.caso c "
+            + "LEFT JOIN FETCH c.abogadoAsignado ab "
+            + "WHERE a.fechaRegistro IS NOT NULL AND a.fechaRegistro >= :desde AND a.fechaRegistro < :hasta "
+            + "ORDER BY a.fechaRegistro DESC")
+    List<ActuacionJudicialRegistrada> findByFechaRegistroEntre(
+            @org.springframework.data.repository.query.Param("desde") LocalDateTime desde,
+            @org.springframework.data.repository.query.Param("hasta") LocalDateTime hasta);
 }

@@ -28,14 +28,17 @@ public class CromaAdminController {
     private final CromaClient cromaClient;
     private final CromaCreditosService creditosService;
     private final CromaLegalProService legalProService;
+    private final BusquedaMultirramaService busquedaMultirramaService;
 
     public CromaAdminController(
             CromaClient cromaClient,
             CromaCreditosService creditosService,
-            CromaLegalProService legalProService) {
+            CromaLegalProService legalProService,
+            BusquedaMultirramaService busquedaMultirramaService) {
         this.cromaClient = cromaClient;
         this.creditosService = creditosService;
         this.legalProService = legalProService;
+        this.busquedaMultirramaService = busquedaMultirramaService;
     }
 
     @GetMapping("/cuota")
@@ -45,7 +48,7 @@ public class CromaAdminController {
 
     @PostMapping("/buscar")
     public ResponseEntity<CromaBusquedaResponse> buscarPorEntidad(@Valid @RequestBody CromaBusquedaRequest request) {
-        return ResponseEntity.ok(cromaClient.buscarProcesosPorEntidad(request));
+        return ResponseEntity.ok(busquedaMultirramaService.buscar(request));
     }
 
     @PostMapping("/legal-pro")

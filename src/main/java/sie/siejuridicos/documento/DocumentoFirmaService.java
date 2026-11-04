@@ -1,5 +1,7 @@
 package sie.siejuridicos.documento;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,8 @@ import java.util.List;
 // (gerente y abogados primero, partes después, en el orden en que gerencia las agregó).
 @Service
 public class DocumentoFirmaService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentoFirmaService.class);
 
     // Pedido explícito del usuario: si la parte es una EMPRESA, el canal queda forzado a
     // correo (nunca WhatsApp); si es una persona natural, gerencia elige. Se valida aquí,
@@ -164,9 +168,26 @@ public class DocumentoFirmaService {
         if (!partes.isEmpty()) {
             iniciarFirmaDePartes(documento, partes);
         } else {
-            documentoSellaInfoService.intentarSellarYRemitir(documento);
+            intentarSellarSinPropagarError(documento);
         }
         return true;
+    }
+
+    // Aisla cualquier fallo del paso de sellado (ver el comentario de
+    // DocumentoSellaInfoService#intentarSellarYRemitir) para que NUNCA revierta el registro
+    // de una firma o el cierre de la compuerta de staff que ya se persistieron en esta misma
+    // transacción. El documento queda tal como estaba (FIRMADO_STAFF/EN_FIRMA_PARTES, nunca a
+    // medio sellar) y DocumentoSellaInfoRetryScheduler reintenta más tarde.
+    private void intentarSellarSinPropagarError(DocumentoFirma documento) {
+        try {
+            documentoSellaInfoService.intentarSellarYRemitir(documento);
+        } catch (RuntimeException ex) {
+            log.error("Fallo al sellar el documento {} tras completar las firmas; se reintentará automáticamente. Causa: {}",
+                    documento.getId(), ex.getMessage(), ex);
+            documentoTimelineService.registrarSistema(documento, DocumentoEvento.TIPO_SELLADO_FALLIDO,
+                    "No fue posible sellar el documento tras completar las firmas (" + ex.getMessage()
+                            + "). Las firmas ya registradas quedan a salvo; el sistema reintentará el sellado automáticamente.");
+        }
     }
 
     private void iniciarFirmaDePartes(DocumentoFirma documento, List<DocumentoFirmante> partes) {
@@ -230,7 +251,7 @@ public class DocumentoFirmaService {
                 null, firmante, firmante.getNombreCapturado() + " firmó el documento en línea.",
                 firmante.getIpCaptura(), firmante.getUserAgentCaptura());
         emitirEnlaceDeSiguientes(documento);
-        documentoSellaInfoService.intentarSellarYRemitir(documento);
+        intentarSellarSinPropagarError(documento);
     }
 
     // Llamado por el flujo público cuando una parte declina firmar. A diferencia de

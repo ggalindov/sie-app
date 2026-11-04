@@ -44,6 +44,13 @@ public interface DocumentoFirmaRepository extends JpaRepository<DocumentoFirma, 
     @Query("SELECT d.id FROM DocumentoFirma d WHERE d.estadoDocumento = :estado ORDER BY d.fechaCreacion ASC")
     List<UUID> findIdsByEstadoDocumento(@Param("estado") String estado);
 
+    // Ids de documentos donde todos los firmantes ya deberían estar resueltos pero el sellado
+    // falló la primera vez (ver DocumentoSellaInfoRetryScheduler) -- cualquier estado posterior
+    // a FIRMADO_STAFF y anterior a SELLADO. intentarSellarYRemitir ya es idempotente/seguro de
+    // reintentar: si en realidad todavía hay un firmante pendiente, simplemente no hace nada.
+    @Query("SELECT d.id FROM DocumentoFirma d WHERE d.estadoDocumento IN :estados ORDER BY d.fechaCreacion ASC")
+    List<UUID> findIdsByEstadoDocumentoIn(@Param("estados") List<String> estados);
+
     // Ids de documentos ya sellados que siguen VIGENTES (nunca marcados ALTERADO): el
     // universo del barrido proactivo de integridad.
     @Query("SELECT d.id FROM DocumentoFirma d WHERE d.estadoDocumento IN :estados AND d.estadoIntegridad = :estadoIntegridad "

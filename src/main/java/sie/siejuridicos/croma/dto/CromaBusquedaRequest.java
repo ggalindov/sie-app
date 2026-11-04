@@ -4,14 +4,23 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record CromaBusquedaRequest(
-        @NotBlank(message = "El nombre o razón social no puede estar vacío")
-        @Size(min = 3, max = 200, message = "El nombre debe tener entre 3 y 200 caracteres")
+        @NotBlank(message = "El nombre, cédula o razón social no puede estar vacío")
+        @Size(min = 3, max = 200, message = "La búsqueda debe tener entre 3 y 200 caracteres")
         String nombre,
 
         // 'natural' o 'juridical'
         String tipoEntidad,
 
-        Boolean soloActivos
+        Boolean soloActivos,
+
+        // Opcional: corporación específica para SAMAI (ej. '1100103' para Consejo de Estado)
+        String corporacionSamai,
+
+        // Opcional: filtro de rama ('TODAS', 'ORDINARIA', 'ADMINISTRATIVA', 'CONSTITUCIONAL', 'SIE')
+        String ramaFiltro,
+
+        // Opcional: documento explícito
+        String documento
 ) {
     public String tipoEntidadNormalizado() {
         if (tipoEntidad == null || tipoEntidad.isBlank()) {

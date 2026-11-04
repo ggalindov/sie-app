@@ -473,6 +473,19 @@ public class BoletinJudicialDigestService {
                 if (resp.posibleAcreedorSubrogatorio()) {
                     badgeHtml.append("<br><span style=\"background-color:#fef2f2;color:#dc2626;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;border:1px solid #fecaca;\">Acreedor Subrogatorio</span>");
                 }
+                // Pedido explícito del usuario (2026-11-04, auditoría en vivo del correo real
+                // de LUPA "Movimientos..."): su tabla trae una columna "TERMINACIÓN: NORMAL" y
+                // alerta aparte cuando el abogado no asistió a una audiencia -- mismo criterio
+                // que las badges de arriba, ver ClasificadorMovimientoJudicial.
+                if ("AUDIENCIA_PROGRAMADA".equals(resp.tipoMovimiento())) {
+                    badgeHtml.append("<br><span style=\"background-color:#eff6ff;color:#1d4ed8;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;border:1px solid #bfdbfe;\">Audiencia Programada</span>");
+                }
+                if ("TERMINACION_PROCESO".equals(resp.tipoMovimiento())) {
+                    badgeHtml.append("<br><span style=\"background-color:#f0fdf4;color:#15803d;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;border:1px solid #bbf7d0;\">Terminación de Proceso</span>");
+                }
+                if ("NO_ASISTIO".equals(resp.asistenciaAudiencia())) {
+                    badgeHtml.append("<br><span style=\"background-color:#dc2626;color:#ffffff;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:3px;\">&#9888; Posible inasistencia a audiencia</span>");
+                }
 
                 String asunto = act.getNombreActuacion() != null ? act.getNombreActuacion().toUpperCase() : "ACTUACIÓN JUDICIAL";
                 String anotacion = act.getAnotacion() != null && !act.getAnotacion().isBlank()

@@ -1,8 +1,11 @@
 package sie.siejuridicos.documento;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import sie.siejuridicos.documento.events.DocumentoRemitidoEvent;
 import sie.siejuridicos.documento.pdf.CierreCustodiaPdfAppender;
@@ -22,6 +25,8 @@ import java.util.List;
 // línea de tiempo del documento.
 @Service
 public class DocumentoSellaInfoService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentoSellaInfoService.class);
 
     private final DocumentoFirmanteRepository documentoFirmanteRepository;
     private final DocumentoTimelineService documentoTimelineService;
@@ -59,7 +64,23 @@ public class DocumentoSellaInfoService {
         this.sitioPublicoUrl = sitioPublicoUrl;
     }
 
-    @Transactional
+    // Bug real diagnosticado en vivo (auditoria del motor de firma, 2026-11-04): "firmar se
+    // queda en error, rechazar funciona". Causa -- este metodo corria en la MISMA transaccion
+    // que DocumentoFirmaService#registrarFirmaDeParte, asi que cualquier fallo en el paso de
+    // sellado (estampado del PDF, margen legal, firma de aplicacion) revertia TAMBIEN el
+    // registro de la firma que el firmante ya habia capturado: el firmante veia un 500
+    // generico y tenia que volver a firmar desde cero. registrarRechazoDeParte nunca llama a
+    // este metodo, por eso rechazar nunca fallaba igual.
+    //
+    // REQUIRES_NEW aisla el sellado en su PROPIA transaccion: si falla, solo se revierte lo
+    // que este metodo mismo alcanzo a cambiar (nunca llega a persistir un estado a medias,
+    // ver el comentario de sellar() mas abajo), y el llamador (ver
+    // DocumentoFirmaService#intentarSellarSinPropagarError) atrapa la excepcion sin dejarla
+    // subir -- la firma del firmante queda SIEMPRE confirmada. El sellado se reintenta solo
+    // despues (ver DocumentoSellaInfoRetryScheduler), igual que ya existe para el sello de
+    // tiempo RFC3161 (Rfc3161RetryScheduler) y para la compuerta de staff
+    // (DocumentoFirmaStaffRetryListener).
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void intentarSellarYRemitir(DocumentoFirma documento) {
         List<DocumentoFirmante> firmantes = documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documento.getId());
         // Nunca sellar un documento donde alguna parte rechazó firmar -- RECHAZADO solo

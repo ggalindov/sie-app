@@ -59,7 +59,15 @@ public record ActuacionRegistradaResponse(
         // de portales abiertos") -- su columna "INFORMACIÓN ADICIONAL" también marca en rojo
         // "MEDIDAS CAUTELARES" además de "ACREEDOR SUBROGATORIO". Mismo criterio que los dos
         // de arriba: palabras clave, nunca un hecho verificado.
-        boolean posibleMedidaCautelar
+        boolean posibleMedidaCautelar,
+        // Pedido explícito del usuario (2026-11-04, auditoría de LUPA/IUS: "deja la
+        // vigilancia lo mas profesional y unica posible"): LUPA clasifica cada actuación del
+        // día en una categoría fija (su "Control diario procesal") y marca aparte si el
+        // abogado asistió a una audiencia (su "Control asistencia audiencia") -- ver
+        // ClasificadorMovimientoJudicial, mismo criterio de palabras clave que el resto de
+        // este archivo, nunca un hecho verificado.
+        String tipoMovimiento,
+        String asistenciaAudiencia
 ) {
     public static ActuacionRegistradaResponse desde(ActuacionJudicialRegistrada entidad) {
         boolean oficial = entidad.getFechaInicialTermino() != null && entidad.getFechaFinalTermino() != null;
@@ -87,7 +95,12 @@ public record ActuacionRegistradaResponse(
                 termino.isPresent() ? oficial : null,
                 contieneAlguna(textoCompleto, "liquidacion de costas", "liquidación de costas", "liquida costas"),
                 contieneAlguna(textoCompleto, "subrogatorio", "subrogatoria"),
-                contieneAlguna(textoCompleto, "medida cautelar", "medidas cautelares", "cautelar"));
+                contieneAlguna(textoCompleto, "medida cautelar", "medidas cautelares", "cautelar"),
+                sie.siejuridicos.vigilancia.ClasificadorMovimientoJudicial.clasificarTipo(entidad.getNombreActuacion())
+                        .map(Enum::name).orElse(null),
+                sie.siejuridicos.vigilancia.ClasificadorMovimientoJudicial
+                        .clasificarAsistenciaAudiencia(entidad.getNombreActuacion(), entidad.getAnotacion())
+                        .map(Enum::name).orElse(null));
     }
 
     private static String safe(String texto) {

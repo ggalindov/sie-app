@@ -18,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -165,6 +167,88 @@ public class SamaiClient {
             LocalDate fechaProceso,
             boolean esPrivado,
             String ponente) {
+    }
+
+    public record ProcesoSamaiDto(
+            String radicado,
+            String despacho,
+            String demandante,
+            String demandado,
+            String clase,
+            LocalDate fechaIngreso,
+            String ponente,
+            String guid,
+            boolean esPrivado
+    ) {
+        public String obtenerPartesTexto() {
+            String dte = demandante == null ? "" : demandante.strip();
+            String ddo = demandado == null ? "" : demandado.strip();
+            if (dte.isBlank() && ddo.isBlank()) return "";
+            if (dte.isBlank()) return "Ddo: " + ddo;
+            if (ddo.isBlank()) return "Dte: " + dte;
+            return "Dte: " + dte + " | Ddo: " + ddo;
+        }
+    }
+
+    // Búsqueda multi-corporación en la jurisdicción contencioso-administrativa por Nombre, Cédula o NIT de parte procesal.
+    // Consulta Consejo de Estado (1100103) y Tribunal Administrativo de Cundinamarca (2500023) por defecto.
+    public List<ProcesoSamaiDto> buscarPorParte(String criterio, String corporacionOpcional) {
+        if (criterio == null || criterio.strip().length() < 3) {
+            return List.of();
+        }
+        if (!establecerSesion()) {
+            return List.of();
+        }
+
+        List<String> corporaciones = (corporacionOpcional != null && !corporacionOpcional.isBlank())
+                ? List.of(corporacionOpcional.strip())
+                : List.of("1100103", "2500023");
+
+        List<ProcesoSamaiDto> resultados = new ArrayList<>();
+        String criterioLimpio = criterio.strip();
+
+        for (String corp : corporaciones) {
+            try {
+                String cuerpoPeticion = """
+                        {"tipoBusqueda":"parte","criterio":"%s","fraseExacta":false,"ambito":"corporacion",\
+                        "corporacion":"%s","seccion":"","ponente":"","fechaDesde":"","fechaHasta":"",\
+                        "estado":"","tipoParte":"","pagina":1,"tamanoPagina":15}\
+                        """.formatted(criterioLimpio.replace("\"", "\\\""), corp);
+
+                Optional<JsonNode> respuesta = enviarJson(urlBase + "/Vistas/Casos/Jprocesos.ashx/buscar", cuerpoPeticion);
+                if (respuesta.isEmpty()) continue;
+                JsonNode data = respuesta.get().path("data");
+                JsonNode items = data.path("items");
+                if (!items.isArray() || items.isEmpty()) continue;
+
+                for (JsonNode item : items) {
+                    if (item.path("esPrivado").asBoolean(false)) {
+                        continue;
+                    }
+                    String rad = textoOVacio(item.path("radicado"));
+                    if (rad.isBlank()) {
+                        rad = textoOVacio(item.path("numeroProceso"));
+                    }
+                    String despacho = textoOVacio(item.path("nombreDespachoOperativo"));
+                    if (despacho.isBlank()) {
+                        despacho = textoOVacio(item.path("despacho"));
+                    }
+                    String dte = textoOVacio(item.path("demandante"));
+                    String ddo = textoOVacio(item.path("demandado"));
+                    String clase = textoOVacio(item.path("clase"));
+                    LocalDate fechaIngreso = parsearFecha(item.path("fechaIngreso").asString(null));
+                    String ponente = textoOVacio(item.path("ponente"));
+                    String guid = extraerGuid(textoOVacio(item.path("urlDetalle")));
+                    boolean esPrivado = item.path("esPrivado").asBoolean(false);
+
+                    resultados.add(new ProcesoSamaiDto(
+                            rad, despacho, dte, ddo, clase, fechaIngreso, ponente, guid, esPrivado));
+                }
+            } catch (Exception ex) {
+                log.warn("Error consultando corporación {} en SAMAI para '{}': {}", corp, criterio, ex.getMessage());
+            }
+        }
+        return resultados;
     }
 
     private static String extraerGuid(String urlDetalle) {

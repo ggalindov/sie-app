@@ -30,14 +30,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 // de cualquiera de los tres y se libera solo cuando TODO terminó, así que es
 // estructuralmente imposible que dos corran a la vez sin importar quién los dispare.
 //
-// El ciclo automático corre UNA vez al día, de madrugada (1:00am, ver
-// app.vigilancia.ciclo-nocturno-cron) -- pedido explícito del usuario: "precisamente a esas
-// horas el sistema esta en hora baja, practicamente ningun usuario, con eso nunca perdemos
-// nada". Ya no son tres ciclos continuos independientes (el diseño anterior, pensado para
-// "nunca parar de buscar"): la prioridad cambió a "nunca generar tráfico combinado que
-// parezca un ataque automatizado", y una corrida diaria completa en horas de bajísimo
-// tráfico cumple ese objetivo sin perder cobertura real (con la cartera actual de casos de
-// la firma, el ciclo completo cabe de sobra en la ventana nocturna).
+// El ciclo automático se intenta cada hora en punto, de 7:00 AM a 7:00 PM (ver
+// app.vigilancia.ciclo-cron) -- pedido explícito del usuario, 2026-11-04: "el sistema no debe
+// de parar de hacer busquedas", "dejemoslo con espacios de 60 minutos entre uno y otro".
+// Sigue sin ser tráfico verdaderamente paralelo ni un machaque continuo: el mutex
+// cicloEnCurso de más abajo hace que un disparo que llega con el ciclo anterior todavía en
+// curso simplemente se ignore, así que este cron define la frecuencia MÁXIMA de arranque, no
+// una garantía de 13 ciclos completos independientes por día -- con la cartera actual de
+// casos de la firma, cada ciclo completo puede tardar varias horas, así que en la práctica
+// esto se traduce en "arrancar el siguiente ciclo lo antes posible dentro de la ventana
+// 7am-7pm en cuanto el anterior libera el mutex", en vez de esperar hasta el próximo tramo
+// fijo de 6 horas como antes (7am/1pm).
 //
 // Los tres pasos van en SECUENCIA, nunca en paralelo entre ellos tampoco, y en este orden
 // deliberado: seguimiento primero (así el historial de actuaciones queda fresco ANTES de
@@ -91,16 +94,12 @@ public class VigilanciaExternaOrquestador {
         this.eventPublisher = eventPublisher;
     }
 
-    // Primer recorrido matutino: 7:00 AM (pedido explícito del usuario)
-    @Scheduled(cron = "${app.vigilancia.ciclo-matutino-cron:${app.vigilancia.ciclo-nocturno-cron:0 0 7 * * *}}")
-    public void ejecutarCicloMatutino() {
-        ejecutarSiLibre("ciclo matutino automático (7:00 AM)");
-    }
-
-    // Segundo recorrido vespertino: 1:00 PM (13:00) (pedido explícito del usuario)
-    @Scheduled(cron = "${app.vigilancia.ciclo-vespertino-cron:0 0 13 * * *}")
-    public void ejecutarCicloVespertino() {
-        ejecutarSiLibre("ciclo vespertino automático (1:00 PM)");
+    // Un intento de arranque cada hora en punto, 7:00 AM a 7:00 PM inclusive (ver el
+    // comentario de cabecera de esta clase). ejecutarSiLibre() ya absorbe sin efecto los
+    // disparos que llegan con el ciclo anterior todavía en curso.
+    @Scheduled(cron = "${app.vigilancia.ciclo-cron:0 0 7-19 * * *}")
+    public void ejecutarCicloHorario() {
+        ejecutarSiLibre("ciclo automático horario (7am-7pm)");
     }
 
     // Disparo manual desde el panel admin (ver VigilanciaAdminController: los tres botones

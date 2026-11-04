@@ -177,17 +177,37 @@ public class DocumentoPdfStamper {
         celdaFirma.setPadding(10);
         celdaFirma.setHorizontalAlignment(Element.ALIGN_CENTER);
         celdaFirma.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        if (firmante.getFirmaImagenPng() != null) {
-            Image imagen = Image.getInstance(firmante.getFirmaImagenPng());
-            imagen.scaleToFit(170, 64);
-            imagen.setAlignment(Element.ALIGN_CENTER);
-            celdaFirma.addElement(imagen);
-        } else {
-            celdaFirma.addElement(new Paragraph("Sin firma", FUENTE_SIN_FIRMA));
-        }
+        celdaFirma.addElement(elementoImagenFirma(firmante));
         tabla.addCell(celdaFirma);
 
         return tabla;
+    }
+
+    // Bug real diagnosticado en vivo (2026-11-04, reportado por el usuario: "al momento de
+    // firmar el documento no deja... no esta agregando los espacios de firma"): antes,
+    // Image.getInstance() corría SIN aislar dentro del mismo try/catch de
+    // generarPaginasFirmas() -- si la imagen PNG de UN SOLO firmante no era decodificable por
+    // OpenPDF (típicamente la firma de staff subida desde "Mi perfil" antes de que
+    // AuthService#actualizarFirma empezara a normalizarla con SignatureImageProcessor, ver
+    // ese comentario), la excepción abortaba TODO estamparFirmas(): ningún firmante, ni
+    // siquiera los que sí tenían una imagen válida, terminaba con su bloque de firma en el
+    // PDF. Aislar la imagen de cada firmante en su propio try/catch, igual que
+    // SignatureImageProcessor y el resto de este motor ya hacen con cualquier dato que venga
+    // de una fuente que puede fallar, hace que un PNG problemático de un firmante nunca le
+    // quite a los demás su espacio de firma -- ese firmante puntual queda con un aviso
+    // explícito en vez de con la página entera sin generarse.
+    private Element elementoImagenFirma(DocumentoFirmante firmante) {
+        if (firmante.getFirmaImagenPng() != null) {
+            try {
+                Image imagen = Image.getInstance(firmante.getFirmaImagenPng());
+                imagen.scaleToFit(170, 64);
+                imagen.setAlignment(Element.ALIGN_CENTER);
+                return imagen;
+            } catch (Exception ex) {
+                return new Paragraph("Firma registrada (imagen no disponible para vista previa)", FUENTE_SIN_FIRMA);
+            }
+        }
+        return new Paragraph("Sin firma", FUENTE_SIN_FIRMA);
     }
 
     private String rolVisible(DocumentoFirmante firmante) {

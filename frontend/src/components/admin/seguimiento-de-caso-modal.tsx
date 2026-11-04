@@ -62,6 +62,15 @@ function formatearPartes(sujetosProcesales: string): string[] {
     .filter(Boolean);
 }
 
+// Heurística simple: "LABORAL" en el nombre del despacho o del tipo de proceso. SIUGJ cubre
+// hoy la jurisdicción laboral (ver el enlace manual más abajo); no hay forma de saberlo con
+// certeza sin consultar el propio SIUGJ (bloqueado por reCAPTCHA), así que esto es solo una
+// señal para mostrar el acceso directo cuando es probable que aplique, nunca una garantía.
+function esDespachoLaboral(despachoJudicial?: string | null, tipoProceso?: string | null): boolean {
+  const texto = `${despachoJudicial ?? ""} ${tipoProceso ?? ""}`.toUpperCase();
+  return texto.includes("LABORAL");
+}
+
 export type CasoParaSeguimiento = {
   id: number;
   nombreCliente: string;
@@ -538,6 +547,44 @@ export function SeguimientoDeCasoModal({
                           {linea.departamentoJudicial && ` · ${linea.departamentoJudicial}`}
                         </p>
                       )}
+                      {/* Pedido explícito del usuario: integrar SIUGJ. Su buscador público exige
+                          resolver un reCAPTCHA en cada consulta, así que nunca se puede automatizar
+                          (nunca se programa un bypass de CAPTCHA) -- desde dic/2023 los procesos
+                          laborales que reparte SIUGJ ni siquiera aparecen en la Consulta Nacional
+                          Unificada, así que para esos casos este acceso directo es la única forma
+                          real de revisarlos sin salir del flujo de trabajo del abogado. */}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {esDespachoLaboral(linea.despachoJudicial, linea.tipoProceso) && (
+                          <a
+                            href="https://siugj.ramajudicial.gov.co/principalPortal/consultarProceso.php"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md border border-line bg-paper px-2 py-0.5 text-[11px] font-medium text-ink hover:bg-ink/5"
+                          >
+                            <ArrowSquareOut className="h-3 w-3" weight="bold" />
+                            Buscar en SIUGJ (reCAPTCHA manual)
+                          </a>
+                        )}
+                        {/* Micrositio del despacho: no hay un patrón de URL confiable para
+                            construirlo a partir del nombre del despacho (cada juzgado tiene su
+                            propio slug en ramajudicial.gov.co, sin regla fija) -- en vez de
+                            adivinar un link que puede llevar a la página equivocada, se usa una
+                            búsqueda de Google acotada al dominio oficial, que siempre encuentra
+                            el micrositio correcto sin importar cómo esté formado su slug. */}
+                        {linea.despachoJudicial && (
+                          <a
+                            href={`https://www.google.com/search?q=${encodeURIComponent(
+                              `site:ramajudicial.gov.co ${linea.despachoJudicial}`,
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md border border-line bg-paper px-2 py-0.5 text-[11px] font-medium text-ink hover:bg-ink/5"
+                          >
+                            <ArrowSquareOut className="h-3 w-3" weight="bold" />
+                            Buscar micrositio del despacho
+                          </a>
+                        )}
+                      </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {linea.ponente && <Badge tone="neutral">Ponente: {linea.ponente}</Badge>}
                         {linea.tipoProceso && (

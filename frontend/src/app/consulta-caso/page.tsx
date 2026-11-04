@@ -73,22 +73,35 @@ function ConsultaCasoContent() {
     }, 150);
   }
 
+  // Pedido explícito del usuario: hacer la página "facil, entendible y explicito" --
+  // distinguir "ese radicado no existe" (el caso más común, el usuario puede corregirlo él
+  // mismo) de un problema real del servidor (nada que el usuario pueda arreglar escribiendo
+  // distinto), en vez de un único mensaje genérico para ambos casos.
   async function consultar(valor: string) {
-    if (!valor.trim()) return;
+    const limpio = valor.trim();
+    if (!limpio) return;
+    if (limpio.length < 6) {
+      setResultado(null);
+      setFormularioContraido(false);
+      setError("Ese código parece incompleto. Revisa el correo o WhatsApp que te enviamos y cópialo completo.");
+      return;
+    }
     setCargando(true);
     setError(null);
     try {
-      const caso = await consultarCaso(valor.trim());
+      const caso = await consultarCaso(limpio);
       setResultado(caso);
       setFormularioContraido(true);
     } catch (err) {
       setResultado(null);
       setFormularioContraido(false);
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "No pudimos consultar el caso. Verifica el código e intenta de nuevo.",
-      );
+      if (err instanceof ApiError && err.status === 404) {
+        setError("No encontramos un expediente con ese código. Revisa que esté completo y sin espacios de más.");
+      } else if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("No pudimos conectarnos con el sistema en este momento. Intenta de nuevo en unos segundos.");
+      }
     } finally {
       setCargando(false);
     }
@@ -121,13 +134,13 @@ function ConsultaCasoContent() {
       />
 
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <motion.div layout transition={{ duration: 0.5, ease: EASE }} className="text-center max-w-2xl mx-auto">
+        <motion.div layout transition={{ duration: 0.35, ease: EASE }} className="text-center max-w-2xl mx-auto">
           <motion.h1
             layout
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: EASE }}
-            className={`font-display leading-[1.08] tracking-tight text-ink transition-all duration-500 ${
+            transition={{ duration: 0.35, ease: EASE }}
+            className={`font-display leading-[1.08] tracking-tight text-ink transition-all duration-300 ${
               formularioContraido ? "text-2xl sm:text-3xl" : "text-4xl sm:text-5xl md:text-6xl"
             }`}
           >
@@ -141,7 +154,7 @@ function ConsultaCasoContent() {
                 initial={{ opacity: 0, height: 0, marginTop: 0 }}
                 animate={{ opacity: 1, height: "auto", marginTop: 16 }}
                 exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.4, ease: EASE }}
+                transition={{ duration: 0.3, ease: EASE }}
                 className="text-balance text-base sm:text-lg leading-relaxed text-ink-soft overflow-hidden"
               >
                 Ingresa tu número de radicado para conocer en tiempo real las actuaciones,
@@ -154,15 +167,15 @@ function ConsultaCasoContent() {
         {/* Tarjeta de Consulta: Se contrae fluidamente cuando se abre el expediente */}
         <motion.div
           layout
-          transition={{ duration: 0.5, ease: EASE }}
-          className={`rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] ring-1 ring-ink/10 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.06)] transition-all duration-500 ${
+          transition={{ duration: 0.35, ease: EASE }}
+          className={`rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] ring-1 ring-ink/10 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.06)] transition-all duration-300 ${
             formularioContraido ? "mt-4 p-1 sm:p-1.5" : "mt-8 sm:mt-10 p-1.5 sm:p-2.5"
           }`}
         >
           <motion.div
             layout
-            transition={{ duration: 0.5, ease: EASE }}
-            className={`rounded-[1.4rem] sm:rounded-[1.9rem] bg-paper ring-1 ring-line transition-all duration-500 ${
+            transition={{ duration: 0.35, ease: EASE }}
+            className={`rounded-[1.4rem] sm:rounded-[1.9rem] bg-paper ring-1 ring-line transition-all duration-300 ${
               formularioContraido ? "p-3 sm:p-4 px-4 sm:px-6" : "p-5 sm:p-8 md:p-10"
             }`}
           >
@@ -321,7 +334,7 @@ function ConsultaCasoContent() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15, ease: EASE }}
+          transition={{ duration: 0.35, delay: 0.1, ease: EASE }}
           className="mt-6 rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] p-1.5 sm:p-2.5 ring-1 ring-ink/10"
         >
           <div className="rounded-[1.4rem] sm:rounded-[1.9rem] bg-paper p-6 sm:p-8 ring-1 ring-line">
@@ -396,8 +409,8 @@ function ConsultaCasoContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.5, ease: EASE }}
-              className={`rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] p-1.5 sm:p-2.5 ring-1 ring-ink/10 shadow-[0_25px_60px_-25px_rgba(0,0,0,0.08)] transition-all duration-500 ${
+              transition={{ duration: 0.35, ease: EASE }}
+              className={`rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] p-1.5 sm:p-2.5 ring-1 ring-ink/10 shadow-[0_25px_60px_-25px_rgba(0,0,0,0.08)] transition-all duration-300 ${
                 formularioContraido ? "mt-5" : "mt-8 sm:mt-10"
               }`}
             >

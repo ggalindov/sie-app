@@ -25,12 +25,14 @@ import sie.siejuridicos.whatsapp.WhatsAppService;
 import sie.siejuridicos.vigilancia.dto.ActualizarProcesoCandidatoRequest;
 import sie.siejuridicos.vigilancia.dto.ActuacionRegistradaResponse;
 import sie.siejuridicos.vigilancia.dto.BoletinJudicialResponse;
+import sie.siejuridicos.vigilancia.dto.ControlDiarioProcesalResponse;
 import sie.siejuridicos.vigilancia.dto.LineaTiempoJudicialResponse;
 import sie.siejuridicos.vigilancia.dto.ProcesoCandidatoResponse;
 import sie.siejuridicos.vigilancia.dto.TerminoCalendarioResponse;
 
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -312,6 +314,60 @@ public class VigilanciaAdminController {
                 .map(TerminoCalendarioResponse::desde)
                 .toList();
         return ResponseEntity.ok(resultado);
+    }
+
+    // Réplica del "Control diario procesal" de LUPA (pedido explícito del usuario, 2026-11-04,
+    // tras auditar su panel en vivo: "deja la vigilancia lo mas profesional y unica posible").
+    // Mismo filtrado por rol que terminosCalendario() de arriba: un ABOGADO solo ve sus
+    // propios casos, ADMIN_GENERAL ve todos o filtra por abogadoId. hasta es EXCLUSIVO (el
+    // día completo "hasta" queda incluido sumándole 1 día antes de pasarlo al repositorio) --
+    // así el llamador solo necesita pensar en fechas de calendario normales, nunca en
+    // medianoche exacta.
+    @GetMapping("/control-diario")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ControlDiarioProcesalResponse> controlDiario(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Long abogadoId,
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        Long filtroAbogadoId = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL
+                ? abogadoId
+                : principal.getId();
+
+        List<ActuacionJudicialRegistrada> actuaciones = actuacionRepository
+                .findByFechaRegistroEntre(desde.atStartOfDay(), hasta.plusDays(1).atStartOfDay())
+                .stream()
+                .filter(a -> filtroAbogadoId == null
+                        || (a.getCaso().getAbogadoAsignado() != null
+                                && filtroAbogadoId.equals(a.getCaso().getAbogadoAsignado().getId())))
+                .toList();
+
+        Map<String, Integer> conteos = new LinkedHashMap<>();
+        for (ClasificadorMovimientoJudicial.TipoMovimiento tipo : ClasificadorMovimientoJudicial.ORDEN_CONTEO) {
+            conteos.put(tipo.name(), 0);
+        }
+        List<ControlDiarioProcesalResponse.AudienciaAlerta> alertas = new java.util.ArrayList<>();
+        for (ActuacionJudicialRegistrada a : actuaciones) {
+            ClasificadorMovimientoJudicial.clasificarTipo(a.getNombreActuacion())
+                    .ifPresent(tipo -> conteos.merge(tipo.name(), 1, Integer::sum));
+            if (ClasificadorMovimientoJudicial.clasificarAsistenciaAudiencia(a.getNombreActuacion(), a.getAnotacion())
+                    .filter(r -> r == ClasificadorMovimientoJudicial.AsistenciaAudiencia.NO_ASISTIO)
+                    .isPresent()) {
+                Caso caso = a.getCaso();
+                alertas.add(new ControlDiarioProcesalResponse.AudienciaAlerta(
+                        caso.getId(), nombreMostrado(caso), caso.getRadicadoId(),
+                        a.getNombreActuacion(), a.getAnotacion(), a.getFechaRegistro(),
+                        caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getNombre() : null));
+            }
+        }
+
+        int vencimientosTermino = (int) terminoProcesalRepository.listarEnRango(desde, hasta).stream()
+                .filter(t -> filtroAbogadoId == null
+                        || (t.getCaso().getAbogadoAsignado() != null
+                                && filtroAbogadoId.equals(t.getCaso().getAbogadoAsignado().getId())))
+                .count();
+
+        return ResponseEntity.ok(new ControlDiarioProcesalResponse(desde, hasta, conteos, vencimientosTermino, alertas));
     }
 
     // ================= Pruebas de envío (pedido explícito del usuario) =================

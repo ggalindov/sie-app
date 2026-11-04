@@ -134,13 +134,40 @@ public class AuthService {
     // "el sistema debe insertar firma del gerente... el sistema ingresa la firma de los
     // abogados", pedido explícito del usuario. Nunca la sube otro en su nombre: mismo
     // criterio de autoservicio que cambiarContrasena().
+    // Bug real diagnosticado en vivo (auditoria del motor de firma, 2026-11-04): a diferencia
+    // de la firma de un firmante EXTERNO (que SIEMPRE pasa por
+    // SignatureImageProcessor.recortarYEscalar antes de guardarse, ver
+    // DocumentoFirmaService#registrarFirmaDeParte), la firma de staff se guardaba tal cual se
+    // subia desde "Mi perfil" -- si el PNG tenia un formato que la libreria de estampado de
+    // PDF (OpenPDF, distinta de javax.imageio) no podia decodificar, CADA documento que ese
+    // usuario tuviera que firmar fallaba de forma determinista al sellar. Reprocesar aqui con
+    // el mismo recorte/reescalado normaliza siempre a un PNG ARGB estandar escrito por
+    // ImageIO, el mismo formato que ya funciona de forma probada para firmantes externos.
+    // Mismas dimensiones de lienzo que DocumentoPdfStamper espera para una firma (640x240).
     @Transactional
     public void actualizarFirma(Long usuarioId, byte[] firmaPng, String contentType) {
         UsuarioInterno usuario = usuarioInternoRepository.findById(usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe el usuario con id " + usuarioId));
-        usuario.actualizarFirma(firmaPng, contentType);
+        if (!esImagenDecodificable(firmaPng)) {
+            throw new EntidadInvalidaException(
+                    "La imagen de la firma no se pudo leer. Sube un PNG o JPG valido e intenta de nuevo.");
+        }
+        byte[] firmaNormalizada = sie.siejuridicos.documento.pdf.SignatureImageProcessor
+                .recortarYEscalar(firmaPng, 1.0f, 640, 240);
+        usuario.actualizarFirma(firmaNormalizada, "image/png");
         usuarioInternoRepository.save(usuario);
         eventPublisher.publishEvent(new FirmaStaffActualizadaEvent(usuarioId));
+    }
+
+    private static boolean esImagenDecodificable(byte[] datos) {
+        if (datos == null || datos.length == 0) {
+            return false;
+        }
+        try {
+            return javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(datos)) != null;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     @Transactional(readOnly = true)

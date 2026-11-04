@@ -71,6 +71,20 @@ public class CromaClient {
         }
     }
 
+    public record RuesResultado(
+            boolean encontrado,
+            String nit,
+            String razonSocial,
+            String estado,
+            String organizacionJuridica,
+            List<String> representantesLegales,
+            List<String> nombresComerciales
+    ) {
+        public static RuesResultado noEncontrado(String nit) {
+            return new RuesResultado(false, nit, null, null, null, List.of(), List.of());
+        }
+    }
+
     private record RespuestaHttpOrquestada(
             int statusCode,
             String body,
@@ -221,7 +235,12 @@ public class CromaClient {
                             fechaInicio,
                             fechaUltima,
                             partes,
-                            esPrivado
+                            esPrivado,
+                            CromaCasoDto.inferirRama(despacho, null),
+                            "Croma API (Rama Judicial)",
+                            false,
+                            null,
+                            null
                     ));
                 }
             }
@@ -243,6 +262,73 @@ public class CromaClient {
                     cuotaPost.creditosConsumidos(),
                     cuotaPost.limiteCreditos(),
                     cuotaPost.consultasRestantes());
+        }
+    }
+
+    // Consulta RUES a través de Croma para resolver una Cédula o NIT a Razón Social y Representantes Legales
+    public Optional<RuesResultado> consultarRuesPorNit(String nit) {
+        if (!creditosService.tieneApiKeyConfigurada() || nit == null || nit.isBlank()) {
+            return Optional.empty();
+        }
+        String nitLimpio = nit.replaceAll("[^0-9]", "");
+        if (nitLimpio.length() < 6) {
+            return Optional.empty();
+        }
+
+        try {
+            Map<String, Object> payload = Map.of("document_number", nitLimpio);
+            RespuestaHttpOrquestada resp = ejecutarPostConOrquestador(
+                    "/co/rues/entity-by-nit/v1", payload, COSTO_DATASET_CREDITOS, Duration.ofSeconds(10), false);
+
+            if (resp.statusCode() != 200) {
+                log.warn("Croma RUES respondió HTTP {} para NIT {}: {}", resp.statusCode(), nitLimpio, resp.body());
+                return Optional.empty();
+            }
+
+            JsonNode root = objectMapper.readTree(resp.body());
+            JsonNode data = root.path("data");
+            if (!data.path("found").asBoolean(false)) {
+                return Optional.empty();
+            }
+
+            JsonNode entity = data.path("entity");
+            String razonSocial = primerTextoNoVacio(entity, "name", "razon_social");
+            String estado = primerTextoNoVacio(entity, "registration_status", "estado");
+            String organizacion = primerTextoNoVacio(entity, "legal_organization", "organizacion_juridica");
+
+            List<String> reps = new ArrayList<>();
+            JsonNode repsArray = data.path("legal_representatives");
+            if (repsArray.isArray()) {
+                for (JsonNode r : repsArray) {
+                    String nomRep = primerTextoNoVacio(r, "name", "nombre");
+                    if (!nomRep.isBlank() && !reps.contains(nomRep)) {
+                        reps.add(nomRep);
+                    }
+                }
+            }
+
+            List<String> nombresComerciales = new ArrayList<>();
+            JsonNode notices = data.path("notices");
+            if (notices.isArray()) {
+                for (JsonNode n : notices) {
+                    String nom = primerTextoNoVacio(n, "name", "nombre");
+                    if (!nom.isBlank() && !nombresComerciales.contains(nom) && !nom.equalsIgnoreCase(razonSocial)) {
+                        nombresComerciales.add(nom);
+                    }
+                }
+            }
+
+            return Optional.of(new RuesResultado(
+                    true,
+                    nitLimpio,
+                    razonSocial,
+                    estado,
+                    organizacion,
+                    reps,
+                    nombresComerciales));
+        } catch (Exception ex) {
+            log.warn("Fallo consultando RUES en Croma para NIT {}: {}", nitLimpio, ex.getMessage());
+            return Optional.empty();
         }
     }
 

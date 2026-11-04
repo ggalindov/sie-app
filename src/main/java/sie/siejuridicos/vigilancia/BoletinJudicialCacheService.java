@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// Pedido explícito del usuario: "guardarlos en el sistema por un total de 30 dias... el dia
-// 30 se eliminaran" (ampliado desde los 7 días originales). Corre en un ciclo PROPIO,
+// Pedido explícito del usuario (2026-11-04): "el sistema debe guardarlos en el servidor al
+// menos por 3 meses" -- ampliado a 90 días (antes 30 días, y originalmente 7). Corre en un ciclo PROPIO,
 // separado del de SeguimientoJudicialService a propósito -- meter esto dentro de ese ciclo
 // multiplicaría las llamadas a Publicaciones Procesales por cada actuación nueva de cada
 // caso, justo el patrón de exceso de tráfico que ya causó un bloqueo real esta misma sesión.
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BoletinJudicialCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(BoletinJudicialCacheService.class);
-    private static final int DIAS_VENCIMIENTO_CACHE = 30;
+    private static final int DIAS_VENCIMIENTO_CACHE = 90;
     // Mutex real, no cosmético: recorrer ~362 casos tarda del orden de una hora, y sin esto
     // un admin que hace doble clic en "Buscar boletines de todos los casos" (o un reinicio en
     // caliente de Spring DevTools, que detuve en vivo esta misma sesión mientras probaba este
@@ -103,6 +103,7 @@ public class BoletinJudicialCacheService {
     private final ActuacionJudicialRegistradaRepository actuacionRepository;
     private final BoletinJudicialCacheRepository boletinRepository;
     private final PublicacionesProcesalesClient publicacionesProcesalesClient;
+    private final RamaJudicialCpnuClient cpnuClient;
     private final long pausaEntreConsultasMs;
 
     private final BoletinPendienteRepository pendienteRepository;
@@ -112,12 +113,14 @@ public class BoletinJudicialCacheService {
                                         VigilanciaCursorBoletinesRepository cursorRepository,
                                         BoletinPendienteRepository pendienteRepository,
                                         PublicacionesProcesalesClient publicacionesProcesalesClient,
+                                        RamaJudicialCpnuClient cpnuClient,
                                         @Value("${app.vigilancia.boletin-pausa-entre-casos-ms}") long pausaEntreConsultasMs) {
         this.actuacionRepository = actuacionRepository;
         this.boletinRepository = boletinRepository;
         this.cursorRepository = cursorRepository;
         this.pendienteRepository = pendienteRepository;
         this.publicacionesProcesalesClient = publicacionesProcesalesClient;
+        this.cpnuClient = cpnuClient;
         this.pausaEntreConsultasMs = pausaEntreConsultasMs;
     }
 
@@ -179,9 +182,14 @@ public class BoletinJudicialCacheService {
     }
 
     // Dias hacia atras de actuaciones que se buscan en el portal ademas de la ultima de cada
-    // caso. El portal solo expone los boletines mas recientes de cada despacho, asi que una
-    // ventana mayor no encontraria nada nuevo y solo gastaria consultas.
-    private static final int DIAS_VENTANA_BUSQUEDA = 15;
+    // caso. Subido de 15 a 30 (pedido explicito del usuario, 2026-11-04: "traer absolutamente
+    // todos los docuemtos del ultimo mes"): para el canal heuristico de Publicaciones
+    // Procesales el portal solo expone sus boletines mas recientes (una ventana mayor no
+    // encuentra nada nuevo ahi), pero esta misma lista de objetivos es la que alimenta
+    // tambien el canal EXACTO de la CPNU (ver procesarActuacion), que SI puede resolver el
+    // documento de una actuacion de hace varias semanas -- una ventana de solo 15 dias le
+    // negaba la oportunidad de intentarlo para actuaciones un poco mas viejas.
+    private static final int DIAS_VENTANA_BUSQUEDA = 30;
     // Rondas de reintento al terminar la pasada principal, con espera entre rondas para que el
     // portal se recupere de una racha de fallos (la del 2026-11-01 duro una hora).
     private static final int MAX_RONDAS_RECUPERACION = 3;
@@ -508,14 +516,43 @@ public class BoletinJudicialCacheService {
     // reintentos; si aun asi falla, queda en la cola de pendientes (nunca se pierde). El
     // resultado indica si la busqueda quedo incompleta (el portal fallo) para que el llamador
     // la reintente.
+    //
+    // Canal EXACTO primero: la propia CPNU resuelve el documento ligado al idRegActuacion real
+    // (RamaJudicialCpnuClient.listarDocumentosDeActuacion -- sin heuristica de texto), igual
+    // que el canal "Unificada en tiempo real" que LUPA e IUS ya ofrecen por separado del
+    // boletin por despacho. Esto es lo que arregla de raiz el bug reportado por el usuario
+    // (caso 11001418907820250083400 trayendo boletines de OTRO proceso del mismo despacho):
+    // el boletin heuristico de Publicaciones Procesales agrupa TODOS los procesos de un
+    // despacho en un mismo PDF y solo empareja por año+consecutivo del radicado dentro del
+    // texto, mientras que este canal usa el id real de la actuacion. Solo cae al heuristico
+    // (como respaldo, nunca al reves) cuando el CPNU no expone el documento directo para ese
+    // despacho en particular.
     private ResultadoActuacion procesarActuacion(Caso caso, ActuacionJudicialRegistrada actuacion) {
         if (caso.getRadicadoId() == null || caso.getRadicadoId().isBlank()) {
             return new ResultadoActuacion(0, false);
         }
+        if (actuacion.isConDocumentos() && !cpnuClient.pareceCaido()) {
+            List<DocumentoProvidenciaCandidato> exactos = cpnuClient.listarDocumentosDeActuacion(
+                    actuacion.getIdActuacionExterna(), actuacion.getNombreActuacion());
+            if (!exactos.isEmpty()) {
+                return descargarYGuardarCandidatos(caso, actuacion, exactos, false);
+            }
+        }
         PublicacionesProcesalesClient.ResultadoBusqueda busqueda = publicacionesProcesalesClient.buscarDocumentosConEstado(
                 caso.getRadicadoId(), fechaDeBoletin(actuacion), actuacion.getNombreActuacion());
+        return descargarYGuardarCandidatos(caso, actuacion, busqueda.candidatos(), busqueda.incompleta());
+    }
+
+    // Descarga y cachea cada candidato nuevo (ver guardarBoletin) -- mismo flujo tanto para el
+    // canal exacto de CPNU como para el heuristico de boletines; la unica diferencia entre
+    // ambos es de donde vinieron los candidatos. descargarDocumentoOExcepcion ya valida y
+    // permite tanto el host de Publicaciones Procesales como el de CPNU (consultaprocesos.
+    // ramajudicial.gov.co), asi que no hace falta un segundo mecanismo de descarga.
+    private ResultadoActuacion descargarYGuardarCandidatos(Caso caso, ActuacionJudicialRegistrada actuacion,
+                                                            List<DocumentoProvidenciaCandidato> candidatos,
+                                                            boolean incompleta) {
         int nuevos = 0;
-        for (DocumentoProvidenciaCandidato candidato : busqueda.candidatos()) {
+        for (DocumentoProvidenciaCandidato candidato : candidatos) {
             if (boletinRepository.existsByCaso_IdAndUrlOrigen(caso.getId(), candidato.urlDescarga())) {
                 continue;
             }
@@ -532,7 +569,7 @@ public class BoletinJudicialCacheService {
                 }
             }
         }
-        return new ResultadoActuacion(nuevos, busqueda.incompleta());
+        return new ResultadoActuacion(nuevos, incompleta);
     }
 
     private void guardarBoletin(Caso caso, ActuacionJudicialRegistrada actuacion, String nombreArchivo,
