@@ -27,6 +27,7 @@ import {
   Flag,
   Binoculars,
   FilePdf,
+  ChartPieSlice,
 } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
@@ -94,6 +95,11 @@ const navGroups: NavGroup[] = [
       // documentos oficiales ya cacheados, de todos los casos, en una sola pantalla.
       { href: "/admin/boletines", label: "Boletines", descripcion: "Documentos oficiales descargados de todos los casos.", icon: FilePdf, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       { href: "/admin/documentos", label: "Documentos para firma", descripcion: "Documentos en el motor de firma electrónica.", icon: FileText, roles: ["ADMIN_GENERAL", "ABOGADO"] },
+      // Pedido explícito del usuario (2026-11-04, auditoría en vivo de LUPA/IUS): réplica de
+      // su "Control diario procesal" -- conteo de admisiones, inadmisiones, audiencias,
+      // sentencias y terminaciones por rango de fecha, con alerta de posible inasistencia a
+      // audiencia.
+      { href: "/admin/control-diario", label: "Control diario procesal", descripcion: "Admisiones, audiencias y terminaciones por día.", icon: ChartPieSlice, roles: ["ADMIN_GENERAL", "ABOGADO"] },
     ],
   },
   {

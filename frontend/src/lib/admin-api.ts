@@ -947,6 +947,35 @@ export function listarTerminosCalendario(filtros: { desde: string; hasta: string
   return pedido<TerminoCalendario[]>(`/api/admin/vigilancia/terminos/calendario?${params.toString()}`);
 }
 
+// Pedido explicito del usuario (2026-11-04, auditoria en vivo de LUPA/IUS: "deja la
+// vigilancia lo mas profesional y unica posible") -- replica del "Control diario procesal"
+// de LUPA (ver ControlDiarioProcesalResponse en el backend). conteosPorTipo siempre trae las
+// 6 categorias de ClasificadorMovimientoJudicial.TipoMovimiento, con 0 cuando no hubo
+// ninguna en el rango.
+export type AudienciaAlerta = {
+  casoId: number;
+  nombreCliente: string;
+  radicadoId: string | null;
+  nombreActuacion: string;
+  anotacion: string | null;
+  fechaRegistro: string | null;
+  abogadoAsignadoNombre: string | null;
+};
+
+export type ControlDiarioProcesal = {
+  desde: string;
+  hasta: string;
+  conteosPorTipo: Record<string, number>;
+  vencimientosTermino: number;
+  audienciasConPosibleInasistencia: AudienciaAlerta[];
+};
+
+export function obtenerControlDiario(filtros: { desde: string; hasta: string; abogadoId?: number }): Promise<ControlDiarioProcesal> {
+  const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+  if (filtros.abogadoId) params.set("abogadoId", String(filtros.abogadoId));
+  return pedido<ControlDiarioProcesal>(`/api/admin/vigilancia/control-diario?${params.toString()}`);
+}
+
 // Documento candidato de la última actuación de fondo -- "candidato" porque puede haber más
 // de uno por boletín. Corrección real (2026-10-31, "el sistema esta trayendo boletines que
 // no son para cada caso"): ya NO se devuelve todo lo que había en el boletín del despacho

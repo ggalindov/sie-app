@@ -670,6 +670,15 @@ export function SeguimientoDeCasoModal({
                               {e.posibleMedidaCautelar && (
                                 <Badge tone="warning">Posible medida cautelar</Badge>
                               )}
+                              {e.tipoMovimiento === "AUDIENCIA_PROGRAMADA" && (
+                                <Badge tone="neutral">Audiencia programada</Badge>
+                              )}
+                              {e.tipoMovimiento === "TERMINACION_PROCESO" && (
+                                <Badge tone="success">Terminación de proceso</Badge>
+                              )}
+                              {e.asistenciaAudiencia === "NO_ASISTIO" && (
+                                <Badge tone="danger">Posible inasistencia a audiencia</Badge>
+                              )}
                               {e.consecutivo !== null && (
                                 <span className="text-xs text-ink-soft/70">Actuación #{e.consecutivo}</span>
                               )}
