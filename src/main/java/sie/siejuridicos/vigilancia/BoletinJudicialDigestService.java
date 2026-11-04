@@ -85,6 +85,22 @@ public class BoletinJudicialDigestService {
         return sitioWeb + "/api/v1/boletines/documento/" + boletin.getTokenPublico();
     }
 
+    // Link de "Radicado" del reporte diario de STAFF (gerencia/abogados) -- pedido explícito
+    // del usuario, 2026-11-04, tras comparar con LUPA (su columna "Radicado" lleva al
+    // seguimiento del caso dentro de SU propio panel, no a la consulta pública): este link
+    // debe llevar al seguimiento del caso DENTRO de nuestro panel admin
+    // (/admin/casos?radicado=..., ver CasosAdminPage), nunca a /consulta-caso (esa es la
+    // página PÚBLICA sin login, solo para el digest de CLIENTES -- ver
+    // emailService.enlaceConsultaDirecto(), que sigue intacto para ese caso). No se salta el
+    // login: si no hay sesión abierta, el guard normal de /admin/** ya redirige a
+    // /admin/login antes de llegar aquí -- pero si el destinatario YA tiene sesión abierta
+    // (el caso normal: gerencia/abogados revisando el correo desde el mismo navegador donde
+    // trabajan en el panel), entra directo al caso sin tener que buscarlo a mano.
+    private String enlaceSeguimientoInterno(String radicadoId) {
+        return sitioWeb + "/admin/casos?radicado="
+                + java.net.URLEncoder.encode(radicadoId, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     // CORREGIDO -- bug real reportado por el usuario (2026-11-04): esta columna se rotulaba
     // "Fecha Publicación" pero mostraba boletin.getFechaDescarga(), que es el instante en que
     // NUESTRO sistema descargó el PDF (ver BoletinJudicialCacheService.guardarBoletin()), no
@@ -539,7 +555,7 @@ public class BoletinJudicialDigestService {
                 alterno = !alterno;
 
                 String radicado = caso != null && caso.getRadicadoId() != null ? caso.getRadicadoId() : "";
-                String enlaceConsulta = caso != null && caso.getRadicadoId() != null ? emailService.enlaceConsultaDirecto(caso.getRadicadoId()) : "#";
+                String enlaceConsulta = caso != null && caso.getRadicadoId() != null ? enlaceSeguimientoInterno(caso.getRadicadoId()) : "#";
                 String despacho = caso != null && caso.getDespachoJudicial() != null ? caso.getDespachoJudicial().toUpperCase() : "JUZGADO NO INFORMADO";
 
                 String[] partes = extraerDemandanteYDemandado(caso);

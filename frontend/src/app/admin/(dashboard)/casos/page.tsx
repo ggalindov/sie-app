@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
@@ -146,6 +146,13 @@ export default function CasosAdminPage() {
   // /admin/casos?q=...) -- reusa el filtro 100% local que esta página ya tenía, no abre
   // ningún caso en concreto (no hay ruta [id] en este módulo, es de una sola página).
   const qInicial = useSearchParams().get("q") ?? "";
+  // Link directo de "Radicado" en el reporte diario de vigilancia por correo (gerencia y
+  // abogados, ver BoletinJudicialDigestService.enlaceSeguimientoInterno) -- pedido explícito
+  // del usuario: ese link debe llevar al seguimiento del caso DENTRO del panel (no a la
+  // consulta pública), sin saltarse el login (si no hay sesión, el guard normal de
+  // /admin/** ya redirige a /admin/login antes de llegar aquí), pero si ya hay una sesión
+  // abierta debe entrar directo al caso sin que el usuario tenga que buscarlo a mano.
+  const radicadoInicial = useSearchParams().get("radicado") ?? "";
   const { sesion } = useAuth();
   const esAdmin = sesion?.rol === "ADMIN_GENERAL";
   const [casos, setCasos] = useState<CasoAdmin[] | null>(null);
@@ -202,6 +209,25 @@ export default function CasosAdminPage() {
     cargar();
     cargarConteoTareas();
   }, [cargar, cargarConteoTareas]);
+
+  // Abre el modal de seguimiento automáticamente la primera vez que los casos ya están
+  // cargados, si llegamos con ?radicado=... en la URL (ver radicadoInicial arriba). El ref
+  // evita que se vuelva a abrir solo si el usuario lo cierra y los casos se recargan después
+  // (ej. tras sincronizar) -- debe abrirse UNA sola vez por visita, no cada vez que cambia el
+  // array de casos.
+  const yaAbrioSeguimientoInicial = useRef(false);
+  useEffect(() => {
+    if (!radicadoInicial || yaAbrioSeguimientoInicial.current || !casos) {
+      return;
+    }
+    yaAbrioSeguimientoInicial.current = true;
+    const caso = casos.find((c) => c.radicadoId === radicadoInicial);
+    if (caso) {
+      setCasoConSeguimientoAbierto({ id: caso.id, nombreCliente: caso.nombreCliente, radicadoId: caso.radicadoId });
+    } else {
+      toast.error(`No se encontró ningún caso con el radicado ${radicadoInicial}.`);
+    }
+  }, [casos, radicadoInicial]);
 
   // Bug real encontrado probando en vivo: pasarle a SeguimientoDeCasoModal una función
   // inline (definida directo en el JSX) como onRevisado generaba una identidad NUEVA en
