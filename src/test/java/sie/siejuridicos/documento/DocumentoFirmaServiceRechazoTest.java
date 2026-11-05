@@ -8,6 +8,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import sie.siejuridicos.documento.events.DocumentoFirmaRechazadaEvent;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -123,9 +124,12 @@ class DocumentoFirmaServiceRechazoTest {
         DocumentoFirmante rechazado = parte(documento, 1, DocumentoFirmante.ESTADO_RECHAZADO);
         when(documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documento.getId()))
                 .thenReturn(List.of(firmado, rechazado));
+        DocumentoFirmaRepository documentoFirmaRepository = org.mockito.Mockito.mock(DocumentoFirmaRepository.class);
+        when(documentoFirmaRepository.findById(documento.getId())).thenReturn(Optional.of(documento));
 
-        new DocumentoSellaInfoService(documentoFirmanteRepository, documentoTimelineService, null, null, null, null,
-                null, null, eventPublisher, null, "https://siejuridicos.com").intentarSellarYRemitir(documento);
+        new DocumentoSellaInfoService(documentoFirmaRepository, documentoFirmanteRepository, documentoTimelineService,
+                null, null, null, null, null, null, eventPublisher, null, "https://siejuridicos.com")
+                .intentarSellarYRemitir(documento.getId());
 
         // Nada cambió: ni se estampó, ni se firmó digitalmente, ni se cambió el estado.
         assertEquals(DocumentoFirma.ESTADO_DOC_EN_FIRMA_PARTES, documento.getEstadoDocumento());
