@@ -180,7 +180,7 @@ public class DocumentoFirmaService {
     // medio sellar) y DocumentoSellaInfoRetryScheduler reintenta más tarde.
     private void intentarSellarSinPropagarError(DocumentoFirma documento) {
         try {
-            documentoSellaInfoService.intentarSellarYRemitir(documento);
+            documentoSellaInfoService.intentarSellarYRemitir(documento.getId());
         } catch (RuntimeException ex) {
             log.error("Fallo al sellar el documento {} tras completar las firmas; se reintentará automáticamente. Causa: {}",
                     documento.getId(), ex.getMessage(), ex);

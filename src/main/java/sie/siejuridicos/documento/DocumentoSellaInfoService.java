@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 
 // Cierra el ciclo de vida de un documento en cuanto todos los firmantes (staff y partes)
 // completaron su firma: estampa las páginas de firma sobre el PDF original (ver
@@ -28,6 +29,7 @@ public class DocumentoSellaInfoService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentoSellaInfoService.class);
 
+    private final DocumentoFirmaRepository documentoFirmaRepository;
     private final DocumentoFirmanteRepository documentoFirmanteRepository;
     private final DocumentoTimelineService documentoTimelineService;
     private final DocumentoPdfStamper documentoPdfStamper;
@@ -40,7 +42,8 @@ public class DocumentoSellaInfoService {
     private final CierreCustodiaPdfAppender cierreCustodiaPdfAppender;
     private final String sitioPublicoUrl;
 
-    public DocumentoSellaInfoService(DocumentoFirmanteRepository documentoFirmanteRepository,
+    public DocumentoSellaInfoService(DocumentoFirmaRepository documentoFirmaRepository,
+                                      DocumentoFirmanteRepository documentoFirmanteRepository,
                                       DocumentoTimelineService documentoTimelineService,
                                       DocumentoPdfStamper documentoPdfStamper,
                                       DocumentoMargenLegalStamper documentoMargenLegalStamper,
@@ -51,6 +54,7 @@ public class DocumentoSellaInfoService {
                                       ApplicationEventPublisher eventPublisher,
                                       CierreCustodiaPdfAppender cierreCustodiaPdfAppender,
                                       @Value("${app.documento.sitio-web}") String sitioPublicoUrl) {
+        this.documentoFirmaRepository = documentoFirmaRepository;
         this.documentoFirmanteRepository = documentoFirmanteRepository;
         this.documentoTimelineService = documentoTimelineService;
         this.documentoPdfStamper = documentoPdfStamper;
@@ -80,8 +84,24 @@ public class DocumentoSellaInfoService {
     // despues (ver DocumentoSellaInfoRetryScheduler), igual que ya existe para el sello de
     // tiempo RFC3161 (Rfc3161RetryScheduler) y para la compuerta de staff
     // (DocumentoFirmaStaffRetryListener).
+    //
+    // Bug real diagnosticado en vivo (2026-11-05): antes recibia la entidad DocumentoFirma ya
+    // cargada por el llamador. Como REQUIRES_NEW abre SIEMPRE una sesion/EntityManager nueva,
+    // esa entidad llega DESLIGADA de esa sesion -- los setters de sellar()/remitir()/
+    // encriptar()/firmarConLlaveDeAplicacion() modificaban el objeto en memoria, pero sin
+    // estar la entidad gestionada por la sesion activa, Hibernate nunca detectaba esos
+    // cambios para guardarlos al terminar la transaccion (ni un solo .save() explicito en
+    // todo este flujo, siempre confio en el dirty-checking automatico). El resultado: la
+    // operacion completaba SIN lanzar ninguna excepcion, pero el documento se quedaba
+    // exactamente igual en la base de datos -- "0 de 1 avanzaron" en el reintento aunque el
+    // sellado hubiera corrido entero sin fallar. Recibir el id y recargar la entidad AQUI
+    // mismo garantiza que quede gestionada por ESTA sesion durante todo el metodo.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void intentarSellarYRemitir(DocumentoFirma documento) {
+    public void intentarSellarYRemitir(UUID documentoId) {
+        DocumentoFirma documento = documentoFirmaRepository.findById(documentoId).orElse(null);
+        if (documento == null) {
+            return;
+        }
         List<DocumentoFirmante> firmantes = documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documento.getId());
         // Nunca sellar un documento donde alguna parte rechazó firmar -- RECHAZADO solo
         // cuenta como "turno cerrado" para la secuencia de firma (ver

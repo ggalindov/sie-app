@@ -51,12 +51,18 @@ public class DocumentoSellaInfoRetryScheduler {
         int avanzados = 0;
         for (UUID id : ids) {
             try {
-                DocumentoFirma documento = documentoFirmaRepository.findById(id).orElse(null);
-                if (documento == null) {
+                // Bug real diagnosticado en vivo (2026-11-05): antes se cargaba la entidad
+                // AQUÍ y se le pasaba ya cargada a intentarSellarYRemitir -- como ese método
+                // abre su PROPIA transacción (REQUIRES_NEW, sesión nueva), la entidad llegaba
+                // desligada de esa sesión y sus cambios nunca se guardaban (dirty-checking de
+                // Hibernate solo rastrea entidades gestionadas por la sesión ACTIVA). Pasar
+                // solo el id obliga a ese método a recargarla dentro de su propia sesión,
+                // donde sí queda gestionada todo el tiempo.
+                String estadoAntes = documentoFirmaRepository.findById(id).map(DocumentoFirma::getEstadoDocumento).orElse(null);
+                if (estadoAntes == null) {
                     continue;
                 }
-                String estadoAntes = documento.getEstadoDocumento();
-                documentoSellaInfoService.intentarSellarYRemitir(documento);
+                documentoSellaInfoService.intentarSellarYRemitir(id);
                 DocumentoFirma actualizado = documentoFirmaRepository.findById(id).orElse(null);
                 if (actualizado != null && !estadoAntes.equals(actualizado.getEstadoDocumento())) {
                     avanzados++;
