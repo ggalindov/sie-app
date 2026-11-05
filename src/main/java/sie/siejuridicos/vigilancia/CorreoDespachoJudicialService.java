@@ -171,9 +171,31 @@ public class CorreoDespachoJudicialService {
     // demostración, no debe interferir con la idempotencia real del flujo automático.
     public boolean probarSolicitudAlDespacho(Caso caso, String nombreActuacion, String correoPrueba) {
         String nombreCliente = nombreClienteParaRegistro(caso);
-        String nombreApoderado = caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getNombre() : nombreFirma;
+        byte[] pdf = generarPdfPrueba(caso, nombreActuacion);
+        return emailService.probarSolicitudDocumentoDespacho(
+                nombreCliente, correoPrueba, caso.getRadicadoId(), caso.getDespachoJudicial(),
+                nombreActuacion, pdf);
+    }
 
-        byte[] pdf = pdfGenerator.generar(new DocumentoPresentacionAutorizacionPdfGenerator.Datos(
+    // Pedido explícito del usuario (2026-11-05): "revisa que el boton de apagado de esta
+    // funcion si sirva" -- a diferencia de probarSolicitudAlDespacho() de arriba, este SÍ pasa
+    // por el método gateado de EmailService (enviarSolicitudDocumentoDespacho, el mismo que usa
+    // el flujo automático real), así que respeta el interruptor CORREO_DESPACHO_JUDICIAL tal
+    // como está en el panel en el momento de la llamada: si está apagado, devuelve false sin
+    // enviar nada; si está prendido, envía de verdad. Sirve para demostrar ambos estados del
+    // botón sin depender de que ocurra una actuación real sin documento.
+    public boolean probarSolicitudAlDespachoRespetandoInterruptor(Caso caso, String nombreActuacion, String correoPrueba) {
+        String nombreCliente = nombreClienteParaRegistro(caso);
+        byte[] pdf = generarPdfPrueba(caso, nombreActuacion);
+        return emailService.enviarSolicitudDocumentoDespacho(
+                nombreCliente, correoPrueba, caso.getRadicadoId(), caso.getDespachoJudicial(),
+                nombreActuacion, pdf);
+    }
+
+    private byte[] generarPdfPrueba(Caso caso, String nombreActuacion) {
+        String nombreCliente = nombreClienteParaRegistro(caso);
+        String nombreApoderado = caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getNombre() : nombreFirma;
+        return pdfGenerator.generar(new DocumentoPresentacionAutorizacionPdfGenerator.Datos(
                 nombreFirma,
                 sitioWeb,
                 correoAdmin,
@@ -185,10 +207,6 @@ public class CorreoDespachoJudicialService {
                 nombreApoderado,
                 LocalDateTime.now()
         ));
-
-        return emailService.probarSolicitudDocumentoDespacho(
-                nombreCliente, correoPrueba, caso.getRadicadoId(), caso.getDespachoJudicial(),
-                nombreActuacion, pdf);
     }
 
     private String nombreClienteParaRegistro(Caso caso) {

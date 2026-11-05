@@ -518,6 +518,27 @@ public class VigilanciaAdminController {
                         : "No se pudo enviar el correo de prueba."));
     }
 
+    // Pedido explícito del usuario (2026-11-05): "revisa que el boton de apagado de esta
+    // funcion si sirva" -- a diferencia de /pruebas/correo-despacho de arriba (que ignora el
+    // interruptor a propósito), este SÍ pasa por el método gateado de EmailService, así que
+    // confirma de verdad el comportamiento del botón "Correo a despachos judiciales" del panel:
+    // con el interruptor apagado debe responder enviado=false; con el interruptor prendido,
+    // debe enviar de verdad. Mismo criterio de seguridad del resto de esta sección: el correo
+    // de destino siempre es explícito en el request, nunca un despacho real.
+    @Transactional(readOnly = true)
+    @PostMapping("/casos/{id}/pruebas/correo-despacho-respeta-interruptor")
+    public ResponseEntity<Map<String, Object>> probarCorreoDespachoRespetaInterruptor(
+            @PathVariable Long id,
+            @RequestParam String correo,
+            @RequestParam(defaultValue = "Auto que corre traslado de la demanda") String actuacion) {
+        Caso caso = casoDePrueba(id);
+        boolean enviado = correoDespachoJudicialService.probarSolicitudAlDespachoRespetandoInterruptor(caso, actuacion, correo);
+        return ResponseEntity.ok(Map.of(
+                "enviado", enviado,
+                "mensaje", enviado ? "Correo enviado a " + correo + " -- el interruptor está PRENDIDO."
+                        : "No se envió nada -- el interruptor CORREO_DESPACHO_JUDICIAL está APAGADO (comportamiento correcto)."));
+    }
+
     private Caso casoDePrueba(Long id) {
         Caso caso = casoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
