@@ -1,5 +1,7 @@
 package sie.siejuridicos.documento;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ import java.util.UUID;
 @Service
 public class ApplicationSigningKeyService {
 
+    private static final Logger log = LoggerFactory.getLogger(ApplicationSigningKeyService.class);
     private static final String ALGORITMO = "Ed25519";
 
     private final FirmaAplicacionClaveRepository repository;
@@ -51,8 +54,30 @@ public class ApplicationSigningKeyService {
     @Transactional
     public FirmaResultado firmar(byte[] mensaje) {
         FirmaAplicacionClave clave = obtenerOCrearClaveActiva();
-        byte[] privadaBytes = aesGcmCipher.descifrar(clave.getClavePrivadaCifrada(), clave.getClavePrivadaIv(),
-                claveMaestraService.obtenerClaveMaestra(clave.getKekId()));
+        byte[] privadaBytes;
+        try {
+            privadaBytes = aesGcmCipher.descifrar(clave.getClavePrivadaCifrada(), clave.getClavePrivadaIv(),
+                    claveMaestraService.obtenerClaveMaestra(clave.getKekId()));
+        } catch (IllegalStateException ex) {
+            // Bug real diagnosticado en vivo (2026-11-05): "no me sale para descargar el doc
+            // firmado... ni tampoco esta enviado". DocumentoClaveMaestraService no tiene
+            // rotación real (kekId siempre "v1", derivado de un único secreto raíz
+            // DOCUMENTO_FIRMA_CLAVE_MAESTRA) -- si ese secreto cambió en algún momento
+            // DESPUÉS de generarse la llave activa (p. ej. se pasó del valor de desarrollo al
+            // real siguiendo DEPLOY.md), la llave guardada queda cifrada para un valor que ya
+            // no existe: NUNCA vuelve a descifrar con el valor actual, sin importar cuántas
+            // veces se reintente (de ahí que el sellado fallara siempre, en TODOS los
+            // documentos que llegaran a este paso, no solo el de prueba). Reintentar no sirve
+            // de nada -- se auto-repara rotando a una llave nueva, generada y cifrada bajo el
+            // secreto VIGENTE, sin intervención manual ni tocar la base de datos a mano.
+            log.warn("La llave de firma de aplicación activa ({}) no se pudo descifrar con la clave maestra "
+                            + "vigente -- probablemente DOCUMENTO_FIRMA_CLAVE_MAESTRA cambió después de generarla. "
+                            + "Se desactiva y se genera una nueva automáticamente.",
+                    clave.getKid(), ex);
+            clave = rotar();
+            privadaBytes = aesGcmCipher.descifrar(clave.getClavePrivadaCifrada(), clave.getClavePrivadaIv(),
+                    claveMaestraService.obtenerClaveMaestra(clave.getKekId()));
+        }
         try {
             KeyFactory factory = KeyFactory.getInstance(ALGORITMO);
             PrivateKey privada = factory.generatePrivate(new PKCS8EncodedKeySpec(privadaBytes));
