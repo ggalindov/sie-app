@@ -247,6 +247,24 @@ public class Caso {
     @Column(name = "motivo_confidencialidad")
     private String motivoConfidencialidad;
 
+    // Pedido explícito del usuario (2026-11-05): "un boton para finalizarlo... el caso se
+    // remite a un nuevo apartado de casos finalizados... una vez finalizado el sistema ya no
+    // le hara vigilancia". Nunca se borra nada al finalizar -- todas las actuaciones y
+    // boletines ya cacheados quedan intactos como "el último seguimiento" (ver V84); esta
+    // bandera solo saca al caso de las consultas que alimentan el ciclo de vigilancia (ver
+    // CasoRepository.findByRadicadoIdIsNotNullAndFinalizadoFalse,
+    // ActuacionJudicialRegistradaRepository.ultimaActuacionConFechaPorCaso/
+    // conFechaRegistroDesde).
+    @Column(name = "finalizado", nullable = false)
+    private boolean finalizado = false;
+
+    @Column(name = "fecha_finalizacion")
+    private LocalDateTime fechaFinalizacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "finalizado_por_id")
+    private UsuarioInterno finalizadoPor;
+
     public Long getId() {
         return id;
     }
@@ -513,5 +531,29 @@ public class Caso {
 
     public void setMotivoConfidencialidad(String motivoConfidencialidad) {
         this.motivoConfidencialidad = motivoConfidencialidad;
+    }
+
+    public boolean isFinalizado() {
+        return finalizado;
+    }
+
+    public void setFinalizado(boolean finalizado) {
+        this.finalizado = finalizado;
+    }
+
+    public LocalDateTime getFechaFinalizacion() {
+        return fechaFinalizacion;
+    }
+
+    public void setFechaFinalizacion(LocalDateTime fechaFinalizacion) {
+        this.fechaFinalizacion = fechaFinalizacion;
+    }
+
+    public UsuarioInterno getFinalizadoPor() {
+        return finalizadoPor;
+    }
+
+    public void setFinalizadoPor(UsuarioInterno finalizadoPor) {
+        this.finalizadoPor = finalizadoPor;
     }
 }

@@ -74,8 +74,12 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
     // propósito, por la pausa real entre cada consulta), así que un caso traído perezoso
     // lanzaría LazyInitializationException apenas se le pidiera el radicado -- el mismo bug
     // real que ya costó tiempo en TerminoProcesalService esta misma sesión.
+    // c.finalizado = false (2026-11-05): "una vez finalizado el sistema ya no le hara
+    // vigilancia" -- un caso finalizado nunca vuelve a entrar al ciclo de boletines, sin
+    // importar si su última actuación sigue técnicamente "sin boletín resuelto".
     @Query("SELECT a FROM ActuacionJudicialRegistrada a JOIN FETCH a.caso c "
             + "WHERE (a.fechaRegistro IS NOT NULL OR a.fechaActuacion IS NOT NULL) "
+            + "AND c.finalizado = false "
             + "AND COALESCE(a.fechaRegistro, a.fechaActuacion) = ("
             + "  SELECT MAX(COALESCE(a2.fechaRegistro, a2.fechaActuacion)) FROM ActuacionJudicialRegistrada a2 "
             + "  WHERE a2.caso = a.caso AND (a2.fechaRegistro IS NOT NULL OR a2.fechaActuacion IS NOT NULL))")
@@ -87,7 +91,7 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
     // ser de otra fecha reciente (caso 176: ultima actuacion 30-oct, "Fijacion estado" 23-oct)
     // -- el flujo manual, que deja elegir cualquier evento, si lo encontraba.
     @Query("SELECT a FROM ActuacionJudicialRegistrada a JOIN FETCH a.caso c "
-            + "WHERE a.fechaRegistro IS NOT NULL AND a.fechaRegistro >= :desde")
+            + "WHERE a.fechaRegistro IS NOT NULL AND a.fechaRegistro >= :desde AND c.finalizado = false")
     List<ActuacionJudicialRegistrada> conFechaRegistroDesde(
             @org.springframework.data.repository.query.Param("desde") LocalDateTime desde);
 

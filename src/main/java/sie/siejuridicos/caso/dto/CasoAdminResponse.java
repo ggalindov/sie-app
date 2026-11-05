@@ -97,7 +97,14 @@ public record CasoAdminResponse(
         // automático 24/7 hasta que se corrija o se confirme que es de otro tipo.
         boolean radicadoFormatoInvalido,
         boolean esPrivadoCifrado,
-        String motivoConfidencialidad
+        String motivoConfidencialidad,
+        // Pedido explícito del usuario (2026-11-05): "un apartado de casos finalizados...
+        // guarde todo el ultimo seguimiento" -- el panel de Casos Finalizados muestra estos 3
+        // campos junto con el resto del estado ya resuelto arriba (que nunca se borra ni se
+        // vuelve a tocar una vez finalizado, ver Caso.finalizado).
+        boolean finalizado,
+        LocalDateTime fechaFinalizacion,
+        String finalizadoPorNombre
 ) {
     public static CasoAdminResponse desde(
             Caso caso, boolean tieneActualizacionSinRevisar, LocalDateTime fechaUltimaActuacionDetectada,
@@ -146,7 +153,10 @@ public record CasoAdminResponse(
                 caso.getUltimaActualizacionRama(),
                 caso.isRadicadoFormatoInvalido(),
                 caso.isEsPrivadoCifrado(),
-                caso.getMotivoConfidencialidad()
+                caso.getMotivoConfidencialidad(),
+                caso.isFinalizado(),
+                caso.getFechaFinalizacion(),
+                caso.getFinalizadoPor() != null ? caso.getFinalizadoPor().getNombre() : null
         );
     }
 }

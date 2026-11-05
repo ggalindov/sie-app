@@ -322,6 +322,19 @@ export default function BoletinesPage() {
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate text-sm font-medium text-ink">{b.nombreArchivo}</p>
+                                  {/* Pedido explícito del usuario (2026-11-05): "carga el
+                                      nombre de boletines por Autos y Sentencias". */}
+                                  {b.categoriaDocumento && (
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                        b.categoriaDocumento === "Sentencia"
+                                          ? "bg-purple-100 text-purple-700"
+                                          : "bg-blue-100 text-blue-700"
+                                      }`}
+                                    >
+                                      {b.categoriaDocumento}
+                                    </span>
+                                  )}
                                   {b.coincideNombreActuacion && (
                                     <Badge tone="success">
                                       <CheckCircle className="h-3 w-3" weight="bold" /> Coincide con la actuación

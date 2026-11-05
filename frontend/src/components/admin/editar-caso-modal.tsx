@@ -8,11 +8,10 @@ import { actualizarCaso, ApiError, listarUsuarios, type CasoAdmin, type UsuarioI
 import { AdminButton } from "@/components/admin/ui";
 
 // Pedido explícito del usuario: "una variable para editar los casos, la idea es
-// desligarnos del excel, un boton para editar caso para administrador unicamente y
-// asignacion de caso por abogado" -- este modal es la única forma de corregir datos de un
-// caso sin depender de que el Google Sheets de la firma los traiga bien. Solo se monta
-// desde /admin/casos cuando sesion.rol === "ADMIN_GENERAL" (el backend igual lo rechaza con
-// 403 si un ABOGADO llegara a invocar el endpoint).
+// desligarnos del excel" -- este modal es la única forma de corregir datos de un caso sin
+// depender de que el Google Sheets de la firma los traiga bien. Disponible para
+// ADMIN_GENERAL y ABOGADO por igual (2026-11-04: "permite que todos los gerentes y abogados
+// puedan editar la informacion de un caso").
 export function EditarCasoModal({
   caso,
   onClose,

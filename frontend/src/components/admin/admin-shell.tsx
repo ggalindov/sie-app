@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  Archive,
   ChartBar,
   ChartLineUp,
   Envelope,
@@ -89,6 +90,10 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/casos", label: "Casos", descripcion: "Expedientes activos con seguimiento judicial 24/7.", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"], contadorId: "casos" },
       { href: "/admin/casos-privados", label: "Casos Privados y Cifrados", descripcion: "Bóveda ultra sensible de Gerencia con cifrado AES-256.", icon: ShieldCheck, roles: ["ADMIN_GENERAL"], contadorId: "casosPrivados" },
+      // Pedido explícito del usuario (2026-11-05): "un boton para cada caso el cual nos
+      // permita finalizarlo, y el caso se remite a un nuevo apartado de que diga casos
+      // finalizados" -- de solo lectura, un caso finalizado ya no recibe vigilancia judicial.
+      { href: "/admin/casos-finalizados", label: "Casos Finalizados", descripcion: "Expedientes cerrados, con el último seguimiento guardado.", icon: Archive, roles: ["ADMIN_GENERAL", "ABOGADO"] },
       // Pedido explícito del usuario: "implementa todas las mejoras identificadas"
       // (comparando contra Lupa Jurídica) -- procesos que el CPNU encontró buscando por el
       // nombre de un cliente, que todavía no están en nuestra tabla de casos. Ver
@@ -268,10 +273,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         {/* Buscador total del panel: una sola fila compartida entre mobile y desktop (no
             existía un topbar común antes de esto -- en desktop solo había el header interno
-            del sidebar, sin espacio de sobra) para no duplicar el input en dos lugares. */}
-        <div className="flex shrink-0 items-center border-b border-line bg-surface px-4 py-3 sm:px-8">
-          <BuscadorGlobal />
-        </div>
+            del sidebar, sin espacio de sobra) para no duplicar el input en dos lugares.
+            Pedido explícito del usuario (2026-11-05): "el buscador general solo dejalo
+            visible para cuando uno este en resumen" -- /admin es la página de Resumen. */}
+        {pathname === "/admin" && (
+          <div className="flex shrink-0 items-center border-b border-line bg-surface px-4 py-3 sm:px-8">
+            <BuscadorGlobal />
+          </div>
+        )}
 
         <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-8 sm:px-8 lg:py-10">
           {children}

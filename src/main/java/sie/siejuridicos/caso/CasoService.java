@@ -541,6 +541,88 @@ public class CasoService {
         return CasoAdminResponse.desde(caso, false, null, null, null);
     }
 
+    // Pedido explícito del usuario (2026-11-05): "un boton para cada caso el cual nos permita
+    // finalizarlo, y el caso se remite a un nuevo apartado de casos finalizados... una vez
+    // finalizado el sistema ya no le hara vigilancia". Nunca borra nada -- todas las
+    // actuaciones/boletines ya cacheados quedan intactos, esta bandera solo saca al caso de
+    // las consultas que alimentan el ciclo de vigilancia (ver
+    // CasoRepository.findByRadicadoIdIsNotNullAndFinalizadoFalse y
+    // ActuacionJudicialRegistradaRepository.ultimaActuacionConFechaPorCaso/
+    // conFechaRegistroDesde). Disponible para ADMIN_GENERAL y ABOGADO por igual, mismo nivel
+    // de acceso que editar un caso.
+    @Transactional
+    public CasoAdminResponse finalizar(Long id, UsuarioInterno actor) {
+        Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        if (!caso.isFinalizado()) {
+            caso.setFinalizado(true);
+            caso.setFechaFinalizacion(LocalDateTime.now());
+            caso.setFinalizadoPor(actor);
+            casoRepository.save(caso);
+
+            registroSistemaService.registrar(
+                    TipoRegistroSistema.EDICION_CASO,
+                    ("'%s' finalizó el caso #%d (%s) -- se mueve a Casos Finalizados y deja de recibir "
+                            + "vigilancia judicial automática.").formatted(
+                                    actor.getNombre(), caso.getId(),
+                                    caso.getRadicadoId() != null ? caso.getRadicadoId() : "Sin radicado"),
+                    true);
+        }
+        return CasoAdminResponse.desde(caso, false, null, null, null);
+    }
+
+    // Inverso de finalizar() -- por si se finalizó un caso por error. Retoma la vigilancia
+    // judicial automática en el siguiente ciclo (ninguna acción manual adicional necesaria).
+    @Transactional
+    public CasoAdminResponse reabrir(Long id, UsuarioInterno actor) {
+        Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        if (caso.isFinalizado()) {
+            caso.setFinalizado(false);
+            caso.setFechaFinalizacion(null);
+            caso.setFinalizadoPor(null);
+            casoRepository.save(caso);
+
+            registroSistemaService.registrar(
+                    TipoRegistroSistema.EDICION_CASO,
+                    ("'%s' reabrió el caso #%d (%s) -- vuelve a Casos activos y retoma la vigilancia judicial "
+                            + "automática.").formatted(
+                                    actor.getNombre(), caso.getId(),
+                                    caso.getRadicadoId() != null ? caso.getRadicadoId() : "Sin radicado"),
+                    true);
+        }
+        return CasoAdminResponse.desde(caso, false, null, null, null);
+    }
+
+    // Apartado "Casos Finalizados" -- mismo enriquecimiento de fechas reales que listarTodos(),
+    // para que "guarde todo el ultimo seguimiento" se vea igual de completo que en la lista de
+    // casos activos, solo que de solo lectura (nunca vuelven a actualizarse).
+    @Transactional(readOnly = true)
+    public List<CasoAdminResponse> listarFinalizados() {
+        Map<Long, LocalDateTime> ultimaDeteccionPorCaso = actuacionJudicialRegistradaRepository
+                .ultimaFechaDetectadaPorCaso().stream()
+                .collect(Collectors.toMap(
+                        ActuacionJudicialRegistradaRepository.UltimaDeteccionPorCaso::getCasoId,
+                        ActuacionJudicialRegistradaRepository.UltimaDeteccionPorCaso::getUltimaFechaDetectada));
+        Map<Long, LocalDateTime> ultimoMovimientoPorCaso = actuacionJudicialRegistradaRepository
+                .ultimaFechaMovimientoPorCaso().stream()
+                .collect(Collectors.toMap(
+                        ActuacionJudicialRegistradaRepository.UltimoMovimientoPorCaso::getCasoId,
+                        ActuacionJudicialRegistradaRepository.UltimoMovimientoPorCaso::getUltimaFechaMovimiento));
+        LocalDateTime ahora = LocalDateTime.now();
+        Map<Long, Integer> diasParaBorrarPorCaso = boletinJudicialCacheRepository.proximaExpiracionPorCaso().stream()
+                .collect(Collectors.toMap(
+                        BoletinJudicialCacheRepository.ProximaExpiracionPorCaso::getCasoId,
+                        p -> (int) Math.max(0, ChronoUnit.DAYS.between(ahora, p.getProximaExpiracion()))));
+
+        return casoRepository.listarFinalizadosConDetalle().stream()
+                .map(caso -> CasoAdminResponse.desde(caso, false,
+                        ultimaDeteccionPorCaso.get(caso.getId()),
+                        ultimoMovimientoPorCaso.get(caso.getId()),
+                        diasParaBorrarPorCaso.get(caso.getId())))
+                .toList();
+    }
+
     // Solo la PRIMERA racha de dígitos, no todos los dígitos del texto: "40-2" (un número
     // duplicado en la hoja desambiguado por HojaCalculoService) debe ordenar junto a "40", no
     // como "402" -- concatenar todos los dígitos rompería justo el orden que se está pidiendo.

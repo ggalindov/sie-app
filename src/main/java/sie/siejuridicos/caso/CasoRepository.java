@@ -72,13 +72,22 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado ORDER BY c.fechaCreacion DESC")
     List<Caso> listarTodosConDetalle();
 
-    // Casos estándar no confidenciales (visibles para el panel general de casos)
-    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.esPrivadoCifrado = false ORDER BY c.fechaCreacion DESC")
+    // Casos estándar no confidenciales (visibles para el panel general de casos). finalizado =
+    // false (2026-11-05): un caso finalizado se muestra en su propio apartado, nunca aquí.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.esPrivadoCifrado = false AND c.finalizado = false ORDER BY c.fechaCreacion DESC")
     List<Caso> listarPublicosConDetalle();
 
     // Bóveda de Casos Privados y Cifrados: exclusivos de Gerencia (ADMIN_GENERAL)
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.esPrivadoCifrado = true ORDER BY c.fechaCreacion DESC")
     List<Caso> listarPrivadosConDetalle();
+
+    // Casos finalizados (2026-11-05, nuevo apartado "Casos Finalizados" -- ver
+    // CasoAdminController.listarFinalizados). LEFT JOIN FETCH de finalizadoPor para mostrar
+    // quién lo cerró sin N+1.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "LEFT JOIN FETCH c.finalizadoPor WHERE c.finalizado = true ORDER BY c.fechaFinalizacion DESC")
+    List<Caso> listarFinalizadosConDetalle();
 
     // Cuántos casos comparten este mismo Cliente (ver
     // CasoService.actualizarDatosCliente()): si un cliente tiene más de un caso, la columna
@@ -97,16 +106,19 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     // cuenta si el radicadoId tiene forma de radicado CPNU de 23 dígitos, así que un caso de
     // una fuente que no usa ese formato (ej. Procesos Comisaría/ICBF) simplemente no
     // encuentra nada ahí, sin que haga falta excluirlo aquí por fuente.
-    List<Caso> findByRadicadoIdIsNotNull();
+    // AndFinalizadoFalse (2026-11-05): "una vez finalizado el sistema ya no le hara
+    // vigilancia" -- un caso finalizado nunca vuelve a entrar al ciclo de seguimiento judicial.
+    List<Caso> findByRadicadoIdIsNotNullAndFinalizadoFalse();
 
     // Para DeteccionProcesosNuevosService (pedido explícito del usuario: "implementa todas
     // las mejoras identificadas") -- solo clienteId + radicadoId, SIN tocar nombre/correo/
     // teléfono (esos van cifrados con CampoCifradoConverter, ver Cliente -- más seguro no
     // arriesgar si ese converter aplica igual sobre una ruta de proyección que sobre la
     // entidad completa). c.cliente.id es seguro de leer en una proyección así: es una llave
-    // numérica plana, nunca pasa por el converter.
+    // numérica plana, nunca pasa por el converter. c.finalizado = false (2026-11-05): un caso
+    // finalizado tampoco debe seguir detectando procesos nuevos relacionados.
     @Query("SELECT c.cliente.id AS clienteId, c.radicadoId AS radicadoId "
-            + "FROM Caso c WHERE c.radicadoId IS NOT NULL AND c.cliente IS NOT NULL")
+            + "FROM Caso c WHERE c.radicadoId IS NOT NULL AND c.cliente IS NOT NULL AND c.finalizado = false")
     List<RadicadoPorCliente> listarRadicadosPorCliente();
 
     interface RadicadoPorCliente {

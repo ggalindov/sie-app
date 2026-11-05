@@ -96,16 +96,39 @@ public class CasoAdminController {
         return ResponseEntity.ok(casoService.marcarPrivado(id, esPrivado, motivo, principal.getUsuario()));
     }
 
-    // Pedido explícito del usuario: "una variable para editar los casos, la idea es
-    // desligarnos del excel, un boton para editar caso para administrador unicamente y
-    // asignacion de caso por abogado" -- a diferencia de todo lo demás en este controlador
-    // (ADMIN_GENERAL o ABOGADO por igual), este endpoint es SOLO ADMIN_GENERAL.
+    // Pedido explícito del usuario (2026-11-04, revierte la decisión original de "solo
+    // administrador" de esta misma sesión de trabajo): "permite que todos los gerentes y
+    // abogados puedan editar la informacion de un caso" -- ahora mismo nivel de acceso que el
+    // resto de este controlador (ADMIN_GENERAL o ABOGADO por igual, ver el @PreAuthorize de
+    // la clase).
     @PatchMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<CasoAdminResponse> actualizar(
             @PathVariable Long id, @RequestBody ActualizarCasoRequest request,
             @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
         return ResponseEntity.ok(casoService.actualizar(id, request, principal.getUsuario()));
+    }
+
+    // Pedido explícito del usuario (2026-11-05): "un boton para cada caso el cual nos permita
+    // finalizarlo, y el caso se remite a un nuevo apartado de casos finalizados". Mismo nivel
+    // de acceso que editar un caso (ADMIN_GENERAL o ABOGADO, ver el @PreAuthorize de la clase).
+    @PatchMapping("/{id}/finalizar")
+    public ResponseEntity<CasoAdminResponse> finalizar(
+            @PathVariable Long id, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(casoService.finalizar(id, principal.getUsuario()));
+    }
+
+    // Inverso de finalizar(), por si se finalizó un caso por error.
+    @PatchMapping("/{id}/reabrir")
+    public ResponseEntity<CasoAdminResponse> reabrir(
+            @PathVariable Long id, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(casoService.reabrir(id, principal.getUsuario()));
+    }
+
+    // Nuevo apartado "Casos Finalizados" -- solo lectura, el "último seguimiento" guardado
+    // queda intacto (nunca se vuelve a actualizar, ver CasoService.listarFinalizados()).
+    @GetMapping("/finalizados")
+    public ResponseEntity<List<CasoAdminResponse>> listarFinalizados() {
+        return ResponseEntity.ok(casoService.listarFinalizados());
     }
 
     // Botón "Actualizar" del panel: trae/actualiza todos los casos desde el Google Sheets de

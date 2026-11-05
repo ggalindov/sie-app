@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
 import {
+  Archive,
   ArrowsClockwise,
   Bell,
   CalendarPlus,
@@ -37,6 +38,7 @@ import {
   enviarCorreosPendientesCasos,
   enviarReporteSemanalCasos,
   contarTareasPendientesPorCaso,
+  finalizarCaso,
   ApiError,
   type CasoAdmin,
   type FuenteCaso,
@@ -154,12 +156,12 @@ export default function CasosAdminPage() {
   // abierta debe entrar directo al caso sin que el usuario tenga que buscarlo a mano.
   const radicadoInicial = useSearchParams().get("radicado") ?? "";
   const { sesion } = useAuth();
-  const esAdmin = sesion?.rol === "ADMIN_GENERAL";
   const [casos, setCasos] = useState<CasoAdmin[] | null>(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
   const [enviandoPendientes, setEnviandoPendientes] = useState(false);
   const [enviandoReporteSemanal, setEnviandoReporteSemanal] = useState(false);
+  const [finalizandoId, setFinalizandoId] = useState<number | null>(null);
   const [filtroFuente, setFiltroFuente] = useState<FuenteCaso | "TODOS">("TODOS");
   const [busqueda, setBusqueda] = useState(qInicial);
   // Pedido explícito del usuario: "implementar un nuevo apartado solo para ver asi como en
@@ -377,6 +379,27 @@ export default function CasosAdminPage() {
     }
   }
 
+  // Pedido explícito del usuario (2026-11-05): "un boton para cada caso el cual nos permita
+  // finalizarlo, y el caso se remite a un nuevo apartado de casos finalizados... una vez
+  // finalizado el sistema ya no le hara vigilancia". El caso desaparece de esta lista de
+  // inmediato (se mueve a /admin/casos-finalizados) -- nunca se borra nada, el backend solo
+  // apaga la bandera que alimenta el ciclo de vigilancia.
+  async function onFinalizar(caso: CasoAdmin) {
+    if (!window.confirm(`¿Finalizar el caso de ${caso.nombreCliente}? Se mueve a "Casos Finalizados" y el sistema deja de vigilarlo automáticamente. El último seguimiento queda guardado y se puede reabrir después si hace falta.`)) {
+      return;
+    }
+    setFinalizandoId(caso.id);
+    try {
+      await finalizarCaso(caso.id);
+      setCasos((prev) => (prev ? prev.filter((c) => c.id !== caso.id) : prev));
+      toast.success(`Caso de ${caso.nombreCliente} finalizado -- movido a Casos Finalizados.`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo finalizar el caso.");
+    } finally {
+      setFinalizandoId(null);
+    }
+  }
+
   return (
     <div>
       <AdminPageHeader
@@ -563,28 +586,86 @@ export default function CasosAdminPage() {
           secciones es generoso en vez de apretado. */}
       {casos !== null && casos.length > 0 && (
         <div className="mt-6 space-y-5 rounded-2xl border border-line bg-surface p-5">
-          <div>
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft/60">
-              <Funnel className="h-3.5 w-3.5" weight="bold" />
-              Filtrar por origen
-            </p>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {FUENTES_FILTRO.map((f) => {
-                const cantidad = f.valor === "TODOS" ? casos.length : casos.filter((c) => c.fuente === f.valor).length;
-                if (f.valor !== "TODOS" && cantidad === 0) return null;
-                return (
+          {/* Pedido explícito del usuario (2026-11-05): "estado de seguimiento dejalo a mano
+              derecha de filtrar por origen" -- antes "Estado del seguimiento" era una 3ra
+              sección apilada debajo de "Ordenar"; ahora comparte fila con "Filtrar por
+              origen" (lado a lado en pantallas anchas, apilado en móvil). */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div>
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft/60">
+                <Funnel className="h-3.5 w-3.5" weight="bold" />
+                Filtrar por origen
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {FUENTES_FILTRO.map((f) => {
+                  const cantidad = f.valor === "TODOS" ? casos.length : casos.filter((c) => c.fuente === f.valor).length;
+                  if (f.valor !== "TODOS" && cantidad === 0) return null;
+                  return (
+                    <button
+                      key={f.valor}
+                      type="button"
+                      onClick={() => setFiltroFuente(f.valor)}
+                      className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                        filtroFuente === f.valor ? "bg-ink text-paper" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
+                      }`}
+                    >
+                      {f.label} <span className="opacity-70">({cantidad})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Pedido explícito del usuario: "explica que es el boton rojo" -- los dos puntos
+                de estado del botón "Seguimiento" de cada tarjeta (rojo y, ahora, azul) no
+                traían ninguna explicación visible, así que no quedaba claro qué significaban
+                sin preguntar. Ambos son independientes entre sí y pueden salir a la vez. Ahora
+                además son filtros clicables (pedido explícito: "impementa un filtrador para los
+                bonotes, uno que filtre todos los que tiene boletines disponibles (azul) y otro
+                para casos sin revisar (rojo)") -- los dos pueden estar activos a la vez (un caso
+                puede cumplir ambos). */}
+            <div className="border-t border-line pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft/60">
+                <ClockCounterClockwise className="h-3.5 w-3.5" weight="bold" />
+                Estado del seguimiento
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                El botón &quot;Seguimiento&quot; de cada tarjeta puede traer un punto rojo, uno azul, los dos o ninguno -- filtra por cualquiera de los dos a la vez.
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSoloSinRevisar((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                    soloSinRevisar ? "bg-red-500/10 text-red-700 ring-1 ring-red-500/40" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                  Sin revisar (se apaga solo al abrir el caso)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSoloConBoletin((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                    soloConBoletin ? "bg-blue-500/10 text-blue-700 ring-1 ring-blue-500/40" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                  Con boletín disponible
+                </button>
+                {(soloSinRevisar || soloConBoletin) && (
                   <button
-                    key={f.valor}
                     type="button"
-                    onClick={() => setFiltroFuente(f.valor)}
-                    className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                      filtroFuente === f.valor ? "bg-ink text-paper" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
-                    }`}
+                    onClick={() => {
+                      setSoloSinRevisar(false);
+                      setSoloConBoletin(false);
+                    }}
+                    className="text-xs text-ink-soft underline-offset-2 hover:underline"
                   >
-                    {f.label} <span className="opacity-70">({cantidad})</span>
+                    Quitar filtros
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
           </div>
 
@@ -627,57 +708,6 @@ export default function CasosAdminPage() {
             </div>
           </div>
 
-          {/* Pedido explícito del usuario: "explica que es el boton rojo" -- los dos puntos
-              de estado del botón "Seguimiento" de cada tarjeta (rojo y, ahora, azul) no
-              traían ninguna explicación visible, así que no quedaba claro qué significaban
-              sin preguntar. Ambos son independientes entre sí y pueden salir a la vez. Ahora
-              además son filtros clicables (pedido explícito: "impementa un filtrador para los
-              bonotes, uno que filtre todos los que tiene boletines disponibles (azul) y otro
-              para casos sin revisar (rojo)") -- los dos pueden estar activos a la vez (un caso
-              puede cumplir ambos). */}
-          <div className="border-t border-line pt-5">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft/60">
-              <ClockCounterClockwise className="h-3.5 w-3.5" weight="bold" />
-              Estado del seguimiento
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              El botón &quot;Seguimiento&quot; de cada tarjeta puede traer un punto rojo, uno azul, los dos o ninguno -- filtra por cualquiera de los dos a la vez.
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSoloSinRevisar((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors ${
-                  soloSinRevisar ? "bg-red-500/10 text-red-700 ring-1 ring-red-500/40" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
-                }`}
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                Sin revisar (se apaga solo al abrir el caso)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSoloConBoletin((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors ${
-                  soloConBoletin ? "bg-blue-500/10 text-blue-700 ring-1 ring-blue-500/40" : "bg-ink/5 text-ink-soft hover:bg-ink/10"
-                }`}
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                Con boletín disponible
-              </button>
-              {(soloSinRevisar || soloConBoletin) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSoloSinRevisar(false);
-                    setSoloConBoletin(false);
-                  }}
-                  className="text-xs text-ink-soft underline-offset-2 hover:underline"
-                >
-                  Quitar filtros
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
@@ -745,20 +775,35 @@ export default function CasosAdminPage() {
               <div className="min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-display text-xl leading-snug text-ink">{c.nombreCliente}</p>
-                  {/* Pedido explícito del usuario: "un boton para editar caso para
-                      administrador unicamente" -- el backend igual lo rechaza con 403 para
-                      un ABOGADO, esto solo evita mostrar un botón que de todos modos
-                      fallaría. */}
-                  {esAdmin && (
+                  {/* Pedido explícito del usuario (2026-11-04, revierte la decisión original
+                      de "solo administrador" de esta misma sesión de trabajo): "permite que
+                      todos los gerentes y abogados puedan editar la informacion de un caso". */}
+                  <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setCasoEditando(c)}
                       aria-label="Editar caso"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/10 hover:text-ink"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/10 hover:text-ink"
                     >
                       <PencilSimple className="h-4 w-4" weight="bold" />
                     </button>
-                  )}
+                    {/* Pedido explícito del usuario (2026-11-05): "un boton para cada caso el
+                        cual nos permita finalizarlo". */}
+                    <button
+                      type="button"
+                      onClick={() => onFinalizar(c)}
+                      disabled={finalizandoId === c.id}
+                      aria-label="Finalizar caso"
+                      title="Finalizar caso (se mueve a Casos Finalizados)"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/10 hover:text-ink disabled:opacity-50"
+                    >
+                      {finalizandoId === c.id ? (
+                        <Spinner className="h-4 w-4 animate-spin" weight="bold" />
+                      ) : (
+                        <Archive className="h-4 w-4" weight="bold" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <Badge tone="gold">{c.fuenteVisible}</Badge>

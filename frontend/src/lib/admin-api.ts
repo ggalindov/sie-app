@@ -1309,6 +1309,12 @@ export type CasoAdmin = {
   radicadoFormatoInvalido: boolean;
   esPrivadoCifrado?: boolean;
   motivoConfidencialidad?: string | null;
+  // Pedido explícito del usuario (2026-11-05): "un apartado de casos finalizados... guarde
+  // todo el ultimo seguimiento". finalizado=true saca al caso de /admin/casos y lo lleva a
+  // /admin/casos-finalizados, de solo lectura (nunca se vuelve a sincronizar con la vigilancia).
+  finalizado: boolean;
+  fechaFinalizacion: string | null;
+  finalizadoPorNombre: string | null;
 };
 
 
@@ -1429,6 +1435,20 @@ export function marcarCasoPrivado(id: number, esPrivado: boolean, motivo?: strin
   });
 }
 
+// Pedido explícito del usuario (2026-11-05): "un boton para cada caso el cual nos permita
+// finalizarlo, y el caso se remite a un nuevo apartado de casos finalizados".
+export function finalizarCaso(id: number): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>(`/api/admin/casos/${id}/finalizar`, { method: "PATCH" });
+}
+
+export function reabrirCaso(id: number): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>(`/api/admin/casos/${id}/reabrir`, { method: "PATCH" });
+}
+
+export function listarCasosFinalizados(): Promise<CasoAdmin[]> {
+  return pedido<CasoAdmin[]>("/api/admin/casos/finalizados");
+}
+
 
 
 export function crearCaso(input: {
@@ -1498,6 +1518,10 @@ export type BoletinJudicial = {
   fechaEmision?: string | null;
 
   tipoActuacion?: string | null;
+
+  // Pedido explícito del usuario (2026-11-05): "carga el nombre de boletines por Autos y
+  // Sentencias" -- "Auto" | "Sentencia" | null (no se pudo clasificar).
+  categoriaDocumento?: string | null;
 
 };
 

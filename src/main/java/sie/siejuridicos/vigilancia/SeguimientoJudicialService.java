@@ -100,7 +100,7 @@ public class SeguimientoJudicialService {
     }
 
     public ResumenSeguimientoJudicial sincronizarTodos() {
-        List<Caso> casos = casoRepository.findByRadicadoIdIsNotNull();
+        List<Caso> casos = casoRepository.findByRadicadoIdIsNotNullAndFinalizadoFalse();
         int casosConProceso = 0;
         int casosSinProceso = 0;
         int actuacionesNuevas = 0;

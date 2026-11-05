@@ -24,7 +24,13 @@ public record BoletinJudicialResponse(
         LocalDateTime fechaDescarga,
         LocalDateTime fechaExpiracion,
         LocalDateTime fechaEmision,
-        String tipoActuacion
+        String tipoActuacion,
+        // Pedido explícito del usuario (2026-11-05): "carga el nombre de boletines por Autos y
+        // Sentencias" -- clasificación simple por palabra clave en el nombre de archivo (ya
+        // viene así del despacho, ej. "AutoLibraMandamientoEjecutivo.pdf") o, si el archivo no
+        // la trae, en el nombre de la actuación real. Null cuando no se puede determinar
+        // ninguna de las dos (nunca se inventa una categoría).
+        String categoriaDocumento
 ) {
     private static final java.util.regex.Pattern PATRON_FECHA_GUIONES =
             java.util.regex.Pattern.compile("(202[0-9])-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])");
@@ -63,7 +69,30 @@ public record BoletinJudicialResponse(
                 b.getFechaDescarga(),
                 b.getFechaExpiracion(),
                 fechaEmision,
-                tipoActuacion);
+                tipoActuacion,
+                categorizar(b.getNombreArchivo(), tipoActuacion));
+    }
+
+    private static String categorizar(String nombreArchivo, String tipoActuacion) {
+        String categoriaPorArchivo = categorizarTexto(nombreArchivo);
+        if (categoriaPorArchivo != null) {
+            return categoriaPorArchivo;
+        }
+        return categorizarTexto(tipoActuacion);
+    }
+
+    private static String categorizarTexto(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        String normalizado = texto.toLowerCase();
+        if (normalizado.contains("sentencia")) {
+            return "Sentencia";
+        }
+        if (normalizado.contains("auto")) {
+            return "Auto";
+        }
+        return null;
     }
 
     private static LocalDateTime extraerFechaDeNombreArchivo(String nombre) {
