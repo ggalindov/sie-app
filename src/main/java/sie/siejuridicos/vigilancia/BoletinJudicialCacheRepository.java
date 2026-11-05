@@ -106,4 +106,17 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     // "Documento" de la tabla principal tenga con qué emparejar de verdad, en vez de una
     // muestra de boletines sin relación con las actuaciones mostradas.
     List<BoletinJudicialCache> findByActuacion_IdIn(List<Long> actuacionIds);
+
+    // Bug real encontrado (2026-11-05): una misma actuación se vuelve a revisar en CADA ciclo
+    // (ver BoletinJudicialCacheService.construirObjetivos -- la última actuación de cada caso
+    // SIEMPRE entra, y cualquier actuación reciente reentra mientras siga dentro de la ventana
+    // de días). Si el documento YA se encontró y cacheó en un ciclo anterior, el ciclo
+    // siguiente lo encuentra vía existsByCaso_IdAndUrlOrigen y lo salta (nuevos=0) -- sin este
+    // chequeo, procesarActuacion() interpretaba ese "0 nuevos" como "nunca se encontró nada" y
+    // le escribía igual al despacho pidiendo un documento que el sistema YA tiene guardado.
+    // AndCoincideNombreActuacionTrue a propósito: un boletín viejo de baja confianza
+    // (coincideNombreActuacion=false, ver el fix de descargarYGuardarCandidatos) NUNCA debe
+    // contar como "ya lo tenemos" -- eso dejaría sin pedir al despacho un documento que, en la
+    // práctica, el sistema nunca resolvió de verdad.
+    boolean existsByActuacion_IdAndCoincideNombreActuacionTrue(Long actuacionId);
 }

@@ -1573,58 +1573,6 @@ export function limpiarBoletinesNoCoincidentes(): Promise<number> {
 
 // abrirPdfDocumentoJudicial() más abajo, pero GET (sin cuerpo, el id ya va en la URL).
 
-// Sirve el PDF que YA está cacheado, nunca vuelve a consultar Publicaciones Procesales en
-
-// vivo -- instantáneo, no depende de que el portal del Estado esté respondiendo.
-
-export async function abrirPdfBoletin(id: number): Promise<void> {
-
-  const ventana = window.open("", "_blank");
-
-  const token = obtenerToken();
-
-  const res = await fetch(`${API_URL}/api/admin/vigilancia/boletines/${id}/pdf`, {
-
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-
-  });
-
-
-
-  if (res.status === 401) {
-
-    ventana?.close();
-
-    throw new ApiError("Tu sesión expiró. Inicia sesión de nuevo.", 401);
-
-  }
-
-  if (!res.ok) {
-
-    ventana?.close();
-
-    throw new ApiError(await parseErrorMessage(res), res.status);
-
-  }
-
-
-
-  const blob = await res.blob();
-
-  const url = URL.createObjectURL(blob);
-
-  if (ventana) {
-
-    ventana.location.href = url;
-
-  } else {
-
-    window.open(url, "_blank");
-
-  }
-
-}
-
 
 
 export function descargarBoletin(id: number, nombreArchivo: string): Promise<void> {

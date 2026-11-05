@@ -33,7 +33,6 @@ import {
   generarInformeLegalProCroma,
   listarMemoriasLegalProCroma,
   obtenerMemoriaLegalProCroma,
-  abrirPdfBoletin,
   descargarBoletin,
   ApiError,
   type CasoAdmin,
@@ -884,16 +883,9 @@ export function LegalProCromaModal({
                               </div>
 
                               <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    abrirPdfBoletin(b.id).catch(() => toast.error("No se pudo abrir el PDF."))
-                                  }
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-ink/5"
-                                >
-                                  <ArrowSquareOut className="h-3.5 w-3.5" />
-                                  Ver PDF
-                                </button>
+                                {/* "Ver PDF" (abrirPdfBoletin) quitado a propósito (2026-11-05):
+                                    estos boletines pueden pesar 10+ MB y abrirlos vía blob URL en
+                                    una pestaña en blanco falla en Chrome con archivos así. */}
                                 <button
                                   type="button"
                                   onClick={() =>

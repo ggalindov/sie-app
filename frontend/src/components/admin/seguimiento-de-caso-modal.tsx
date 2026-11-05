@@ -29,7 +29,6 @@ import {
   X,
 } from "@phosphor-icons/react";
 import {
-  abrirPdfBoletin,
   abrirPdfDocumentoJudicial,
   ApiError,
   buscarDocumentosBoletin,
@@ -1004,12 +1003,19 @@ export function SeguimientoDeCasoModal({
                             >
                               <span className="truncate text-xs font-medium text-ink">{b.nombreArchivo}</span>
                               <div className="flex items-center gap-1.5">
+                                {/* "Ver PDF" (abrirPdfBoletin) quitado a propósito (2026-11-05):
+                                    estos boletines pueden pesar 10+ MB y abrirlos vía blob URL en
+                                    una pestaña en blanco falla en Chrome con archivos así. */}
                                 <button
                                   type="button"
-                                  onClick={() => abrirPdfBoletin(b.id).catch(() => toast.error("No se pudo abrir el PDF."))}
+                                  onClick={() =>
+                                    descargarBoletin(b.id, b.nombreArchivo).catch(() =>
+                                      toast.error("No se pudo descargar el boletín."),
+                                    )
+                                  }
                                   className="rounded-md bg-gold px-2 py-0.5 text-[11px] font-semibold text-ink-fixed hover:bg-gold-deep"
                                 >
-                                  Ver PDF
+                                  Descargar
                                 </button>
                                 {b.urlOrigen && (
                                   <a
@@ -1148,13 +1154,9 @@ export function SeguimientoDeCasoModal({
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => abrirPdfBoletin(b.id).catch(() => toast.error("No se pudo abrir el PDF."))}
-                                    className="rounded-lg border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink hover:bg-ink/5"
-                                  >
-                                    Ver PDF
-                                  </button>
+                                  {/* "Ver PDF" (abrirPdfBoletin) quitado a propósito (2026-11-05):
+                                      estos boletines pueden pesar 10+ MB y abrirlos vía blob URL en
+                                      una pestaña en blanco falla en Chrome con archivos así. */}
                                   <button
                                     type="button"
                                     onClick={() =>

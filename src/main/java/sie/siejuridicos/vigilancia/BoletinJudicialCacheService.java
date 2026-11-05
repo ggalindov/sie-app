@@ -564,7 +564,16 @@ public class BoletinJudicialCacheService {
         // despacho (ver CorreoDespachoJudicialService). "incompleta" (el portal falló a
         // mitad de la búsqueda) no cuenta como "no existe": en ese caso se reintentará en un
         // ciclo posterior, nunca se le escribe al despacho por una falla transitoria propia.
-        if (actuacion.isConDocumentos() && resultado.nuevos() == 0 && !busqueda.incompleta()) {
+        //
+        // Bug real encontrado (2026-11-05): esta misma actuación vuelve a pasar por aquí en
+        // CADA ciclo (ver construirObjetivos -- la última actuación de cada caso SIEMPRE
+        // entra, y cualquier actuación reciente reentra mientras siga en la ventana de días).
+        // Si el documento YA se encontró y cacheó en un ciclo ANTERIOR, este ciclo lo
+        // descarta como duplicado (existsByCaso_IdAndUrlOrigen) y resultado.nuevos() da 0 --
+        // sin el chequeo de abajo, eso se interpretaba como "nunca se encontró nada" y se le
+        // escribía igual al despacho pidiendo un documento que el sistema YA tiene guardado.
+        if (actuacion.isConDocumentos() && resultado.nuevos() == 0 && !busqueda.incompleta()
+                && !boletinRepository.existsByActuacion_IdAndCoincideNombreActuacionTrue(actuacion.getId())) {
             correoDespachoJudicialService.intentarSolicitarAlDespacho(caso, actuacion);
         }
         return resultado;

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  Eye,
   Download,
   MagnifyingGlass,
   FilePdf,
@@ -15,7 +14,6 @@ import {
 } from "@phosphor-icons/react";
 import {
   listarBoletinesJudiciales,
-  abrirPdfBoletin,
   descargarBoletin,
   limpiarBoletinesNoCoincidentes,
   ApiError,
@@ -68,17 +66,6 @@ export default function BoletinesPage() {
   useEffect(() => {
     cargar();
   }, [cargar]);
-
-  async function onVer(b: BoletinJudicial) {
-    setProcesandoId(b.id);
-    try {
-      await abrirPdfBoletin(b.id);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "No se pudo abrir el documento.");
-    } finally {
-      setProcesandoId(null);
-    }
-  }
 
   async function onDescargar(b: BoletinJudicial) {
     setProcesandoId(b.id);
@@ -362,10 +349,12 @@ export default function BoletinesPage() {
                             </div>
 
                             <div className="flex shrink-0 gap-2 self-end sm:self-center">
-                              <AdminButton variant="ghost" onClick={() => onVer(b)} disabled={procesando}>
-                                <Eye className="h-4 w-4" weight="bold" />
-                                Ver
-                              </AdminButton>
+                              {/* Pedido explícito del usuario (2026-11-05): "el ver boletin no esta
+                                  sirviendo... deja solo el descargar" -- estos PDFs del canal
+                                  heurístico pueden pesar 10+ MB (el boletín completo del despacho,
+                                  no un documento aislado), y abrirlos vía blob URL en una pestaña
+                                  en blanco falla en Chrome con archivos de ese tamaño. La descarga
+                                  sí es confiable sin importar el peso. */}
                               <AdminButton variant="secondary" onClick={() => onDescargar(b)} disabled={procesando}>
                                 <Download className="h-4 w-4" weight="bold" />
                                 Descargar
