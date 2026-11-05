@@ -118,9 +118,25 @@ public class PadesSigningService {
     @Transactional
     public Optional<ResultadoFirmaPades> firmarPdf(byte[] pdfSinFirmar, String razon, String ubicacion) {
         FirmaPadesClave clave = obtenerOCrearClaveActiva();
-        byte[] privadaBytes = aesGcmCipher.descifrar(clave.getClavePrivadaCifrada(), clave.getClavePrivadaIv(),
-                claveMaestraService.obtenerClaveMaestra(clave.getKekId()));
+        byte[] privadaBytes = new byte[0];
         try {
+            // Bug real diagnosticado en vivo (2026-11-05): esta llamada vivía ANTES del try,
+            // así que un fallo aquí (p. ej. la misma llave huérfana por cambio de
+            // DOCUMENTO_FIRMA_CLAVE_MAESTRA que afecta a ApplicationSigningKeyService) se
+            // escapaba sin atrapar, contradiciendo el comentario de la clase ("nunca lanza...
+            // se devuelve el PDF SIN firmar") y bloqueando TODO el sellado del documento, no
+            // solo esta firma adicional. Autorrepara igual que ApplicationSigningKeyService.
+            try {
+                privadaBytes = aesGcmCipher.descifrar(clave.getClavePrivadaCifrada(), clave.getClavePrivadaIv(),
+                        claveMaestraService.obtenerClaveMaestra(clave.getKekId()));
+            } catch (IllegalStateException ex) {
+                log.warn("La llave PAdES activa ({}) no se pudo descifrar con la clave maestra vigente -- "
+                                + "probablemente DOCUMENTO_FIRMA_CLAVE_MAESTRA cambió después de generarla. "
+                                + "Se desactiva y se genera una nueva automáticamente.", clave.getKid(), ex);
+                clave = rotar();
+                privadaBytes = aesGcmCipher.descifrar(clave.getClavePrivadaCifrada(), clave.getClavePrivadaIv(),
+                        claveMaestraService.obtenerClaveMaestra(clave.getKekId()));
+            }
             KeyFactory factory = KeyFactory.getInstance(ALGORITMO_CLAVE);
             PrivateKey privada = factory.generatePrivate(new PKCS8EncodedKeySpec(privadaBytes));
             CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
@@ -276,6 +292,18 @@ public class PadesSigningService {
     public FirmaPadesClave obtenerPorKid(String kid) {
         return repository.findByKid(kid)
                 .orElseThrow(() -> new IllegalStateException("No se encontró la llave PAdES '" + kid + "'."));
+    }
+
+    // Mismo patrón que ApplicationSigningKeyService.rotar(): desactiva la llave huérfana sin
+    // borrarla (la verificación de una firma PAdES vieja usa el certificado público embebido
+    // en el propio PDF ya firmado, nunca vuelve a leer esta tabla) y genera una nueva bajo la
+    // clave maestra vigente.
+    private FirmaPadesClave rotar() {
+        repository.findByActivaTrue().ifPresent(actual -> {
+            actual.desactivar();
+            repository.save(actual);
+        });
+        return generarYGuardarNueva();
     }
 
     private FirmaPadesClave obtenerOCrearClaveActiva() {

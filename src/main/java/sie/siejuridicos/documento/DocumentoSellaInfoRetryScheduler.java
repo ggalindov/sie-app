@@ -62,7 +62,11 @@ public class DocumentoSellaInfoRetryScheduler {
                     avanzados++;
                 }
             } catch (RuntimeException ex) {
-                log.warn("Reintento de sellado: el documento {} sigue sin poder sellarse: {}", id, ex.getMessage());
+                // Diagnostico en vivo (2026-11-05): "No se pudo descifrar" se repetia igual
+                // despues del primer intento de fix -- se necesita el stack trace completo
+                // (ex al final, no solo ex.getMessage()) para ver el origen EXACTO, hay varios
+                // puntos del motor de firma que llaman a AesGcmCipher.descifrar().
+                log.warn("Reintento de sellado: el documento {} sigue sin poder sellarse: {}", id, ex.getMessage(), ex);
             }
         }
         log.info("Reintento de sellado completado: {} de {} documento(s) avanzaron de estado.", avanzados, ids.size());
