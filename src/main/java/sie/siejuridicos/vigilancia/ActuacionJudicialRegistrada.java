@@ -86,6 +86,19 @@ public class ActuacionJudicialRegistrada {
     @Column(name = "fecha_notificada_staff")
     private LocalDateTime fechaNotificadaStaff;
 
+    // Bug real encontrado (2026-11-05): BoletinJudicialDigestService.enviarDigestAbogados()
+    // usaba la MISMA bandera notificadaStaff que enviarDigestGerente() -- como gerencia se
+    // envía primero y la marca en TODAS las actuaciones pendientes del sistema (no solo las
+    // suyas), para cuando corría el digest de abogados ya no quedaba nada pendiente: los
+    // abogados nunca recibían ningún movimiento en su reporte diario. Bandera independiente
+    // por audiencia, ver migración V83 (backfill a TRUE para el historial ya existente, así
+    // no se inunda a nadie con meses de atraso el primer día que corre esto).
+    @Column(name = "notificada_abogado", nullable = false)
+    private boolean notificadaAbogado = false;
+
+    @Column(name = "fecha_notificada_abogado")
+    private LocalDateTime fechaNotificadaAbogado;
+
     // Cuando el sistema le solicitó por correo el documento de ESTA actuación directamente
     // al despacho judicial (ver CorreoDespachoJudicialService) -- null mientras no se le ha
     // pedido nada, nunca se vuelve a solicitar la misma actuación dos veces. Distinto de
@@ -107,6 +120,7 @@ public class ActuacionJudicialRegistrada {
         entidad.fechaInicialTermino = actuacion.fechaInicialTermino();
         entidad.fechaFinalTermino = actuacion.fechaFinalTermino();
         entidad.notificadaStaff = false;
+        entidad.notificadaAbogado = false;
         return entidad;
     }
 
@@ -188,6 +202,22 @@ public class ActuacionJudicialRegistrada {
 
     public void setFechaNotificadaStaff(LocalDateTime fechaNotificadaStaff) {
         this.fechaNotificadaStaff = fechaNotificadaStaff;
+    }
+
+    public boolean isNotificadaAbogado() {
+        return notificadaAbogado;
+    }
+
+    public void setNotificadaAbogado(boolean notificadaAbogado) {
+        this.notificadaAbogado = notificadaAbogado;
+    }
+
+    public LocalDateTime getFechaNotificadaAbogado() {
+        return fechaNotificadaAbogado;
+    }
+
+    public void setFechaNotificadaAbogado(LocalDateTime fechaNotificadaAbogado) {
+        this.fechaNotificadaAbogado = fechaNotificadaAbogado;
     }
 
     public LocalDateTime getCorreoDespachoSolicitadoEn() {

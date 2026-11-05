@@ -580,6 +580,20 @@ public class BoletinJudicialCacheService {
                                                             boolean incompleta) {
         int nuevos = 0;
         for (DocumentoProvidenciaCandidato candidato : candidatos) {
+            // Bug real encontrado (2026-11-05, caso 11001418907820250083400): un candidato del
+            // heurístico de Publicaciones Procesales con coincideConNombreActuacion=false ya
+            // significa "el propio emparejador de texto NO confía en esto" -- y aun así se
+            // descargaba y se guardaba igual, mostrándose en el panel como si fuera un
+            // documento real del caso. Así es como un solo boletín completo de un despacho
+            // (145 PDFs de OTRO proceso, mismo juzgado) terminó atribuido entero a este caso.
+            // El canal exacto de CPNU siempre viene con coincideConNombreActuacion=true (ver
+            // listarDocumentosDeActuacion), así que esto nunca afecta ese canal -- solo
+            // descarta candidatos heurísticos de baja confianza, que de todas formas quedan
+            // excluidos de los reportes a clientes (ver BoletinJudicialDigestService.
+            // enviarDigestClientes, AndCoincideNombreActuacionTrue).
+            if (!candidato.coincideConNombreActuacion()) {
+                continue;
+            }
             if (boletinRepository.existsByCaso_IdAndUrlOrigen(caso.getId(), candidato.urlDescarga())) {
                 continue;
             }

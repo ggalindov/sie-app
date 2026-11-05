@@ -14,6 +14,12 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     // (ver migración V63, UNIQUE(id_caso, url_origen)).
     boolean existsByCaso_IdAndUrlOrigen(Long casoId, String urlOrigen);
 
+    // Limpieza puntual (2026-11-05) de los boletines mal emparejados que quedaron cacheados
+    // ANTES de que BoletinJudicialCacheService.descargarYGuardarCandidatos() empezara a
+    // descartar candidatos heurísticos de baja confianza (ver ese comentario) -- nunca borra
+    // los de coincidencia confirmada (coincideNombreActuacion=true) ni los del canal exacto.
+    List<BoletinJudicialCache> findByCoincideNombreActuacionFalse();
+
     // BoletinJudicialCachePurgaScheduler: todo lo que ya venció, sin excepción (pedido
     // explícito del usuario: "se guarde por una semana... y luego se borren").
     List<BoletinJudicialCache> findByFechaExpiracionBefore(LocalDateTime ahora);

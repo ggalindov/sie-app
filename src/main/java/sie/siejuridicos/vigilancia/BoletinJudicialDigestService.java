@@ -199,9 +199,12 @@ public class BoletinJudicialDigestService {
 
             emailService.enviarDigestBoletinAbogado(abogado.getNombre(), abogado.getCorreo(), cuerpo, adjuntos);
 
+            // Bandera propia por audiencia (notificadaAbogado, ver migración V83) -- NUNCA
+            // notificadaStaff aquí, esa es exclusiva de enviarDigestGerente() (bug real
+            // corregido el 2026-11-05, ver el comentario de la query en el repositorio).
             actuacionesAbogado.forEach(a -> {
-                a.setNotificadaStaff(true);
-                a.setFechaNotificadaStaff(ahora);
+                a.setNotificadaAbogado(true);
+                a.setFechaNotificadaAbogado(ahora);
             });
             actuacionRepository.saveAll(actuacionesAbogado);
 

@@ -169,6 +169,22 @@ public class VigilanciaAdminController {
         return ResponseEntity.ok(total);
     }
 
+    // Pedido explícito del usuario (2026-11-05): "este caso trajo un monton de documentos
+    // que no son" (caso 553, radicado 11001418907820250083400, 145 boletines del mismo
+    // despacho mal atribuidos). A diferencia de limpiar-cache (borra TODO), esto solo borra
+    // los que el propio emparejador de texto ya marcó como no confiables
+    // (coincideNombreActuacion=false) -- deja intactos los 42 boletines con coincidencia
+    // confirmada en todo el sistema. Ver el fix de raíz en BoletinJudicialCacheService.
+    // descargarYGuardarCandidatos (ya no vuelve a cachear estos de aquí en adelante).
+    @PostMapping("/boletines/limpiar-no-coincidentes")
+    @Transactional
+    public ResponseEntity<Long> limpiarBoletinesNoCoincidentes() {
+        List<BoletinJudicialCache> noCoincidentes = boletinJudicialCacheRepository.findByCoincideNombreActuacionFalse();
+        long total = noCoincidentes.size();
+        boletinJudicialCacheRepository.deleteAll(noCoincidentes);
+        return ResponseEntity.ok(total);
+    }
+
     // Pedido explícito del usuario: "busca todos los boletines y cargalos en el sistema" --
     // pasa por VigilanciaExternaOrquestador desde el 2026-10-31 (antes llamaba directo a
     // BoletinJudicialCacheService.sincronizarNuevosBoletinesAsync()), que de paso corre

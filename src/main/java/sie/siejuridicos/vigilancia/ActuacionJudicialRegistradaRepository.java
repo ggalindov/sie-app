@@ -91,8 +91,8 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
     List<ActuacionJudicialRegistrada> conFechaRegistroDesde(
             @org.springframework.data.repository.query.Param("desde") LocalDateTime desde);
 
-    // Actuaciones pendientes de notificar a staff (gerencia y abogados) en el reporte diario matutino.
-    // JOIN FETCH de caso, abogado asignado y cliente para tener toda la ficha lista sin N+1.
+    // Actuaciones pendientes de notificar a GERENCIA en el reporte diario matutino. JOIN FETCH
+    // de caso, abogado asignado y cliente para tener toda la ficha lista sin N+1.
     @Query("SELECT a FROM ActuacionJudicialRegistrada a "
             + "JOIN FETCH a.caso c "
             + "LEFT JOIN FETCH c.abogadoAsignado ab "
@@ -101,12 +101,17 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
             + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
     List<ActuacionJudicialRegistrada> listarPendientesNotificarStaff();
 
-    // Actuaciones pendientes de notificar para un abogado asignado específico
+    // Actuaciones pendientes de notificar para un abogado asignado específico. Bandera propia
+    // (notificadaAbogado, ver migración V83) -- bug real encontrado el 2026-11-05: esto antes
+    // filtraba por a.notificadaStaff, la MISMA bandera que marca enviarDigestGerente() en TODAS
+    // las actuaciones del sistema; como gerencia se envía primero, para cuando corría el digest
+    // de abogados siempre encontraba la lista vacía. Nunca llegaban movimientos reales a ningún
+    // abogado.
     @Query("SELECT a FROM ActuacionJudicialRegistrada a "
             + "JOIN FETCH a.caso c "
             + "LEFT JOIN FETCH c.abogadoAsignado ab "
             + "LEFT JOIN FETCH c.cliente cl "
-            + "WHERE a.notificadaStaff = false AND c.abogadoAsignado.id = :abogadoId "
+            + "WHERE a.notificadaAbogado = false AND c.abogadoAsignado.id = :abogadoId "
             + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
     List<ActuacionJudicialRegistrada> listarPendientesNotificarPorAbogado(
             @org.springframework.data.repository.query.Param("abogadoId") Long abogadoId);
