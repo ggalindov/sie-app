@@ -1555,6 +1555,20 @@ export function listarBoletinesJudiciales(): Promise<BoletinJudicial[]> {
 
 
 
+// Pedido explícito del usuario (2026-11-05): botón de un clic para limpiar los boletines que
+
+// el propio sistema ya marcó como no confiables (coincideNombreActuacion=false) -- nunca
+
+// toca los de coincidencia confirmada. Devuelve cuántos se borraron.
+
+export function limpiarBoletinesNoCoincidentes(): Promise<number> {
+
+  return pedido<number>("/api/admin/vigilancia/boletines/limpiar-no-coincidentes", { method: "POST" });
+
+}
+
+
+
 // Ver el PDF en una pestaña nueva -- mismo patrón de fetch+blob+window.open que
 
 // abrirPdfDocumentoJudicial() más abajo, pero GET (sin cuerpo, el id ya va en la URL).

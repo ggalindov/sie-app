@@ -17,6 +17,7 @@ import {
   listarBoletinesJudiciales,
   abrirPdfBoletin,
   descargarBoletin,
+  limpiarBoletinesNoCoincidentes,
   ApiError,
   type BoletinJudicial,
 } from "@/lib/admin-api";
@@ -56,6 +57,7 @@ export default function BoletinesPage() {
   const [busqueda, setBusqueda] = useState("");
   const [procesandoId, setProcesandoId] = useState<number | null>(null);
   const [casosColapsados, setCasosColapsados] = useState<Record<number, boolean>>({});
+  const [limpiando, setLimpiando] = useState(false);
 
   const cargar = useCallback(() => {
     listarBoletinesJudiciales()
@@ -86,6 +88,29 @@ export default function BoletinesPage() {
       toast.error(err instanceof ApiError ? err.message : "No se pudo descargar el documento.");
     } finally {
       setProcesandoId(null);
+    }
+  }
+
+  const noCoincidentesCount = (boletines ?? []).filter((b) => !b.coincideNombreActuacion).length;
+
+  // Pedido explícito del usuario (2026-11-05, caso 553/radicado 11001418907820250083400):
+  // "haz un recorrido y identifica tu los documentos no correctos y eliminalos" -- borra solo
+  // los que el propio sistema ya marcó como no confiables (ver
+  // BoletinJudicialCacheService.descargarYGuardarCandidatos, que desde ahora ya no vuelve a
+  // cachear estos). Nunca toca los de coincidencia confirmada.
+  async function onLimpiarNoCoincidentes() {
+    if (!window.confirm(`Se van a borrar ${noCoincidentesCount} documento(s) que el sistema marcó como no confiables (no coinciden con el nombre de la actuación). Los demás no se tocan. ¿Continuar?`)) {
+      return;
+    }
+    setLimpiando(true);
+    try {
+      const borrados = await limpiarBoletinesNoCoincidentes();
+      toast.success(`Se borraron ${borrados} documento(s) mal emparejados.`);
+      cargar();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "No se pudo completar la limpieza.");
+    } finally {
+      setLimpiando(false);
     }
   }
 
@@ -164,6 +189,19 @@ export default function BoletinesPage() {
         title="Boletines"
         description="Todos los documentos oficiales (autos, providencias) que el sistema ya encontró y descargó de Publicaciones Procesales del Estado, agrupados por expediente judicial. Se guardan 30 días y luego se borran solos. La búsqueda corre sola, una vez al día, a las 5:15 a. m. (hora Colombia)."
       />
+
+      {noCoincidentesCount > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-900">
+            <strong>{noCoincidentesCount}</strong> documento{noCoincidentesCount === 1 ? "" : "s"} no coincide
+            {noCoincidentesCount === 1 ? "" : "n"} con el nombre de la actuación (el sistema ya detectó que probablemente
+            no son del caso al que están atribuidos).
+          </p>
+          <AdminButton variant="secondary" onClick={onLimpiarNoCoincidentes} disabled={limpiando}>
+            {limpiando ? "Limpiando..." : "Limpiar no coincidentes"}
+          </AdminButton>
+        </div>
+      )}
 
       <BoletinesProgreso onAvance={cargar} />
 
