@@ -72,6 +72,19 @@ import java.util.UUID;
 @Service
 public class PadesSigningService {
 
+    // Bug real diagnosticado en vivo (2026-11-05): "Cannot load from object array because
+    // "this.certChain" is null" al construir PdfPKCS7 -- OpenPDF/iText2 necesita el provider
+    // JCE "BC" (BouncyCastle) registrado globalmente para procesar la cadena de certificados
+    // internamente; sin registrarlo, el constructor de PdfPKCS7 falla en silencio al armar
+    // certChain. Nunca se registró en ningún punto de arranque de esta app, aunque
+    // BouncyCastle ya es una dependencia usada aquí mismo para otras cosas (X509CertificateHolder,
+    // ContentSigner, etc.) -- esas APIs sí funcionan sin el provider registrado, PdfPKCS7 no.
+    static {
+        if (java.security.Security.getProvider("BC") == null) {
+            java.security.Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+        }
+    }
+
     private static final Logger log = LoggerFactory.getLogger(PadesSigningService.class);
     private static final String ALGORITMO_CLAVE = "RSA";
     private static final int TAMANO_CLAVE_BITS = 3072;

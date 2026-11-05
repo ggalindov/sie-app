@@ -100,13 +100,9 @@ public class DocumentoSellaInfoService {
     public void intentarSellarYRemitir(UUID documentoId) {
         DocumentoFirma documento = documentoFirmaRepository.findById(documentoId).orElse(null);
         if (documento == null) {
-            log.warn("DIAGNOSTICO 2026-11-05: documento {} no encontrado al intentar sellar.", documentoId);
             return;
         }
         List<DocumentoFirmante> firmantes = documentoFirmanteRepository.findByDocumentoIdOrderByOrdenAsc(documento.getId());
-        log.warn("DIAGNOSTICO 2026-11-05: documento {} estado={} firmantes={}", documentoId,
-                documento.getEstadoDocumento(),
-                firmantes.stream().map(f -> f.getNombreCapturado() + "=" + f.getEstado()).toList());
         // Nunca sellar un documento donde alguna parte rechazó firmar -- RECHAZADO solo
         // cuenta como "turno cerrado" para la secuencia de firma (ver
         // SignerTokenService#esSuTurno), nunca como "firma completa" para efectos de
@@ -116,21 +112,16 @@ public class DocumentoSellaInfoService {
         // todas las partes hubieran estado de acuerdo.
         boolean hayRechazados = firmantes.stream().anyMatch(f -> DocumentoFirmante.ESTADO_RECHAZADO.equals(f.getEstado()));
         if (hayRechazados) {
-            log.warn("DIAGNOSTICO 2026-11-05: documento {} tiene firmante(s) rechazado(s), no se sella.", documentoId);
             return;
         }
         boolean hayPendientes = firmantes.stream().anyMatch(f -> !DocumentoFirmante.ESTADO_FIRMADO.equals(f.getEstado()));
         if (hayPendientes) {
-            log.warn("DIAGNOSTICO 2026-11-05: documento {} todavia tiene firmante(s) pendiente(s), no se sella.", documentoId);
             return;
         }
 
         sellar(documento, firmantes);
-        log.warn("DIAGNOSTICO 2026-11-05: documento {} selló -- estado ahora {}", documentoId, documento.getEstadoDocumento());
         remitir(documento, firmantes);
-        log.warn("DIAGNOSTICO 2026-11-05: documento {} remitió -- estado ahora {}", documentoId, documento.getEstadoDocumento());
         encriptar(documento);
-        log.warn("DIAGNOSTICO 2026-11-05: documento {} encriptó -- estado ahora {}", documentoId, documento.getEstadoDocumento());
         // Debe correr AQUÍ, al final, no dentro de sellar(): el mensaje canónico incluye
         // documento.getEstadoDocumento() (ver ApplicationSignatureVerifier.mensajeCanonico),
         // y remitir()/encriptar() lo cambian de nuevo (REMITIDO, luego ENCRIPTADO) DESPUÉS
@@ -140,8 +131,6 @@ public class DocumentoSellaInfoService {
         // ApplicationSignatureVerifier.verificar() falla SIEMPRE -- marcando como ALTERADO
         // (con alerta a gerencia) cualquier documento legítimo en cuanto alguien lo verifica.
         firmarConLlaveDeAplicacion(documento);
-        log.warn("DIAGNOSTICO 2026-11-05: documento {} terminó intentarSellarYRemitir sin excepción -- estado final {}",
-                documentoId, documento.getEstadoDocumento());
     }
 
     private void sellar(DocumentoFirma documento, List<DocumentoFirmante> firmantes) {
