@@ -16,6 +16,10 @@ public record AudienciaCalendarioResponse(
         String anotacion,
         LocalDateTime fechaHora,
         boolean horaEstimada,
+        // Enlace de videoconferencia detectado en el mismo texto (pedido explícito del
+        // usuario, 2026-11-06: "si se puede link de una audiencia"), null si no se encontró
+        // ninguno -- nunca verificado, el abogado debe confirmarlo leyendo el auto real.
+        String enlace,
         Long abogadoAsignadoId,
         String abogadoAsignadoNombre
 ) {

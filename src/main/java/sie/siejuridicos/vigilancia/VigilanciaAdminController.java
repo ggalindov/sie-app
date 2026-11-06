@@ -401,13 +401,19 @@ public class VigilanciaAdminController {
         LocalDateTime desdeInicio = desde.atStartOfDay();
         LocalDateTime hastaFin = hasta.plusDays(1).atStartOfDay();
 
+        // Pedido explícito del usuario (2026-11-06): "el sistema tiene que detectar como sea
+        // la fecha, hora y si se puede link de una audiencia reportada por las ramas,
+        // despachos o lo que sea" -- antes se exigía además que ClasificadorMovimientoJudicial
+        // clasificara la actuación como AUDIENCIA_PROGRAMADA (solo reconoce "fija audiencia"/
+        // "fijación de audiencia" en el nombre de la actuación), lo que dejaba fuera avisos de
+        // audiencia redactados distinto (ej. "se señala audiencia...", "cítese a audiencia...",
+        // un despacho que solo escribe "AUDIENCIA DE CONCILIACIÓN" como nombre). Ahora basta
+        // con que el texto mencione "audiencia" (ya filtrado en buscarConMencionDeAudiencia())
+        // Y que de verdad se pueda extraer una fecha real -- la propia exigencia de fecha
+        // reconocible ya descarta el ruido (una actuación que solo dice "se corre traslado"
+        // sin ninguna fecha nunca entra aquí).
         List<AudienciaCalendarioResponse> resultado = new java.util.ArrayList<>();
         for (ActuacionJudicialRegistrada a : actuacionRepository.buscarConMencionDeAudiencia()) {
-            if (ClasificadorMovimientoJudicial.clasificarTipo(a.getNombreActuacion())
-                    .filter(t -> t == ClasificadorMovimientoJudicial.TipoMovimiento.AUDIENCIA_PROGRAMADA)
-                    .isEmpty()) {
-                continue;
-            }
             Caso caso = a.getCaso();
             if (abogadoId != null && (caso.getAbogadoAsignado() == null || !abogadoId.equals(caso.getAbogadoAsignado().getId()))) {
                 continue;
@@ -427,7 +433,7 @@ public class VigilanciaAdminController {
                 resultado.add(new AudienciaCalendarioResponse(
                         caso.getId(), nombreMostrado(caso), caso.getRadicadoId(),
                         a.getId(), a.getNombreActuacion(), a.getAnotacion(),
-                        fechaHora, fa.hora() == null,
+                        fechaHora, fa.hora() == null, fa.enlace(),
                         caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getId() : null,
                         caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getNombre() : null));
             });

@@ -420,9 +420,24 @@ export default function CalendarioPage() {
                         {esAdmin && audiencia.abogadoAsignadoNombre && (
                           <p className="mt-1 text-[11px] text-ink-soft">Asignado a {audiencia.abogadoAsignadoNombre}</p>
                         )}
+                        {/* Pedido explícito del usuario (2026-11-06): "si se puede link de
+                            una audiencia reportada por las ramas, despachos o lo que sea" --
+                            cualquier URL que el extractor haya encontrado en el mismo texto,
+                            nunca verificada de antemano. */}
+                        {audiencia.enlace && (
+                          <a
+                            href={audiencia.enlace}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-700"
+                          >
+                            <VideoCamera className="h-3.5 w-3.5" weight="bold" />
+                            Enlace detectado de la audiencia
+                          </a>
+                        )}
                         <p className="mt-2 text-[10.5px] leading-snug text-ink-soft/80">
-                          Detectada automáticamente a partir del texto de la actuación -- confirme la fecha y hora
-                          exactas leyendo el auto real antes de agendar nada sobre ella.
+                          Detectada automáticamente a partir del texto de la actuación -- confirme la fecha, hora y
+                          enlace exactos leyendo el auto real antes de agendar o unirse a ella.
                         </p>
                       </div>
                     </div>

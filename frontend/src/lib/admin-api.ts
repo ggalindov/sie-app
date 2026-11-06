@@ -1929,6 +1929,9 @@ export type AudienciaCalendario = {
   anotacion: string | null;
   fechaHora: string;
   horaEstimada: boolean;
+  // Pedido explícito del usuario (2026-11-06): "si se puede link de una audiencia" -- null si
+  // no se encontró ninguna URL en el texto de la actuación, nunca verificado.
+  enlace: string | null;
   abogadoAsignadoId: number | null;
   abogadoAsignadoNombre: string | null;
 };
