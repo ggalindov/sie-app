@@ -16,6 +16,16 @@ public enum TipoRegistroSistema {
     REPORTE_SEMANAL_CASOS("Reporte semanal de casos", COMUNICACIONES),
     SINCRONIZACION_COBROS("Sincronización de cobros", SINCRONIZACION),
     ENVIO_RECORDATORIOS_COBROS("Envío de recordatorios de cobro", COMUNICACIONES),
+    // Pedido explícito del usuario (2026-11-06): "revisa porque el aceptar o rechazar pagos
+    // en whatsapp no se esta reflejando" -- auditoría en vivo de los logs de producción
+    // (backend y borde Caddy) confirmó que Meta NUNCA ha llamado a nuestro webhook de verdad
+    // (solo 2 llamadas manuales de prueba con curl/Python en todo el historial disponible):
+    // el problema es la suscripción del webhook en el Meta Business Manager, no nuestro
+    // código. Este tipo se registra SOLO desde WhatsAppWebhookController (nunca desde
+    // /simular-respuesta ni desde el ajuste manual del admin) para que /admin/cobros pueda
+    // mostrar de forma honesta "la última vez que de verdad llegó algo de Meta" y avisar si
+    // nunca ha llegado nada, en vez de que esto vuelva a pasar inadvertido durante semanas.
+    RESPUESTA_WEBHOOK_WHATSAPP_COBRO("Respuesta real de WhatsApp recibida (cobros)", COMUNICACIONES),
     REINICIO_MENSUAL_COBROS("Reinicio mensual de cobros", SINCRONIZACION),
     RECORDATORIO_CITA("Recordatorio de cita", COMUNICACIONES),
     BOLETIN_ENVIADO("Boletín enviado", COMUNICACIONES),

@@ -33,7 +33,6 @@ import {
   CaretDown,
   CaretLeft,
   CaretRight,
-  SidebarSimple,
 } from "@phosphor-icons/react";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { useAuth } from "@/lib/auth-context";
@@ -318,18 +317,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
           contraido ? "w-[76px]" : "w-72"
         }`}
       >
-        {/* Botón flotante acoplado al borde derecho del sidebar (estilo Linear/Notion) */}
+        {/* Botón principal de contraer/expandir en la mitad del borde lateral, más grande y visible (pedido explícito del usuario) */}
         <button
           type="button"
           onClick={toggleContraer}
-          title={contraido ? "Expandir menú (Ctrl+B)" : "Contraer menú (Ctrl+B)"}
+          title={contraido ? "Expandir menú lateral (Ctrl+B)" : "Contraer menú lateral (Ctrl+B)"}
           aria-label={contraido ? "Expandir menú lateral" : "Contraer menú lateral"}
-          className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full bg-[#181510] border border-gold/40 text-gold shadow-md hover:bg-gold hover:text-ink-fixed hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer focus:outline-none"
+          className="absolute -right-5 top-1/2 -translate-y-1/2 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-[#181510] border-2 border-gold/70 text-gold shadow-2xl shadow-black/80 hover:bg-gold hover:text-ink-fixed hover:border-gold hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-gold/50"
         >
           {contraido ? (
-            <CaretRight weight="bold" className="h-3.5 w-3.5" />
+            <CaretRight weight="bold" className="h-5 w-5" />
           ) : (
-            <CaretLeft weight="bold" className="h-3.5 w-3.5" />
+            <CaretLeft weight="bold" className="h-5 w-5" />
           )}
         </button>
 
@@ -637,18 +636,6 @@ function SidebarContent({
           <div className="relative ml-auto flex items-center gap-1">
             {/* Campanita de notificaciones */}
             <NotificacionesPanel />
-            {/* Botón de contraer en el header */}
-            {onToggleContraer && (
-              <button
-                type="button"
-                onClick={onToggleContraer}
-                title="Contraer menú lateral (Ctrl+B)"
-                aria-label="Contraer menú lateral"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-night-ink/65 hover:bg-white/10 hover:text-gold active:scale-95 transition-all duration-200"
-              >
-                <SidebarSimple weight="light" className="h-4 w-4" />
-              </button>
-            )}
           </div>
         </div>
       ) : (
