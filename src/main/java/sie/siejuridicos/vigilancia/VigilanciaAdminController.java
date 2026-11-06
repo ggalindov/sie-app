@@ -30,7 +30,10 @@ import sie.siejuridicos.vigilancia.dto.LineaTiempoJudicialResponse;
 import sie.siejuridicos.vigilancia.dto.ProcesoCandidatoResponse;
 import sie.siejuridicos.vigilancia.dto.TerminoCalendarioResponse;
 
+import sie.siejuridicos.vigilancia.dto.CasoActualizadoResponse;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -314,24 +317,26 @@ public class VigilanciaAdminController {
 
     // Gap real detectado en la auditoria del plan de desarrollo: el termino procesal antes
     // solo se veia dentro del modal de Seguimiento -- esto alimenta el semaforo de
-    // /admin/calendario (pedido explicito del usuario). Mismo patron de filtrado por rol
-    // que SolicitudAdminController.calendario(): un ABOGADO solo ve los terminos de SUS
-    // propios casos asignados, ADMIN_GENERAL ve todos (o filtra por abogadoId si quiere).
+    // /admin/calendario (pedido explicito del usuario).
+    //
+    // Pedido explícito del usuario (2026-11-05): "el calendario de vencimiento de terminos...
+    // que no le salgan solo los de casos de la persona, sino los vencimientos de todos los
+    // casos para todos" -- revierte el filtrado forzado por rol que había antes (un ABOGADO
+    // solo veía SUS propios casos asignados): ahora cualquier rol ve TODOS los vencimientos
+    // por defecto, y el parámetro abogadoId sigue disponible para quien quiera filtrar a
+    // propósito (antes exclusivo de ADMIN_GENERAL, ahora para cualquiera).
     @GetMapping("/terminos/calendario")
     public ResponseEntity<List<TerminoCalendarioResponse>> terminosCalendario(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) Long abogadoId,
             @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
-        Long filtroAbogadoId = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL
-                ? abogadoId
-                : principal.getId();
         boolean esAdmin = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL;
 
         List<TerminoProcesal> terminos = terminoProcesalRepository.listarEnRango(desde, hasta).stream()
-                .filter(t -> filtroAbogadoId == null
+                .filter(t -> abogadoId == null
                         || (t.getCaso().getAbogadoAsignado() != null
-                                && filtroAbogadoId.equals(t.getCaso().getAbogadoAsignado().getId())))
+                                && abogadoId.equals(t.getCaso().getAbogadoAsignado().getId())))
                 .filter(t -> esAdmin || !t.getCaso().isEsPrivadoCifrado())
                 .toList();
 
@@ -360,6 +365,37 @@ public class VigilanciaAdminController {
                     return TerminoCalendarioResponse.desde(t, bol);
                 })
                 .toList();
+        return ResponseEntity.ok(resultado);
+    }
+
+    // Pedido explícito del usuario (2026-11-05): "en notificaciones muestre todos los casos
+    // que el ultimo dia tuvieron alguna actualizacion, gerencia le salen todos, abogado todos
+    // los asignados a esa persona" -- alimenta la campanita de Notificaciones (ver
+    // NotificacionesPanel en el frontend). Una fila por caso (nunca una por actuación): si un
+    // caso tuvo varios movimientos en las últimas 24h, se queda con el más reciente.
+    @GetMapping("/casos/actualizados-recientes")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<CasoActualizadoResponse>> casosActualizadosRecientes(
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        boolean esAdmin = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL;
+        LocalDateTime desde = LocalDateTime.now().minusDays(1);
+        LocalDateTime hasta = LocalDateTime.now();
+
+        Map<Long, CasoActualizadoResponse> porCaso = new LinkedHashMap<>();
+        for (ActuacionJudicialRegistrada a : actuacionRepository.findByFechaRegistroEntre(desde, hasta)) {
+            Caso caso = a.getCaso();
+            if (!esAdmin && (caso.getAbogadoAsignado() == null
+                    || !caso.getAbogadoAsignado().getId().equals(principal.getId()))) {
+                continue;
+            }
+            CasoActualizadoResponse actual = new CasoActualizadoResponse(
+                    caso.getId(), nombreMostrado(caso), caso.getRadicadoId(),
+                    a.getNombreActuacion(), a.getFechaRegistro());
+            porCaso.merge(caso.getId(), actual, (previo, nuevo) ->
+                    nuevo.fechaMovimiento().isAfter(previo.fechaMovimiento()) ? nuevo : previo);
+        }
+        List<CasoActualizadoResponse> resultado = new java.util.ArrayList<>(porCaso.values());
+        resultado.sort(Comparator.comparing(CasoActualizadoResponse::fechaMovimiento).reversed());
         return ResponseEntity.ok(resultado);
     }
 

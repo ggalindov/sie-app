@@ -22,8 +22,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// Pedido explícito del usuario (2026-11-04): "el sistema debe guardarlos en el servidor al
-// menos por 3 meses" -- ampliado a 90 días (antes 30 días, y originalmente 7). Corre en un ciclo PROPIO,
+// Pedido explícito del usuario (2026-11-05): "los documentos descargados por el sistema que
+// se almacenen por al menos 5 meses en vez de 3" -- ampliado a 150 días (antes 90 días/3
+// meses, antes de eso 30 días, y originalmente 7). Corre en un ciclo PROPIO,
 // separado del de SeguimientoJudicialService a propósito -- meter esto dentro de ese ciclo
 // multiplicaría las llamadas a Publicaciones Procesales por cada actuación nueva de cada
 // caso, justo el patrón de exceso de tráfico que ya causó un bloqueo real esta misma sesión.
@@ -32,7 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BoletinJudicialCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(BoletinJudicialCacheService.class);
-    private static final int DIAS_VENCIMIENTO_CACHE = 90;
+    private static final int DIAS_VENCIMIENTO_CACHE = 150;
     // Mutex real, no cosmético: recorrer ~362 casos tarda del orden de una hora, y sin esto
     // un admin que hace doble clic en "Buscar boletines de todos los casos" (o un reinicio en
     // caliente de Spring DevTools, que detuve en vivo esta misma sesión mientras probaba este

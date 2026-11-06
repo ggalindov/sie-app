@@ -1899,6 +1899,21 @@ export function listarTerminosCalendario(filtros: { desde: string; hasta: string
 
 }
 
+// Pedido explícito del usuario (2026-11-05): "en notificaciones muestre todos los casos que
+// el ultimo dia tuvieron alguna actualizacion, gerencia le salen todos, abogado todos los
+// asignados a esa persona".
+export type CasoActualizado = {
+  casoId: number;
+  nombreCliente: string;
+  radicadoId: string | null;
+  nombreActuacion: string;
+  fechaMovimiento: string;
+};
+
+export function listarCasosActualizadosRecientes(): Promise<CasoActualizado[]> {
+  return pedido<CasoActualizado[]>("/api/admin/vigilancia/casos/actualizados-recientes");
+}
+
 
 
 // Pedido explicito del usuario (2026-11-04, auditoria en vivo de LUPA/IUS: "deja la

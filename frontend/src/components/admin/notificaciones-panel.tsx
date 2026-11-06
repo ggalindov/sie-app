@@ -4,8 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Dialog } from "@base-ui/react/dialog";
 import { toast } from "sonner";
-import { Bell, CalendarBlank, Check, Envelope, User, X } from "@phosphor-icons/react";
-import { listarTareasPendientes, listarSolicitudes, completarTarea, ApiError, type Tarea } from "@/lib/admin-api";
+import { Bell, CalendarBlank, Check, Envelope, Gavel, User, X } from "@phosphor-icons/react";
+import {
+  listarTareasPendientes,
+  listarSolicitudes,
+  listarCasosActualizadosRecientes,
+  completarTarea,
+  ApiError,
+  type Tarea,
+  type CasoActualizado,
+} from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +36,7 @@ export function NotificacionesPanel({ variante = "oscura" }: { variante?: "oscur
   const [abierto, setAbierto] = useState(false);
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
   const [solicitudesNuevas, setSolicitudesNuevas] = useState<number | null>(null);
+  const [casosActualizados, setCasosActualizados] = useState<CasoActualizado[] | null>(null);
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
 
   const cargar = useCallback(() => {
@@ -37,6 +46,12 @@ export function NotificacionesPanel({ variante = "oscura" }: { variante?: "oscur
     listarSolicitudes({ estado: "NUEVO" })
       .then((s) => setSolicitudesNuevas(s.length))
       .catch(() => setSolicitudesNuevas(null));
+    // Pedido explícito del usuario (2026-11-05): "en notificaciones muestre todos los casos
+    // que el ultimo dia tuvieron alguna actualizacion, gerencia le salen todos, abogado todos
+    // los asignados a esa persona" -- el filtrado por rol ya lo hace el backend.
+    listarCasosActualizadosRecientes()
+      .then(setCasosActualizados)
+      .catch(() => setCasosActualizados([]));
   }, []);
 
   // Carga en cuanto hay sesión (para el contador del badge), y se refresca cada vez que se
@@ -105,6 +120,40 @@ export function NotificacionesPanel({ variante = "oscura" }: { variante?: "oscur
               </span>
               <span className="font-mono font-semibold text-ink">{solicitudesNuevas ?? "..."}</span>
             </Link>
+
+            {/* Pedido explícito del usuario (2026-11-05): "en notificaciones muestre todos los
+                casos que el ultimo dia tuvieron alguna actualizacion, gerencia le salen
+                todos, abogado todos los asignados a esa persona". */}
+            <div className="mt-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-soft/70">
+                {sesion?.rol === "ADMIN_GENERAL" ? "Casos con movimiento (últimas 24h)" : "Tus casos con movimiento (últimas 24h)"}
+              </p>
+              {casosActualizados === null ? (
+                <p className="mt-3 text-sm text-ink-soft">Cargando...</p>
+              ) : casosActualizados.length === 0 ? (
+                <p className="mt-3 rounded-xl border border-dashed border-line p-4 text-center text-sm text-ink-soft">
+                  Sin movimientos nuevos en el último día.
+                </p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {casosActualizados.map((c) => (
+                    <Link
+                      key={c.casoId}
+                      href={c.radicadoId ? `/admin/casos?radicado=${encodeURIComponent(c.radicadoId)}` : "/admin/casos"}
+                      onClick={() => setAbierto(false)}
+                      className="block rounded-xl border border-line bg-paper p-3 transition-colors hover:bg-ink/5"
+                    >
+                      <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                        <Gavel weight="bold" className="h-3.5 w-3.5 text-gold-deep shrink-0" />
+                        <span className="truncate">{c.nombreCliente}</span>
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-ink-soft">{c.nombreActuacion}</p>
+                      <p className="mt-1 text-[11px] text-ink-soft/70">{formatearFecha(c.fechaMovimiento)}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Tareas pendientes de quien tiene la sesión abierta */}
             <div className="mt-6 flex items-center justify-between">

@@ -174,7 +174,7 @@ export default function BoletinesPage() {
           pueda volver a disparar ese ciclo fuera de horario. */}
       <AdminPageHeader
         title="Boletines"
-        description="Todos los documentos oficiales (autos, providencias) que el sistema ya encontró y descargó de Publicaciones Procesales del Estado, agrupados por expediente judicial. Se guardan 30 días y luego se borran solos. La búsqueda corre sola, una vez al día, a las 5:15 a. m. (hora Colombia)."
+        description="Todos los documentos oficiales (autos, providencias) que el sistema ya encontró y descargó de Publicaciones Procesales del Estado, agrupados por expediente judicial. Se guardan 5 meses y luego se borran solos. La búsqueda corre sola, una vez al día, a las 5:15 a. m. (hora Colombia)."
       />
 
       {noCoincidentesCount > 0 && (
