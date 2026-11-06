@@ -237,10 +237,23 @@ public class Caso {
     @JoinColumn(name = "id_abogado_asignado")
     private UsuarioInterno abogadoAsignado;
 
-    // Casos Privados y Cifrados: casos ultra sensibles con acceso exclusivo para Gerencia (ADMIN_GENERAL).
-    // Bloqueados al 100% para abogados y otros roles del sistema.
+    // Casos Privados y Cifrados: casos ultra sensibles, acceso exclusivo. Dos variantes según
+    // propietarioPrivado (ver abajo): bóveda de Gerencia (propietarioPrivado = null, exclusiva
+    // de ADMIN_GENERAL, como siempre) o bóveda personal de UN abogado puntual
+    // (propietarioPrivado = ese abogado, 2026-11-05: "implementala para todos los abogados,
+    // que cada uno tenga un espacio privado para casos personales o sensibles... estos casos
+    // no los podra ver nadie, ni gerencia ni nadie, ni gerencia puede ver los de abogados, ni
+    // abogados los de gerencia"). Nunca ambos roles ven la bóveda del otro -- ver
+    // CasoService.verificarAccesoPrivado(), el único punto que decide esto.
     @Column(name = "es_privado_cifrado", nullable = false)
     private boolean esPrivadoCifrado = false;
+
+    // null = bóveda de Gerencia. No-null = bóveda personal de ESE abogado (máximo 20 casos,
+    // ver CasoService.MAXIMO_CASOS_PRIVADOS_POR_ABOGADO). Se limpia a null automáticamente al
+    // desclasificar el caso (ver CasoService.marcarPrivado()).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "propietario_privado_id")
+    private UsuarioInterno propietarioPrivado;
 
     // Motivo o notas de alta confidencialidad (cifrado con AES-256-GCM via CampoCifradoConverter).
     @Convert(converter = CampoCifradoConverter.class)
@@ -523,6 +536,14 @@ public class Caso {
 
     public void setEsPrivadoCifrado(boolean esPrivadoCifrado) {
         this.esPrivadoCifrado = esPrivadoCifrado;
+    }
+
+    public UsuarioInterno getPropietarioPrivado() {
+        return propietarioPrivado;
+    }
+
+    public void setPropietarioPrivado(UsuarioInterno propietarioPrivado) {
+        this.propietarioPrivado = propietarioPrivado;
     }
 
     public String getMotivoConfidencialidad() {

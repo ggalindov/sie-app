@@ -272,6 +272,12 @@ public class VigilanciaAdminController {
             @PathVariable Long id, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
         Caso caso = casoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        // "nunca se puede cruzar la informacion" (2026-11-05) -- este endpoint exponía la
+        // trazabilidad judicial completa de CUALQUIER caso por id, sin verificar si era
+        // privado de Gerencia o de la bóveda personal de otro abogado.
+        if (principal != null) {
+            casoService.verificarAccesoPrivado(caso, principal.getUsuario());
+        }
         List<ActuacionRegistradaResponse> eventos = actuacionRepository.findByCasoOrderByFechaRegistroDesc(caso)
                 .stream()
                 .map(ActuacionRegistradaResponse::desde)
@@ -302,7 +308,14 @@ public class VigilanciaAdminController {
     // la línea de tiempo pertenecen.
     @GetMapping("/casos/{id}/boletines-cache")
     @Transactional(readOnly = true)
-    public ResponseEntity<Map<Long, List<DocumentoProvidenciaCandidato>>> boletinesCache(@PathVariable Long id) {
+    public ResponseEntity<Map<Long, List<DocumentoProvidenciaCandidato>>> boletinesCache(
+            @PathVariable Long id, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        // "nunca se puede cruzar la informacion" (2026-11-05) -- mismo motivo que lineaTiempo().
+        if (principal != null) {
+            Caso caso = casoRepository.findById(id)
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+            casoService.verificarAccesoPrivado(caso, principal.getUsuario());
+        }
         Map<Long, List<DocumentoProvidenciaCandidato>> resultado = boletinJudicialCacheRepository.findByCaso_Id(id)
                 .stream()
                 .filter(b -> b.getActuacion() != null)
@@ -331,13 +344,15 @@ public class VigilanciaAdminController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) Long abogadoId,
             @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
-        boolean esAdmin = principal.getUsuario().getRol() == RolUsuario.ADMIN_GENERAL;
-
+        // "nunca se puede cruzar la informacion" (2026-11-05): un caso privado solo aparece
+        // para su dueño real (Gerencia o el abogado propietario de SU bóveda, ver
+        // CasoService.tieneAccesoPrivado()) -- nunca para "todos" aunque el pedido de arriba
+        // sea mostrar los vencimientos de todos los casos NO privados a cualquier rol.
         List<TerminoProcesal> terminos = terminoProcesalRepository.listarEnRango(desde, hasta).stream()
                 .filter(t -> abogadoId == null
                         || (t.getCaso().getAbogadoAsignado() != null
                                 && abogadoId.equals(t.getCaso().getAbogadoAsignado().getId())))
-                .filter(t -> esAdmin || !t.getCaso().isEsPrivadoCifrado())
+                .filter(t -> casoService.tieneAccesoPrivado(t.getCaso(), principal.getUsuario()))
                 .toList();
 
         List<Long> casoIds = terminos.stream().map(t -> t.getCaso().getId()).distinct().toList();
@@ -388,6 +403,12 @@ public class VigilanciaAdminController {
                     || !caso.getAbogadoAsignado().getId().equals(principal.getId()))) {
                 continue;
             }
+            // "nunca se puede cruzar la informacion" (2026-11-05): un caso privado de otro
+            // (Gerencia o la bóveda de otro abogado) nunca debe aparecer en esta notificación,
+            // aunque por algún motivo tuviera a este usuario como abogadoAsignado.
+            if (!casoService.tieneAccesoPrivado(caso, principal.getUsuario())) {
+                continue;
+            }
             CasoActualizadoResponse actual = new CasoActualizadoResponse(
                     caso.getId(), nombreMostrado(caso), caso.getRadicadoId(),
                     a.getNombreActuacion(), a.getFechaRegistro());
@@ -423,6 +444,9 @@ public class VigilanciaAdminController {
                 .filter(a -> filtroAbogadoId == null
                         || (a.getCaso().getAbogadoAsignado() != null
                                 && filtroAbogadoId.equals(a.getCaso().getAbogadoAsignado().getId())))
+                // "nunca se puede cruzar la informacion" (2026-11-05): un caso privado de otro
+                // nunca entra en el conteo/alertas de otro usuario.
+                .filter(a -> casoService.tieneAccesoPrivado(a.getCaso(), principal.getUsuario()))
                 .toList();
 
         Map<String, Integer> conteos = new LinkedHashMap<>();

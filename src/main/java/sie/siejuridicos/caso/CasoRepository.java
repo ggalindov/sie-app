@@ -53,7 +53,12 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     // puede no alcanzar a procesarse en un solo día; esta consulta es lo que permite que el día siguiente
     // recoja automáticamente solo a quienes quedaron pendientes, sin repetirle el reporte a quien ya lo recibió.
     // JOIN FETCH por el mismo motivo de siempre: evita N+1 al leer cliente.getCorreo()/getTelefono() de cada uno.
+    // c.esPrivadoCifrado = false (2026-11-05, gap real de confidencialidad encontrado en
+    // vivo): un caso privado -- de Gerencia o de la bóveda personal de un abogado -- NUNCA
+    // debe recibir el reporte periódico automático, "son casos de extrema sensibilidad... no
+    // enviara eso reportes ni diarios, ni mensuales ni nada". Antes esto SÍ se colaba.
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente WHERE c.radicadoId IS NOT NULL "
+            + "AND c.esPrivadoCifrado = false "
             + "AND ("
             + "  (c.cliente.correo IS NOT NULL AND (c.fechaUltimoReporteSemanal IS NULL OR c.fechaUltimoReporteSemanal < :inicioSemana)) "
             + "  OR (c.cliente.telefono IS NOT NULL AND (c.fechaUltimoReporteWhatsapp IS NULL OR c.fechaUltimoReporteWhatsapp < :inicioQuincena))"
@@ -78,9 +83,24 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
             + "WHERE c.esPrivadoCifrado = false AND c.finalizado = false ORDER BY c.fechaCreacion DESC")
     List<Caso> listarPublicosConDetalle();
 
-    // Bóveda de Casos Privados y Cifrados: exclusivos de Gerencia (ADMIN_GENERAL)
-    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.esPrivadoCifrado = true ORDER BY c.fechaCreacion DESC")
+    // Bóveda de Casos Privados y Cifrados de GERENCIA exclusivamente (propietarioPrivado IS
+    // NULL -- ver Caso.propietarioPrivado). La bóveda personal de cada abogado es una consulta
+    // APARTE (ver listarPrivadosDeAbogadoConDetalle abajo): nunca se mezclan en la misma lista.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.esPrivadoCifrado = true AND c.propietarioPrivado IS NULL ORDER BY c.fechaCreacion DESC")
     List<Caso> listarPrivadosConDetalle();
+
+    // Bóveda personal de UN abogado puntual (pedido explícito del usuario, 2026-11-05:
+    // "implementa la misma funcionalidad que tenia gerencia de casos privados y cifrados,
+    // implementala para todos los abogados... estos casos no los podra ver nadie, ni gerencia
+    // ni nadie"). Nunca incluye la bóveda de Gerencia ni la de otro abogado.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.esPrivadoCifrado = true AND c.propietarioPrivado.id = :abogadoId ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarPrivadosDeAbogadoConDetalle(@Param("abogadoId") Long abogadoId);
+
+    // Para el tope de 20 casos privados por abogado (ver CasoService.
+    // MAXIMO_CASOS_PRIVADOS_POR_ABOGADO).
+    long countByEsPrivadoCifradoTrueAndPropietarioPrivado_Id(Long abogadoId);
 
     // Casos finalizados (2026-11-05, nuevo apartado "Casos Finalizados" -- ver
     // CasoAdminController.listarFinalizados). LEFT JOIN FETCH de finalizadoPor para mostrar

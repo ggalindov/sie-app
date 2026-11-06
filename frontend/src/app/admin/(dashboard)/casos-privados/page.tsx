@@ -41,6 +41,14 @@ const formatearFecha = formatearFechaBogota;
 const formatearFechaHora = formatearFechaHoraBogota;
 const formatearFechaSolo = formatearFechaBogota;
 
+// Pedido explícito del usuario (2026-11-05): "implementa la misma funcionalidad que tenia
+// gerencia de casos privados y cifrados, implementala para todos los abogados, que cada uno
+// tenga un espacio privado para casos personales o sensibles... limitandolo a un maximo de 20
+// casos para abogados, estos casos no los podra ver nadie, ni gerencia ni nadie, ni gerencia
+// puede ver los de abogados, ni abogados los de gerencia... no enviara eso reportes ni
+// diarios, ni mensuales ni nada, solo recibiran seguimiento de vigilancia". Misma pantalla
+// para ambos roles: cada uno ve SOLO su propia bóveda (Gerencia la suya, cada abogado la
+// suya) -- el backend decide cuál devolver según quién pregunta, nunca se mezclan.
 export default function CasosPrivadosPage() {
   const { sesion, cargando: cargandoSesion } = useAuth();
   const esAdmin = sesion?.rol === "ADMIN_GENERAL";
@@ -58,26 +66,26 @@ export default function CasosPrivadosPage() {
   const [desclasificandoId, setDesclasificandoId] = useState<number | null>(null);
 
   const cargar = useCallback(() => {
-    if (!esAdmin) return;
+    if (!sesion) return;
     setCargando(true);
     listarCasosPrivados()
       .then(setCasos)
       .catch((err) => {
-        toast.error(err instanceof ApiError ? err.message : "No se pudieron cargar los casos privados.");
+        toast.error(err instanceof ApiError ? err.message : "No se pudo cargar tu bóveda privada.");
       })
       .finally(() => setCargando(false));
-  }, [esAdmin]);
+  }, [sesion]);
 
   useEffect(() => {
-    if (esAdmin) {
+    if (sesion) {
       cargar();
     }
-  }, [esAdmin, cargar]);
+  }, [sesion, cargar]);
 
   async function onDesclasificar(caso: CasoAdmin) {
     if (
       !window.confirm(
-        `¿Deseas desclasificar el caso de "${caso.nombreCliente}"? Al quitar la reserva, el caso volverá a ser visible para los abogados en el módulo general de Casos.`,
+        `¿Deseas desclasificar el caso de "${caso.nombreCliente}"? Al quitar la reserva, el caso volverá a ser visible en el módulo general de Casos.`,
       )
     ) {
       return;
@@ -102,22 +110,6 @@ export default function CasosPrivadosPage() {
     );
   }
 
-  if (!esAdmin) {
-    return (
-      <div className="mx-auto max-w-2xl mt-12 rounded-2xl border border-red-200 bg-red-50/50 p-8 text-center shadow-sm">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-600 ring-1 ring-red-200">
-          <ShieldCheck className="h-8 w-8" weight="fill" />
-        </div>
-        <h2 className="mt-4 font-display text-xl font-bold text-red-950">Acceso Exclusivo de Gerencia General</h2>
-        <p className="mt-2 text-sm text-red-800 leading-relaxed">
-          Este apartado almacena expedientes ultra sensibles, confidenciales y cifrados con AES-256. Ningún abogado ni
-          usuario sin rol <strong className="font-semibold">ADMIN_GENERAL</strong> tiene autorización para visualizar ni
-          consultar esta bóveda.
-        </p>
-      </div>
-    );
-  }
-
   const q = busqueda.trim().toLowerCase();
   const casosFiltrados = (casos ?? []).filter((c) => {
     if (!q) return true;
@@ -136,12 +128,16 @@ export default function CasosPrivadosPage() {
       {/* Insignia de alta seguridad */}
       <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-gold-deep/30 bg-ink px-3.5 py-1 text-xs font-semibold text-gold-pale shadow-sm">
         <ShieldCheck className="h-4 w-4 text-gold" weight="fill" />
-        <span>BÓVEDA DE CASOS PRIVADOS · CIFRADO AES-256-GCM</span>
+        <span>{esAdmin ? "BÓVEDA DE GERENCIA" : "TU BÓVEDA PERSONAL"} · CIFRADO AES-256-GCM</span>
       </div>
 
       <AdminPageHeader
-        title="Casos Privados y Cifrados"
-        description="Bóveda de máxima reserva y secreto profesional. Estos expedientes están 100% aislados de la vista de abogados y del listado público de casos. Solo la Gerencia General puede acceder a su trazabilidad, actuaciones y providencias."
+        title={esAdmin ? "Casos Privados y Cifrados (Gerencia)" : "Mi Bóveda Privada"}
+        description={
+          esAdmin
+            ? "Bóveda de máxima reserva y secreto profesional de Gerencia. Estos expedientes están 100% aislados de la vista de abogados y del listado público de casos -- ni siquiera la bóveda personal de un abogado es visible aquí."
+            : `Tu espacio privado para casos personales o sensibles -- nadie más puede verlo, ni Gerencia ni otros abogados. Máximo ${20} casos. No reciben reportes diarios, semanales ni mensuales: solo seguimiento de vigilancia judicial, por seguridad.`
+        }
         action={
           <AdminButton onClick={() => setModalCrearAbierto(true)}>
             <Plus className="h-4 w-4" weight="bold" />
@@ -515,6 +511,8 @@ function CrearCasoPrivadoModal({
   onClose: () => void;
   onCreado: (nuevo: CasoAdmin) => void;
 }) {
+  const { sesion } = useAuth();
+  const esAdmin = sesion?.rol === "ADMIN_GENERAL";
   const [enviando, setEnviando] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -538,7 +536,7 @@ function CrearCasoPrivadoModal({
         esPrivadoCifrado: true,
         motivoConfidencialidad: String(data.get("motivoConfidencialidad") ?? "").trim() || "Reserva gerencial estricta",
       });
-      toast.success(`Caso privado creado bajo secreto gerencial (Radicado: ${nuevo.radicadoId}).`);
+      toast.success(`Caso privado creado en ${esAdmin ? "la bóveda de Gerencia" : "tu bóveda personal"} (Radicado: ${nuevo.radicadoId}).`);
       form.reset();
       onCreado(nuevo);
     } catch (err) {
@@ -562,7 +560,9 @@ function CrearCasoPrivadoModal({
                 <Dialog.Title className="font-display text-lg font-bold text-ink">
                   Nuevo Caso Privado y Cifrado
                 </Dialog.Title>
-                <p className="text-xs text-gold-deep font-semibold">Bóveda Exclusiva de Gerencia</p>
+                <p className="text-xs text-gold-deep font-semibold">
+                  {esAdmin ? "Bóveda Exclusiva de Gerencia" : "Tu Bóveda Personal"}
+                </p>
               </div>
             </div>
             <Dialog.Close className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-ink/5">
@@ -571,8 +571,18 @@ function CrearCasoPrivadoModal({
           </div>
 
           <p className="mt-3 rounded-xl border border-gold-deep/20 bg-gold-pale/30 p-3 text-xs leading-relaxed text-gold-deep">
-            Este expediente se guardará con <strong>cifrado AES-256</strong> y quedará completamente oculto para los
-            abogados de la firma. Solo la Gerencia podrá acceder a su seguimiento y providencias.
+            {esAdmin ? (
+              <>
+                Este expediente se guardará con <strong>cifrado AES-256</strong> y quedará completamente oculto para
+                los abogados de la firma. Solo la Gerencia podrá acceder a su seguimiento y providencias.
+              </>
+            ) : (
+              <>
+                Este expediente se guardará con <strong>cifrado AES-256</strong> en TU bóveda personal -- nadie más
+                podrá verlo, ni Gerencia ni otros abogados. No recibirá reportes diarios, semanales ni mensuales, solo
+                seguimiento de vigilancia judicial.
+              </>
+            )}
           </p>
 
           <form onSubmit={onSubmit} className="mt-4 space-y-3">

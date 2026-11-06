@@ -70,8 +70,10 @@ public class CasoAdminController {
 
     // Respaldo manual: el flujo principal ahora es sincronizar() (ver más abajo).
     @PostMapping
-    public ResponseEntity<CasoAdminResponse> crear(@Valid @RequestBody CrearCasoRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(casoService.crear(request));
+    public ResponseEntity<CasoAdminResponse> crear(
+            @Valid @RequestBody CrearCasoRequest request, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(casoService.crear(request, principal != null ? principal.getUsuario() : null));
     }
 
     @GetMapping
@@ -79,15 +81,16 @@ public class CasoAdminController {
         return ResponseEntity.ok(casoService.listarTodos(principal != null ? principal.getId() : null));
     }
 
-    // Bóveda de Casos Privados y Cifrados: exclusivo para la Gerencia (ADMIN_GENERAL)
+    // Bóveda de Casos Privados y Cifrados. ADMIN_GENERAL ve la de Gerencia, un ABOGADO ve SU
+    // PROPIA bóveda personal (pedido explícito del usuario, 2026-11-05: "implementa la misma
+    // funcionalidad... para todos los abogados") -- el filtrado real ocurre en
+    // CasoService.listarPrivados(), nunca se mezclan.
     @GetMapping("/privados")
-    @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<List<CasoAdminResponse>> listarPrivados(@AuthenticationPrincipal UsuarioInternoPrincipal principal) {
         return ResponseEntity.ok(casoService.listarPrivados(principal != null ? principal.getId() : null));
     }
 
     @PatchMapping("/{id}/marcar-privado")
-    @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<CasoAdminResponse> marcarPrivado(
             @PathVariable Long id,
             @org.springframework.web.bind.annotation.RequestParam boolean esPrivado,

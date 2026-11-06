@@ -89,7 +89,19 @@ const navGroups: NavGroup[] = [
     titulo: "Casos y seguimiento judicial",
     items: [
       { href: "/admin/casos", label: "Casos", descripcion: "Expedientes activos con seguimiento judicial 24/7.", icon: Briefcase, roles: ["ADMIN_GENERAL", "ABOGADO"], contadorId: "casos" },
-      { href: "/admin/casos-privados", label: "Casos Privados y Cifrados", descripcion: "Bóveda ultra sensible de Gerencia con cifrado AES-256.", icon: ShieldCheck, roles: ["ADMIN_GENERAL"], contadorId: "casosPrivados" },
+      {
+        href: "/admin/casos-privados",
+        label: "Casos Privados y Cifrados",
+        // Pedido explícito del usuario (2026-11-05): "implementa la misma funcionalidad que
+        // tenia gerencia de casos privados y cifrados, implementala para todos los abogados,
+        // que cada uno tenga un espacio privado para casos personales o sensibles... maximo
+        // de 20 casos". Misma pantalla para ambos roles: cada uno ve SOLO su propia bóveda
+        // (Gerencia la suya, cada abogado la suya), nunca la del otro.
+        descripcion: "Tu bóveda ultra sensible con cifrado AES-256 -- nadie más puede verla.",
+        icon: ShieldCheck,
+        roles: ["ADMIN_GENERAL", "ABOGADO"],
+        contadorId: "casosPrivados",
+      },
       // Pedido explícito del usuario (2026-11-05): "un boton para cada caso el cual nos
       // permita finalizarlo, y el caso se remite a un nuevo apartado de que diga casos
       // finalizados" -- de solo lectura, un caso finalizado ya no recibe vigilancia judicial.
@@ -184,10 +196,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
       listarCobros()
         .then((rows) => setContadores((c) => ({ ...c, cobros: rows.filter((r) => r.pagoEsteMes !== true).length })))
         .catch(() => {});
-      listarCasosPrivados()
-        .then((rows) => setContadores((c) => ({ ...c, casosPrivados: rows.length })))
-        .catch(() => {});
     }
+    // Pedido explícito del usuario (2026-11-05): ya no es exclusivo de ADMIN_GENERAL -- cada
+    // ABOGADO también tiene su propia bóveda personal, así que el contador corre para
+    // cualquier rol (el backend ya devuelve SOLO la bóveda de quien pregunta).
+    listarCasosPrivados()
+      .then((rows) => setContadores((c) => ({ ...c, casosPrivados: rows.length })))
+      .catch(() => {});
   }, [sesion]);
 
   useEffect(() => {

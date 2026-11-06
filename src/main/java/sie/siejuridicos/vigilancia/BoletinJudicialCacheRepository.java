@@ -26,15 +26,21 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
 
     // Digest diario al gerente/abogados: todos los boletines cacheados que todavía no se
     // incluyeron en ningún digest, con el caso y el abogado asignado ya cargados (evita N+1
-    // al componer el correo con decenas de casos).
+    // al componer el correo con decenas de casos). c.esPrivadoCifrado = false (2026-11-05,
+    // gap real de confidencialidad encontrado en vivo): un caso privado -- de Gerencia o de la
+    // bóveda personal de un abogado, ver Caso.propietarioPrivado -- NUNCA debe aparecer en
+    // ningún reporte ni digest automático, "son casos de extrema sensibilidad... no enviara
+    // eso reportes ni diarios, ni mensuales ni nada". Antes esto SÍ se colaba en el digest.
     @Query("SELECT b FROM BoletinJudicialCache b JOIN FETCH b.caso c LEFT JOIN FETCH c.abogadoAsignado "
-            + "WHERE b.enviadoGerente = false ORDER BY b.fechaDescarga ASC")
+            + "WHERE b.enviadoGerente = false AND c.esPrivadoCifrado = false ORDER BY b.fechaDescarga ASC")
     List<BoletinJudicialCache> listarPendientesGerente();
 
     // Digest diario por abogado: solo los boletines de casos que él tiene asignados, nunca
     // enviados antes (a él, el gerente tiene su propia bandera independiente arriba).
+    // c.esPrivadoCifrado = false: mismo motivo de arriba.
     @Query("SELECT b FROM BoletinJudicialCache b JOIN FETCH b.caso c "
-            + "WHERE b.enviadoAbogado = false AND c.abogadoAsignado.id = :abogadoId ORDER BY b.fechaDescarga ASC")
+            + "WHERE b.enviadoAbogado = false AND c.abogadoAsignado.id = :abogadoId AND c.esPrivadoCifrado = false "
+            + "ORDER BY b.fechaDescarga ASC")
     List<BoletinJudicialCache> listarPendientesPorAbogado(@Param("abogadoId") Long abogadoId);
 
     // Qué abogados tienen al menos un boletín pendiente -- evita recorrer a TODOS los
@@ -60,9 +66,11 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     List<BoletinJudicialCache> findByCaso_IdIn(List<Long> casoIds);
 
     // Para saber qué casos tienen algo pendiente para el cliente esta semana, sin recorrer
-    // los 362 casos uno por uno preguntando.
+    // los 362 casos uno por uno preguntando. b.caso.esPrivadoCifrado = false (2026-11-05):
+    // mismo motivo que listarPendientesGerente/listarPendientesPorAbogado -- un caso privado
+    // nunca recibe el digest semanal al cliente tampoco.
     @Query("SELECT DISTINCT b.caso.id FROM BoletinJudicialCache b "
-            + "WHERE b.enviadoCliente = false AND b.coincideNombreActuacion = true")
+            + "WHERE b.enviadoCliente = false AND b.coincideNombreActuacion = true AND b.caso.esPrivadoCifrado = false")
     List<Long> listarIdsCasosConPendientesCliente();
 
     // Pedido explícito del usuario: un indicador (punto azul) en /admin/casos junto al de

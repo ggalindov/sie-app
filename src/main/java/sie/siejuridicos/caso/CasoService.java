@@ -136,7 +136,7 @@ public class CasoService {
     // de la firma. Fuente MANUAL: nunca tiene una pestaña que consultar en vivo (ver
     // consultar()), se queda siempre en "aún no hay actualizaciones".
     @Transactional
-    public CasoAdminResponse crear(CrearCasoRequest request) {
+    public CasoAdminResponse crear(CrearCasoRequest request, UsuarioInterno actor) {
         String radicadoId = request.radicadoId().strip();
         if (casoRepository.existsByRadicadoId(radicadoId)) {
             throw new ConflictoNegocioException("Ya existe un caso registrado con ese radicado.");
@@ -169,6 +169,19 @@ public class CasoService {
         if (request.esPrivado()) {
             caso.setEsPrivadoCifrado(true);
             caso.setMotivoConfidencialidad(request.motivoConfidencialidad());
+            // Pedido explícito del usuario (2026-11-05): un ABOGADO que crea un caso privado
+            // lo crea en SU PROPIA bóveda personal (nunca en la de Gerencia), con el mismo
+            // tope de MAXIMO_CASOS_PRIVADOS_POR_ABOGADO que aplica al desclasificar/clasificar
+            // uno ya existente (ver marcarPrivado()).
+            if (actor != null && actor.getRol() != RolUsuario.ADMIN_GENERAL) {
+                long actuales = casoRepository.countByEsPrivadoCifradoTrueAndPropietarioPrivado_Id(actor.getId());
+                if (actuales >= MAXIMO_CASOS_PRIVADOS_POR_ABOGADO) {
+                    throw new ConflictoNegocioException(
+                            "Ya tienes %d casos en tu bóveda privada (el máximo permitido). Reabre o desclasifica uno antes de agregar otro."
+                                    .formatted(MAXIMO_CASOS_PRIVADOS_POR_ABOGADO));
+                }
+                caso.setPropietarioPrivado(actor);
+            }
         }
 
         Caso guardado = casoRepository.save(caso);
@@ -296,6 +309,12 @@ public class CasoService {
     public CasoAdminResponse actualizar(Long id, ActualizarCasoRequest request, UsuarioInterno actor) {
         Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        // Hueco real encontrado (2026-11-05): al abrir la edición de casos a ABOGADO además de
+        // ADMIN_GENERAL (pedido explícito del usuario, misma sesión), este endpoint quedó sin
+        // ninguna verificación de privacidad -- cualquier abogado podía editar un caso privado
+        // de Gerencia o de OTRO abogado con solo conocer su id. "nunca se puede cruzar la
+        // informacion" -- se cierra aquí.
+        verificarAccesoPrivado(caso, actor);
 
         String nombreNuevo = request.nombreEnHoja() != null ? request.nombreEnHoja().strip() : null;
         if (nombreNuevo != null && !nombreNuevo.isBlank()) {
@@ -463,17 +482,56 @@ public class CasoService {
                 .toList();
     }
 
-    // Bóveda de Casos Privados y Cifrados: exclusivos de la Gerencia (ADMIN_GENERAL).
-    // Casos ultra sensibles con acceso restringido, cifrado de campos y aislamiento total de abogados.
+    // Máximo de casos que puede acumular UN abogado en su bóveda personal (pedido explícito
+    // del usuario, 2026-11-05: "limitandolo a un maximo de 20 casos para abogados"). Sin
+    // límite para la bóveda de Gerencia -- nunca se pidió un tope ahí.
+    public static final int MAXIMO_CASOS_PRIVADOS_POR_ABOGADO = 20;
+
+    // Pedido explícito del usuario (2026-11-05): "implementa la misma funcionalidad que tenia
+    // gerencia de casos privados y cifrados, implementala para todos los abogados, que cada
+    // uno tenga un espacio privado para casos personales o sensibles... estos casos no los
+    // podra ver nadie, ni gerencia ni nadie, ni gerencia puede ver los de abogados, ni
+    // abogados los de gerencia". Único punto de decisión de acceso a un caso privado -- lo
+    // reutilizan otros controladores (línea de tiempo, boletines-cache, tareas, documentos)
+    // para que ningún endpoint por id se salte esta regla.
+    public void verificarAccesoPrivado(Caso caso, UsuarioInterno actor) {
+        if (!tieneAccesoPrivado(caso, actor)) {
+            if (caso.getPropietarioPrivado() == null) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Este caso es privado y exclusivo de Gerencia.");
+            }
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Este caso es privado de otro usuario -- no tienes acceso.");
+        }
+    }
+
+    // Variante en booleano para FILTRAR listas (calendario de términos, control diario) en vez
+    // de bloquear una sola petición por id -- misma regla exacta que verificarAccesoPrivado().
+    public boolean tieneAccesoPrivado(Caso caso, UsuarioInterno actor) {
+        if (!caso.isEsPrivadoCifrado()) {
+            return true;
+        }
+        if (caso.getPropietarioPrivado() == null) {
+            return actor.getRol() == RolUsuario.ADMIN_GENERAL;
+        }
+        return caso.getPropietarioPrivado().getId().equals(actor.getId());
+    }
+
+    // Bóveda de Casos Privados y Cifrados. ADMIN_GENERAL ve la bóveda de Gerencia
+    // (propietarioPrivado = null); un ABOGADO ve SU PROPIA bóveda personal, nunca la de
+    // Gerencia ni la de otro abogado (ver migración V85 y verificarAccesoPrivado() arriba).
     @Transactional(readOnly = true)
     public List<CasoAdminResponse> listarPrivados(Long usuarioActualId) {
-        if (usuarioActualId != null) {
-            UsuarioInterno usuario = usuarioInternoRepository.findById(usuarioActualId).orElse(null);
-            if (usuario != null && usuario.getRol() != RolUsuario.ADMIN_GENERAL) {
-                throw new org.springframework.security.access.AccessDeniedException(
-                        "Acceso restringido: Los Casos Privados y Cifrados son de acceso exclusivo para la Gerencia.");
-            }
+        UsuarioInterno usuario = usuarioActualId == null
+                ? null
+                : usuarioInternoRepository.findById(usuarioActualId).orElse(null);
+        if (usuario == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "No se pudo identificar al usuario para abrir la bóveda privada.");
         }
+        List<Caso> privados = usuario.getRol() == RolUsuario.ADMIN_GENERAL
+                ? casoRepository.listarPrivadosConDetalle()
+                : casoRepository.listarPrivadosDeAbogadoConDetalle(usuarioActualId);
 
         Map<Long, LocalDateTime> ultimaDeteccionPorCaso = actuacionJudicialRegistradaRepository
                 .ultimaFechaDetectadaPorCaso().stream()
@@ -497,7 +555,7 @@ public class CasoService {
                         BoletinJudicialCacheRepository.ProximaExpiracionPorCaso::getCasoId,
                         p -> (int) Math.max(0, ChronoUnit.DAYS.between(ahora, p.getProximaExpiracion()))));
 
-        return casoRepository.listarPrivadosConDetalle().stream()
+        return privados.stream()
                 .sorted(Comparator.comparing(Caso::getFechaCreacion).reversed())
                 .map(caso -> {
                     LocalDateTime ultimaDeteccion = ultimaDeteccionPorCaso.get(caso.getId());
@@ -513,12 +571,38 @@ public class CasoService {
 
     @Transactional
     public CasoAdminResponse marcarPrivado(Long id, boolean esPrivado, String motivo, UsuarioInterno actor) {
-        if (actor.getRol() != RolUsuario.ADMIN_GENERAL) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Solo la Gerencia puede clasificar o desclasificar casos en la Bóveda Privada.");
-        }
         Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        boolean esAdmin = actor.getRol() == RolUsuario.ADMIN_GENERAL;
+
+        // Pedido explícito del usuario (2026-11-05): "implementa la misma funcionalidad que
+        // tenia gerencia de casos privados y cifrados, implementala para todos los abogados...
+        // ni gerencia puede ver los de abogados, ni abogados los de gerencia". Si el caso YA
+        // es privado de alguien, solo ese alguien (o Gerencia para su propia bóveda) puede
+        // tocarlo -- nunca "robarlo" hacia la bóveda de otro ni desclasificarlo por fuera.
+        if (caso.isEsPrivadoCifrado()) {
+            verificarAccesoPrivado(caso, actor);
+        }
+
+        if (esPrivado && !esAdmin) {
+            // Un ABOGADO solo puede sumar a SU PROPIA bóveda personal, nunca a la de Gerencia,
+            // y con tope de MAXIMO_CASOS_PRIVADOS_POR_ABOGADO.
+            boolean yaEsSuyo = caso.getPropietarioPrivado() != null
+                    && caso.getPropietarioPrivado().getId().equals(actor.getId());
+            if (!yaEsSuyo) {
+                long actuales = casoRepository.countByEsPrivadoCifradoTrueAndPropietarioPrivado_Id(actor.getId());
+                if (actuales >= MAXIMO_CASOS_PRIVADOS_POR_ABOGADO) {
+                    throw new ConflictoNegocioException(
+                            "Ya tienes %d casos en tu bóveda privada (el máximo permitido). Reabre o desclasifica uno antes de agregar otro."
+                                    .formatted(MAXIMO_CASOS_PRIVADOS_POR_ABOGADO));
+                }
+            }
+            caso.setPropietarioPrivado(actor);
+        } else if (!esPrivado) {
+            caso.setPropietarioPrivado(null);
+        }
+        // esPrivado=true con esAdmin=true: propietarioPrivado se queda null (bóveda de
+        // Gerencia), que es el valor por defecto -- no hace falta tocarlo.
 
         caso.setEsPrivadoCifrado(esPrivado);
         if (motivo != null && !motivo.isBlank()) {
@@ -529,13 +613,15 @@ public class CasoService {
 
         casoRepository.save(caso);
 
+        String boveda = esAdmin ? "Bóveda de Gerencia" : "bóveda personal de " + actor.getNombre();
         registroSistemaService.registrar(
                 TipoRegistroSistema.EDICION_CASO,
-                "'%s' %s el caso #%d (%s) como Caso Privado y Cifrado (Bóveda de Gerencia)".formatted(
+                "'%s' %s el caso #%d (%s) como Caso Privado y Cifrado (%s)".formatted(
                         actor.getNombre(),
                         esPrivado ? "clasificó" : "desclasificó",
                         caso.getId(),
-                        caso.getRadicadoId() != null ? caso.getRadicadoId() : "Sin radicado"),
+                        caso.getRadicadoId() != null ? caso.getRadicadoId() : "Sin radicado",
+                        boveda),
                 true);
 
         return CasoAdminResponse.desde(caso, false, null, null, null);
@@ -554,6 +640,7 @@ public class CasoService {
     public CasoAdminResponse finalizar(Long id, UsuarioInterno actor) {
         Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        verificarAccesoPrivado(caso, actor);
         if (!caso.isFinalizado()) {
             caso.setFinalizado(true);
             caso.setFechaFinalizacion(LocalDateTime.now());
@@ -577,6 +664,7 @@ public class CasoService {
     public CasoAdminResponse reabrir(Long id, UsuarioInterno actor) {
         Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        verificarAccesoPrivado(caso, actor);
         if (caso.isFinalizado()) {
             caso.setFinalizado(false);
             caso.setFechaFinalizacion(null);

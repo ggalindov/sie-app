@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import sie.siejuridicos.caso.Caso;
+import sie.siejuridicos.caso.CasoRepository;
+import sie.siejuridicos.caso.CasoService;
+import sie.siejuridicos.common.exception.RecursoNoEncontradoException;
 import sie.siejuridicos.security.UsuarioInternoPrincipal;
 import sie.siejuridicos.tarea.dto.ActualizarTareaRequest;
 import sie.siejuridicos.tarea.dto.CrearTareaRequest;
@@ -28,13 +32,19 @@ import java.util.List;
 public class TareaController {
 
     private final TareaService tareaService;
+    private final CasoRepository casoRepository;
+    private final CasoService casoService;
 
-    public TareaController(TareaService tareaService) {
+    public TareaController(TareaService tareaService, CasoRepository casoRepository, CasoService casoService) {
         this.tareaService = tareaService;
+        this.casoRepository = casoRepository;
+        this.casoService = casoService;
     }
 
     @GetMapping("/casos/{casoId}/tareas")
-    public ResponseEntity<List<TareaResponse>> listarPorCaso(@PathVariable Long casoId) {
+    public ResponseEntity<List<TareaResponse>> listarPorCaso(
+            @PathVariable Long casoId, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        verificarAccesoAlCaso(casoId, principal);
         return ResponseEntity.ok(tareaService.listarPorCaso(casoId));
     }
 
@@ -43,7 +53,20 @@ public class TareaController {
             @PathVariable Long casoId,
             @Valid @RequestBody CrearTareaRequest request,
             @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        verificarAccesoAlCaso(casoId, principal);
         return ResponseEntity.ok(tareaService.crear(casoId, request, principal.getUsuario()));
+    }
+
+    // "nunca se puede cruzar la informacion" (2026-11-05): las tareas de un caso privado
+    // (Gerencia o la bóveda personal de otro abogado) nunca deben ser visibles ni editables
+    // para quien no es su dueño real -- ver CasoService.verificarAccesoPrivado().
+    private void verificarAccesoAlCaso(Long casoId, UsuarioInternoPrincipal principal) {
+        if (principal == null) {
+            return;
+        }
+        Caso caso = casoRepository.findById(casoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        casoService.verificarAccesoPrivado(caso, principal.getUsuario());
     }
 
     // Registro de tareas de una persona del CRM (pedido explícito del usuario: "arregla desde
