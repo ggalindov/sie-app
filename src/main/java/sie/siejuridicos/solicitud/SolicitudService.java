@@ -286,7 +286,20 @@ public class SolicitudService {
         if (bloqueoTotalClientes) {
             log.warn("[SEGURIDAD ACTIVA] Cita agendada para Solicitud ID={}, pero se BLOQUEARON las notificaciones salientes de confirmación a cliente y admin.", actualizada.getId());
         } else {
-            emailService.enviarConfirmacionCita(actualizada);
+            // Bug real encontrado en auditoría (2026-11-06, pedido del usuario: "arregla el
+            // agendar llamada porque esta fallando"): enviarConfirmacionCita() es SÍNCRONO
+            // (a diferencia de enviarNotificacionAdminNuevaCita, que ya es @Async) y corre
+            // DENTRO de esta misma transacción -- una falla real de SMTP en ese instante
+            // (timeout, conexión rechazada) lanzaba una excepción no atrapada que Spring
+            // revertía junto con el guardado de la cita entera, devolviendo un 500 al admin
+            // aunque la reunión en sí estuviera bien agendada. La notificación nunca debe
+            // poder tumbar la acción real que el admin pidió.
+            try {
+                emailService.enviarConfirmacionCita(actualizada);
+            } catch (Exception ex) {
+                log.warn("No se pudo enviar la confirmación de cita por correo (Solicitud ID={}): {}",
+                        actualizada.getId(), ex.getMessage());
+            }
             emailService.enviarNotificacionAdminNuevaCita(actualizada);
             whatsAppService.enviarConfirmacionCita(
                     actualizada.getNombre(), actualizada.getTelefono(),
@@ -339,9 +352,10 @@ public class SolicitudService {
             if (request.linkReunion() == null || request.linkReunion().isBlank()) {
                 throw new EntidadInvalidaException("El link de la reunión virtual es obligatorio.");
             }
-            if (!esLinkDeMeetOZoom(request.linkReunion())) {
+            if (!esLinkDeReunionValido(request.linkReunion())) {
                 throw new EntidadInvalidaException(
-                        "El link de la reunión debe ser de Google Meet (meet.google.com) o Zoom (zoom.us).");
+                        "El link de la reunión debe ser de Google Meet (meet.google.com), Zoom (zoom.us) "
+                                + "o Microsoft Teams (teams.microsoft.com / teams.live.com).");
             }
             solicitud.setLinkReunion(request.linkReunion().strip());
             solicitud.setLugarReunion(null);
@@ -355,7 +369,12 @@ public class SolicitudService {
         solicitud.setTipoReunion(request.tipoReunion());
     }
 
-    private static boolean esLinkDeMeetOZoom(String link) {
+    // Pedido explícito del usuario (2026-11-06): "agrega poder meter link de teams" -- se
+    // suman los dos dominios reales de Microsoft Teams (teams.microsoft.com para cuentas
+    // corporativas/Office 365, teams.live.com para la versión personal/consumer), mismo
+    // criterio de validación que ya aplicaba a Meet/Zoom. Renombrado de esLinkDeMeetOZoom
+    // (ya no describe los 3 proveedores que de verdad acepta).
+    private static boolean esLinkDeReunionValido(String link) {
         try {
             URI uri = new URI(link.strip());
             String esquema = uri.getScheme();
@@ -366,7 +385,9 @@ public class SolicitudService {
             host = host.toLowerCase(Locale.ROOT);
             boolean hostValido = host.equals("meet.google.com")
                     || host.endsWith(".zoom.us")
-                    || host.equals("zoom.us");
+                    || host.equals("zoom.us")
+                    || host.equals("teams.microsoft.com")
+                    || host.equals("teams.live.com");
             if (!hostValido) {
                 return false;
             }
@@ -376,7 +397,9 @@ public class SolicitudService {
             // ambos pasaban esta validación con solo el chequeo de host. Si el admin confirma
             // sin pegar el link real, el cliente recibe por correo/WhatsApp un "link de
             // acceso" que no lleva a ninguna reunión concreta. Se exige un código real
-            // (último segmento de la ruta con longitud mínima) después del host.
+            // (último segmento de la ruta con longitud mínima) después del host -- mismo
+            // criterio para Teams, cuyo path real siempre trae un identificador de reunión
+            // largo (ej. "/l/meetup-join/19%3ameeting_...", o "/meet/9991234567").
             String path = uri.getPath();
             if (path == null) {
                 return false;

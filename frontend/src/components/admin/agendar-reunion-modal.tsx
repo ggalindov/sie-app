@@ -20,19 +20,26 @@ function aInputLocal(valor: string | Date | null | undefined): string {
   return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}`;
 }
 
-// Mismo criterio que SolicitudService.esLinkDeMeetOZoom en el backend (que es quien de
+// Mismo criterio que SolicitudService.esLinkDeReunionValido en el backend (que es quien de
 // verdad decide si se acepta o no): esto solo evita que alguien confirme un link inválido
 // sin darse cuenta y tenga que volver a abrir el formulario tras el error del servidor.
-function esLinkDeMeetOZoom(link: string): boolean {
+// Pedido explícito del usuario (2026-11-06): "agrega poder meter link de teams" -- se suman
+// los dos dominios reales de Microsoft Teams (corporativo y personal).
+function esLinkDeReunionValido(link: string): boolean {
   try {
     const url = new URL(link);
     if (url.protocol !== "http:" && url.protocol !== "https:") return false;
     const host = url.hostname.toLowerCase();
-    const hostValido = host === "meet.google.com" || host === "zoom.us" || host.endsWith(".zoom.us");
+    const hostValido =
+      host === "meet.google.com" ||
+      host === "zoom.us" ||
+      host.endsWith(".zoom.us") ||
+      host === "teams.microsoft.com" ||
+      host === "teams.live.com";
     if (!hostValido) return false;
     // El host correcto no basta: los botones de acceso rápido de abajo prellenan
-    // "https://meet.google.com/" y "https://zoom.us/j/" sin código de reunión real. Mismo
-    // criterio que SolicitudService.esLinkDeMeetOZoom en el backend.
+    // "https://meet.google.com/", "https://zoom.us/j/" y "https://teams.microsoft.com/l/"
+    // sin código de reunión real. Mismo criterio que SolicitudService.esLinkDeReunionValido.
     const segmentos = url.pathname.split("/");
     const ultimoSegmento = segmentos[segmentos.length - 1] ?? "";
     return ultimoSegmento.length >= 3;
@@ -86,7 +93,7 @@ export function AgendarReunionModal({
   }, [solicitud, fechaInicial]);
 
   const esVirtual = tipoReunion === "VIRTUAL";
-  const linkValido = esVirtual && esLinkDeMeetOZoom(linkReunion.trim());
+  const linkValido = esVirtual && esLinkDeReunionValido(linkReunion.trim());
   // ADMIN_GENERAL debe elegir al menos un responsable explícitamente; un ABOGADO que agenda
   // siempre queda incluido a sí mismo (ver SolicitudService.resolverResponsables), así que
   // aquí no se exige mínimo -- solo puede sumar colegas de forma opcional.
@@ -208,16 +215,23 @@ export function AgendarReunionModal({
                   >
                     Zoom
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setLinkReunion("https://teams.microsoft.com/l/")}
+                    className="rounded-full bg-ink/5 px-3 py-1 text-xs font-medium text-ink-soft hover:bg-ink/10"
+                  >
+                    Teams
+                  </button>
                 </div>
                 <input
                   type="url"
                   value={linkReunion}
                   onChange={(e) => setLinkReunion(e.target.value)}
-                  placeholder="https://meet.google.com/... o https://zoom.us/j/..."
+                  placeholder="https://meet.google.com/..., https://zoom.us/j/... o https://teams.microsoft.com/l/..."
                   className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink focus:border-gold-deep focus:outline-none"
                 />
                 {linkReunion.trim() && !linkValido && (
-                  <p className="mt-1.5 text-xs text-red-600">Debe ser un link de Google Meet o Zoom.</p>
+                  <p className="mt-1.5 text-xs text-red-600">Debe ser un link de Google Meet, Zoom o Microsoft Teams.</p>
                 )}
               </Campo>
             ) : (
