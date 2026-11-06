@@ -185,14 +185,16 @@ public class BoletinJudicialCacheService {
         }
     }
 
-    // Dias hacia atras de actuaciones que se buscan en el portal ademas de la ultima de cada
-    // caso. Subido de 15 a 30 (pedido explicito del usuario, 2026-11-04: "traer absolutamente
-    // todos los docuemtos del ultimo mes"): para el canal heuristico de Publicaciones
-    // Procesales el portal solo expone sus boletines mas recientes (una ventana mayor no
-    // encuentra nada nuevo ahi), pero esta misma lista de objetivos es la que alimenta
-    // tambien el canal EXACTO de la CPNU (ver procesarActuacion), que SI puede resolver el
-    // documento de una actuacion de hace varias semanas -- una ventana de solo 15 dias le
-    // negaba la oportunidad de intentarlo para actuaciones un poco mas viejas.
+    // Dias hacia atras de actuaciones RECIENTES que ademas se buscan en el portal heuristico
+    // (ultima de cada caso ya entra sin importar la fecha). Subido de 15 a 30 (pedido
+    // explicito del usuario, 2026-11-04: "traer absolutamente todos los docuemtos del ultimo
+    // mes"): para el canal heuristico de Publicaciones Procesales el portal solo expone sus
+    // boletines mas recientes (una ventana mayor no encuentra nada nuevo ahi). Desde
+    // 2026-11-06 esto YA NO es el unico alcance del ciclo: el backlog historico COMPLETO (sin
+    // limite de dias) tambien se suma en construirObjetivos() via
+    // conDocumentosSinResolverHistorico() -- esta ventana sigue existiendo solo para decidir
+    // que tan atras vale la pena intentar el canal heuristico (de corta memoria); el canal
+    // EXACTO de la CPNU y el correo al despacho ya cubren cualquier antiguedad via el backlog.
     private static final int DIAS_VENTANA_BUSQUEDA = 30;
     // Rondas de reintento al terminar la pasada principal, con espera entre rondas para que el
     // portal se recupere de una racha de fallos (la del 2026-11-01 duro una hora).
@@ -222,6 +224,16 @@ public class BoletinJudicialCacheService {
         List<ActuacionJudicialRegistrada> todas = new ArrayList<>(actuacionRepository.ultimaActuacionConFechaPorCaso());
         todas.addAll(actuacionRepository.conFechaRegistroDesde(
                 LocalDate.now().minusDays(DIAS_VENTANA_BUSQUEDA).atStartOfDay()));
+        // Backlog histórico completo, SIN ventana de fecha (gap real confirmado en producción
+        // 2026-11-06, ver el comentario de conDocumentosSinResolverHistorico() en el
+        // repositorio): las dos listas de arriba solo cubren lo reciente, dejando fuera para
+        // siempre cualquier actuación con documento disponible de hace más de
+        // DIAS_VENTANA_BUSQUEDA días que no fuera la última de su caso. El cursor de rotación
+        // (ver más abajo) ya reparte esta lista combinada entre varios ciclos sin saturar
+        // ningún ciclo individual, así que agregar el backlog completo aquí es seguro aunque
+        // sea grande -- cada actuación sale sola de esta lista en cuanto se resuelve su
+        // documento o se agota el intento final (correo al despacho).
+        todas.addAll(actuacionRepository.conDocumentosSinResolverHistorico());
         todas.sort(Comparator
                 .comparing((ActuacionJudicialRegistrada a) -> a.getCaso().getId())
                 .thenComparing(a -> fechaDeBoletin(a), Comparator.nullsLast(Comparator.reverseOrder())));

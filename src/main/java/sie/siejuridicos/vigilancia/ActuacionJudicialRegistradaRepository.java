@@ -97,11 +97,19 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
 
     // Actuaciones pendientes de notificar a GERENCIA en el reporte diario matutino. JOIN FETCH
     // de caso, abogado asignado y cliente para tener toda la ficha lista sin N+1.
+    //
+    // c.esPrivadoCifrado = false (2026-11-06, mismo hueco de confidencialidad que ya se había
+    // cerrado en BoletinJudicialCacheRepository.listarPendientesGerente() el 2026-11-05, pero
+    // que nunca se replicó aquí para los MOVIMIENTOS mismos, no solo sus documentos adjuntos):
+    // un caso de la bóveda privada de un abogado (Caso.propietarioPrivado = ese abogado) nunca
+    // debe aparecer en el reporte de Gerencia, aunque esta consulta no sepa de quién es la
+    // bóveda -- cualquier caso marcado esPrivadoCifrado=true (de Gerencia o de un abogado) queda
+    // fuera de todo digest automático, igual criterio que el resto de reportes de vigilancia.
     @Query("SELECT a FROM ActuacionJudicialRegistrada a "
             + "JOIN FETCH a.caso c "
             + "LEFT JOIN FETCH c.abogadoAsignado ab "
             + "LEFT JOIN FETCH c.cliente cl "
-            + "WHERE a.notificadaStaff = false "
+            + "WHERE a.notificadaStaff = false AND c.esPrivadoCifrado = false "
             + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
     List<ActuacionJudicialRegistrada> listarPendientesNotificarStaff();
 
@@ -111,11 +119,17 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
     // las actuaciones del sistema; como gerencia se envía primero, para cuando corría el digest
     // de abogados siempre encontraba la lista vacía. Nunca llegaban movimientos reales a ningún
     // abogado.
+    //
+    // c.esPrivadoCifrado = false (2026-11-06, mismo motivo que arriba): un caso puede quedar
+    // marcado privado/cifrado SIN que se le quite el abogadoAsignado que ya tenía (la bóveda
+    // privada de Gerencia es un caso que YA estaba asignado a un abogado y luego Gerencia lo
+    // mueve a su bóveda exclusiva) -- sin este filtro, ese abogado seguiría recibiendo cada
+    // mañana el reporte de movimientos de un caso que ya no debería poder ver.
     @Query("SELECT a FROM ActuacionJudicialRegistrada a "
             + "JOIN FETCH a.caso c "
             + "LEFT JOIN FETCH c.abogadoAsignado ab "
             + "LEFT JOIN FETCH c.cliente cl "
-            + "WHERE a.notificadaAbogado = false AND c.abogadoAsignado.id = :abogadoId "
+            + "WHERE a.notificadaAbogado = false AND c.abogadoAsignado.id = :abogadoId AND c.esPrivadoCifrado = false "
             + "ORDER BY COALESCE(a.fechaRegistro, a.fechaActuacion, a.fechaDetectada) DESC")
     List<ActuacionJudicialRegistrada> listarPendientesNotificarPorAbogado(
             @org.springframework.data.repository.query.Param("abogadoId") Long abogadoId);
@@ -156,4 +170,30 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
             + "LEFT JOIN FETCH c.abogadoAsignado ab "
             + "WHERE LOWER(a.nombreActuacion) LIKE '%audiencia%' OR LOWER(a.anotacion) LIKE '%audiencia%'")
     List<ActuacionJudicialRegistrada> buscarConMencionDeAudiencia();
+
+    // GAP REAL confirmado en producción (2026-11-06, pedido explícito del usuario: "necesito
+    // que el sistema traiga absolutamente todos los documentos, autos, no esta trayendo nada
+    // de momento"): BoletinJudicialCacheService.construirObjetivos() solo intentaba resolver
+    // documento para la ÚLTIMA actuación de cada caso o las registradas en los últimos
+    // DIAS_VENTANA_BUSQUEDA (30) días -- medido en vivo contra la base real: de 151
+    // actuaciones marcadas conDocumentos=true por la propia Rama Judicial, solo 24 (16%)
+    // tenían un boletín resuelto, y el correo de solicitud al despacho (ver
+    // CorreoDespachoJudicialService) nunca se había disparado NI UNA SOLA VEZ en toda la
+    // historia -- porque las otras 127 actuaciones con documento disponible, al caer fuera de
+    // esa ventana de 30 días, nunca llegaban siquiera a intentarse.
+    //
+    // Esta consulta es el backlog COMPLETO, sin ventana de fecha: toda actuación con
+    // conDocumentos=true que todavía NO tiene ningún boletín cacheado (NOT EXISTS) Y que
+    // todavía no agotó su intento final (correoDespachoSolicitadoEn IS NULL) -- una vez que
+    // ese correo se envía (el último recurso, ver CorreoDespachoJudicialService), la actuación
+    // sale sola de este backlog para siempre, así que esta lista nunca crece sin límite ni
+    // insiste eternamente sobre algo ya irresoluble por canales automáticos.
+    // c.finalizado = false: un caso ya archivado no necesita más documentos nuevos.
+    @Query("SELECT a FROM ActuacionJudicialRegistrada a "
+            + "JOIN FETCH a.caso c "
+            + "WHERE a.conDocumentos = true AND c.finalizado = false "
+            + "AND a.correoDespachoSolicitadoEn IS NULL "
+            + "AND NOT EXISTS (SELECT 1 FROM BoletinJudicialCache b WHERE b.actuacion = a) "
+            + "ORDER BY a.fechaRegistro DESC")
+    List<ActuacionJudicialRegistrada> conDocumentosSinResolverHistorico();
 }

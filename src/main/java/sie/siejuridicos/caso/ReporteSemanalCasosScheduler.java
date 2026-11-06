@@ -51,13 +51,20 @@ public class ReporteSemanalCasosScheduler {
             return;
         }
 
-        ResumenReporteSemanal resumen = casoService.enviarReporteSemanalAutomatico(permitirCorreo, esDiaWhatsapp);
-        log.info("Reporte periódico de casos (Correo: {}, WhatsApp: {}): {} caso(s) cubiertos, {} correo(s) enviado(s), "
-                        + "{} fallido(s); {} WhatsApp enviado(s), {} fallido(s); {} pendiente(s) por el límite diario; "
-                        + "{} omitido(s) por no tener un cliente real identificable",
-                permitirCorreo, esDiaWhatsapp,
-                resumen.casosConReporte(), resumen.correosEnviados(), resumen.correosFallidos(),
-                resumen.whatsappEnviados(), resumen.whatsappFallidos(), resumen.pendientesPorLimiteDiario(),
-                resumen.omitidosSinClienteReal());
+        try {
+            ResumenReporteSemanal resumen = casoService.enviarReporteSemanalAutomatico(permitirCorreo, esDiaWhatsapp);
+            log.info("Reporte periódico de casos (Correo: {}, WhatsApp: {}): {} caso(s) cubiertos, {} correo(s) enviado(s), "
+                            + "{} fallido(s); {} WhatsApp enviado(s), {} fallido(s); {} pendiente(s) por el límite diario; "
+                            + "{} omitido(s) por no tener un cliente real identificable",
+                    permitirCorreo, esDiaWhatsapp,
+                    resumen.casosConReporte(), resumen.correosEnviados(), resumen.correosFallidos(),
+                    resumen.whatsappEnviados(), resumen.whatsappFallidos(), resumen.pendientesPorLimiteDiario(),
+                    resumen.omitidosSinClienteReal());
+        } catch (Exception ex) {
+            // Nunca debe impedir que el ciclo diario de las 8am vuelva a intentarlo al día
+            // siguiente -- un fallo inesperado aquí (ej. SMTP caído un instante) no debe quedar
+            // sin registrar ni, peor, tumbar el scheduler.
+            log.warn("Fallo inesperado enviando el reporte periódico de casos: {}", ex.getMessage());
+        }
     }
 }

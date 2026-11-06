@@ -40,7 +40,11 @@ public class BoletinJudicialScheduler {
 
     @Scheduled(cron = "${app.vigilancia.boletin-purga-cron}")
     public void purgar() {
-        cacheService.purgarExpirados();
+        try {
+            cacheService.purgarExpirados();
+        } catch (Exception ex) {
+            log.warn("Fallo purgando boletines judiciales vencidos: {}", ex.getMessage());
+        }
     }
 
     @Scheduled(cron = "${app.vigilancia.boletin-digest-diario-cron}")
