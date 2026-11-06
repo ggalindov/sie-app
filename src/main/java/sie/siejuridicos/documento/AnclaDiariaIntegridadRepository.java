@@ -13,4 +13,10 @@ public interface AnclaDiariaIntegridadRepository extends JpaRepository<AnclaDiar
     // Anclas de días anteriores que la TSA externa no alcanzó a sellar a tiempo (ver
     // AnclaDiariaIntegridadScheduler#reintentarPendientes).
     List<AnclaDiariaIntegridad> findByTokenRfc3161IsNull();
+
+    // Todas las anclas que todavía no fueron marcadas comprometidas, para la reverificación
+    // diaria (ver AnclaDiariaIntegridadScheduler.reverificarAnclasAnteriores) -- una vez
+    // comprometida, una ancla nunca vuelve a "integra" solo por dejar de revisarla, así que
+    // no hace falta volver a comparar una que ya se marcó.
+    List<AnclaDiariaIntegridad> findByFechaBeforeAndIntegraTrue(LocalDate fecha);
 }

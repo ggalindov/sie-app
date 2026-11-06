@@ -173,7 +173,7 @@ export default function BoletinesPage() {
           cron nocturno (ver app.vigilancia.ciclo-nocturno-cron) -- sin ningún botón que
           pueda volver a disparar ese ciclo fuera de horario. */}
       <AdminPageHeader
-        title="Boletines"
+        title="Documentos Judiciales"
         description="Todos los documentos oficiales (autos, providencias) que el sistema ya encontró y descargó de Publicaciones Procesales del Estado, agrupados por expediente judicial. Se guardan 5 meses y luego se borran solos. La búsqueda corre sola, una vez al día, a las 5:15 a. m. (hora Colombia)."
       />
 

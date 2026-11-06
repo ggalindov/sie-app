@@ -2,13 +2,16 @@ package sie.siejuridicos.documento;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import sie.siejuridicos.documento.events.AnclaIntegridadComprometidaEvent;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,23 +36,34 @@ public class AnclaDiariaIntegridadScheduler {
     private final DocumentoEventoCheckpointRepository checkpointRepository;
     private final AnclaDiariaIntegridadRepository anclaRepository;
     private final Rfc3161TimestampClient rfc3161TimestampClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AnclaDiariaIntegridadScheduler(DocumentoEventoRepository documentoEventoRepository,
                                            DocumentoFirmaRepository documentoFirmaRepository,
                                            DocumentoEventoCheckpointRepository checkpointRepository,
                                            AnclaDiariaIntegridadRepository anclaRepository,
-                                           Rfc3161TimestampClient rfc3161TimestampClient) {
+                                           Rfc3161TimestampClient rfc3161TimestampClient,
+                                           ApplicationEventPublisher eventPublisher) {
         this.documentoEventoRepository = documentoEventoRepository;
         this.documentoFirmaRepository = documentoFirmaRepository;
         this.checkpointRepository = checkpointRepository;
         this.anclaRepository = anclaRepository;
         this.rfc3161TimestampClient = rfc3161TimestampClient;
+        this.eventPublisher = eventPublisher;
     }
 
     @Scheduled(cron = "${app.documento.ancla-diaria.cron:0 0 2 * * *}")
     @Transactional
     public void generarAnclaDiaria() {
         reintentarSellosPendientes();
+        // Hueco real cerrado en la auditoría del usuario (2026-11-06): el ancla se sellaba
+        // con RFC 3161 pero nunca se volvía a comparar contra el estado actual de la base de
+        // datos -- sin esto, alguien con acceso directo de escritura podía alterar
+        // documento_eventos Y documento_eventos_checkpoints a la vez (encubriendo el
+        // truncamiento que DocumentoEventoChainVerifier sí detecta por sí solo) sin que nada
+        // lo notara jamás, ya que el sello externo nunca se recalculaba. Se corre ANTES de
+        // generar el ancla de hoy, sobre días anteriores, en la misma transacción diaria.
+        reverificarAnclasAnteriores();
 
         LocalDate hoy = LocalDate.now();
         if (anclaRepository.findByFecha(hoy).isPresent()) {

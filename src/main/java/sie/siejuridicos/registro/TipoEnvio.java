@@ -27,6 +27,11 @@ public enum TipoEnvio {
     RECORDATORIO_FIRMA("Recordatorio de firma pendiente"),
     ALERTA_INTEGRIDAD_DOCUMENTO("Alerta de integridad de documento"),
     ALERTA_FIRMA_RECHAZADA("Alerta de firma rechazada"),
+    // Auditoría 2026-11-06, pedido explícito del usuario ("de ninguna forma se pueda
+    // vulnerar"): a diferencia de ALERTA_INTEGRIDAD_DOCUMENTO (un documento puntual), esta
+    // es la alerta de máxima severidad cuando el ancla diaria externa (RFC 3161) ya no
+    // coincide con los checkpoints actuales -- ver AnclaDiariaIntegridadScheduler.
+    ALERTA_INTEGRIDAD_ANCLA_DIARIA("Alerta crítica de integridad del ancla diaria"),
     // PQRS (Peticiones, Quejas, Reclamos y Sugerencias): mismo patrón que CODIGO_CASO (el
     // radicado es la única forma de consultar el estado, sin cuenta ni login).
     RADICADO_PQRS("Radicado de PQRS"),

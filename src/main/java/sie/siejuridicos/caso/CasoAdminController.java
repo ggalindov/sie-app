@@ -142,15 +142,20 @@ public class CasoAdminController {
     }
 
     // Botón "Enviar correos pendientes" del panel: notifica de una sola vez a todos los
-    // clientes con radicado asignado que todavía no recibieron su correo.
+    // clientes con radicado asignado que todavía no recibieron su correo. Pedido explícito
+    // del usuario (2026-11-06): solo ADMIN_GENERAL -- comunicación masiva a TODOS los
+    // clientes de la firma, no una acción operativa del día a día de un abogado individual.
     @PostMapping("/enviar-pendientes")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<ResumenEnvioCorreos> enviarPendientes() {
         return ResponseEntity.ok(casoService.enviarCorreosPendientes());
     }
 
     // Disparo manual del reporte semanal (además del automático de los lunes, ver
-    // ReporteSemanalCasosScheduler) -- para probarlo o adelantarlo sin esperar al próximo ciclo.
+    // ReporteSemanalCasosScheduler) -- para probarlo o adelantarlo sin esperar al próximo
+    // ciclo. Mismo criterio que enviarPendientes: solo ADMIN_GENERAL.
     @PostMapping("/enviar-reporte-semanal")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
     public ResponseEntity<ResumenReporteSemanal> enviarReporteSemanal() {
         return ResponseEntity.ok(casoService.enviarReporteSemanal());
     }

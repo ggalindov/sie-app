@@ -831,6 +831,39 @@ public class EmailService {
                 nombreAdmin, correoAdmin, nombreDocumento + ": " + motivo, exito);
     }
 
+    // Alerta de máxima severidad del motor de firma electrónica (pedido explícito del
+    // usuario, auditoría 2026-11-06: "cualquier cambio sea automaticamente detectado... de
+    // ninguna forma se pueda vulnerar"): el ancla diaria sellada con RFC 3161 ya no coincide
+    // con el estado actual de los checkpoints de auditoría -- a diferencia de
+    // enviarAlertaDocumentoAlterado (un documento puntual), esto es evidencia de
+    // manipulación DIRECTA de la base de datos, sin pasar por ningún endpoint de la
+    // aplicación, y no señala un documento específico (ver AnclaIntegridadComprometidaEvent).
+    public void enviarAlertaIntegridadAnclaComprometida(String nombreAdmin, String correoAdmin,
+                                                          java.time.LocalDate fecha, String detalle) {
+        String cuerpo = """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;"><strong>Alerta crítica de seguridad:</strong> el ancla diaria de
+                integridad del %s, sellada externamente con un timestamp RFC 3161 el mismo día, ya no coincide
+                con el estado actual de los registros de auditoría del sistema.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;margin:0 0 18px;background-color:#FDECEC;border-left:3px solid #C0392B;">
+                <tr><td style="padding:14px 18px;">
+                <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:#C0392B;font-family:Arial,Helvetica,sans-serif;">Qué significa esto</p>
+                <p style="margin:0;">%s</p>
+                </td></tr>
+                </table>
+                <p style="margin:0 0 20px;">Esto solo puede ocurrir por un acceso directo de escritura a la base
+                de datos, nunca por un uso normal del sistema. Esta alerta no identifica un documento específico
+                (el sello cubre el conjunto de ese día) -- se recomienda una revisión manual inmediata de los
+                accesos a la base de datos y de los documentos firmados ese día.</p>
+                %s
+                """.formatted(
+                escaparHtml(nombreAdmin), fecha, escaparHtml(detalle), firmaCierre()
+        );
+        boolean exito = enviarHtml(correoAdmin, "ALERTA CRÍTICA: posible manipulación de la base de datos - " + fecha, cuerpo);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.ALERTA_INTEGRIDAD_ANCLA_DIARIA,
+                nombreAdmin, correoAdmin, fecha + ": " + detalle, exito);
+    }
+
     // Motor de firma electrónica: una parte rechazó firmar -- el proceso completo del
     // documento queda ANULADO de inmediato (ver DocumentoFirmaService#registrarRechazoDeParte),
     // gerencia necesita saberlo para decidir qué sigue (volver a emitir, contactar a la

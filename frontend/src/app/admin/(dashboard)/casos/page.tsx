@@ -9,8 +9,6 @@ import {
   ArrowsClockwise,
   Bell,
   CalendarPlus,
-  CaretDown,
-  CaretUp,
   CheckSquare,
   Clock,
   ClockCounterClockwise,
@@ -23,7 +21,6 @@ import {
   PhoneSlash,
   Plus,
   ShieldCheck,
-  SortAscending,
   Sparkle,
   Spinner,
   UserCircle,
@@ -89,22 +86,6 @@ function extraerParte(sujetosProcesales: string | null, patron: RegExp): string 
 
 type CriterioOrden = "id" | "creado" | "actualizado";
 
-const OPCIONES_ORDEN: { valor: CriterioOrden; label: string }[] = [
-  { valor: "id", label: "Número de ID" },
-  { valor: "creado", label: "Fecha de creación" },
-  { valor: "actualizado", label: "Fecha de último movimiento" },
-];
-
-// Pedido explícito del usuario: el botón de dirección debe "decir como funciona" -- texto
-// explícito en vez de solo una flecha ambigua, y el significado de "ascendente/descendente"
-// cambia según el criterio (para ID es numérico, para fechas es cronológico).
-function descripcionDireccion(criterio: CriterioOrden, direccion: "asc" | "desc"): string {
-  if (criterio === "id") {
-    return direccion === "asc" ? "Ascendente (menor a mayor)" : "Descendente (mayor a menor)";
-  }
-  return direccion === "asc" ? "Ascendente (más antiguo primero)" : "Descendente (más reciente primero)";
-}
-
 // "actualizado" = fechaUltimoMovimientoJudicial -- corrección real pedida por el usuario:
 // "un caso que tuvo movimiento hoy tiene que salir arriba, realmente no están saliendo en
 // orden". Antes esto ordenaba por fechaUltimaActuacionDetectada (cuándo NUESTRO sistema vio
@@ -156,6 +137,11 @@ export default function CasosAdminPage() {
   // abierta debe entrar directo al caso sin que el usuario tenga que buscarlo a mano.
   const radicadoInicial = useSearchParams().get("radicado") ?? "";
   const { sesion } = useAuth();
+  // Pedido explícito del usuario (2026-11-06): "para abogado simplemente deja actualizar
+  // desde hoja, busqueda legal tech y legal pro, y crear caso" -- el ABOGADO ya no ve las
+  // dos acciones de comunicación masiva a clientes (notificaciones pendientes, reporte
+  // periódico), reservadas para ADMIN_GENERAL.
+  const esAdmin = sesion?.rol === "ADMIN_GENERAL";
   const [casos, setCasos] = useState<CasoAdmin[] | null>(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
@@ -170,12 +156,15 @@ export default function CasosAdminPage() {
   // como una tabla densa de una sola fila por caso en vez de las tarjetas grandes. Las
   // tarjetas siguen siendo la vista por defecto -- esto es un complemento, no un reemplazo.
   const [vista, setVista] = useState<"tarjetas" | "tabla">("tarjetas");
-  // Pedido explícito del usuario: "implementa un ordenador por actualizacion, deja ese
-  // predeterminado, arriba se van poniendo los que tuvieron actualizacion de seguimiento" --
-  // por defecto, el caso con el movimiento judicial real más reciente va primero (ver
-  // fechaUltimoMovimientoJudicial en compararCasos).
-  const [ordenarPor, setOrdenarPor] = useState<CriterioOrden>("actualizado");
-  const [ordenDireccion, setOrdenDireccion] = useState<"asc" | "desc">("desc");
+  // Pedido explícito del usuario (origen): "implementa un ordenador por actualizacion, deja
+  // ese predeterminado, arriba se van poniendo los que tuvieron actualizacion de
+  // seguimiento" -- el caso con el movimiento judicial real más reciente va primero (ver
+  // fechaUltimoMovimientoJudicial en compararCasos). Pedido explícito posterior
+  // (2026-11-06): "elimina ordenar casos" -- se quitó el desplegable/botón que permitía
+  // cambiar el criterio a mano; el criterio queda fijo en este único orden, que ya era el
+  // predeterminado y el más usado.
+  const ordenarPor: CriterioOrden = "actualizado";
+  const ordenDireccion: "asc" | "desc" = "desc";
   // Pedido explícito del usuario: "implementa un filtrador para los botones, uno que filtre
   // todos los que tiene boletines disponibles (azul) y otro para casos sin revisar (rojo)" --
   // dos interruptores independientes (no mutuamente excluyentes: un caso puede tener ambos a
@@ -265,19 +254,6 @@ export default function CasosAdminPage() {
         );
       })
       .sort((a, b) => compararCasos(a, b, ordenarPor, ordenDireccion)) ?? null;
-
-  // Cambiar el criterio desde el desplegable reinicia a un sentido sensato para ese
-  // criterio (ID: ascendente, fechas: la más reciente primero) -- la dirección en sí ahora
-  // la controla un botón aparte (ver onAlternarDireccion), pedido explícito del usuario.
-  function onCambiarCriterio(criterio: CriterioOrden) {
-    if (criterio === ordenarPor) return;
-    setOrdenarPor(criterio);
-    setOrdenDireccion(criterio === "id" ? "asc" : "desc");
-  }
-
-  function onAlternarDireccion() {
-    setOrdenDireccion((d) => (d === "asc" ? "desc" : "asc"));
-  }
 
   async function onSincronizar() {
     setSincronizando(true);
@@ -407,31 +383,33 @@ export default function CasosAdminPage() {
         description="Se sincronizan automáticamente desde el Google Sheets de seguimiento de la firma: número de caso, radicado y datos de contacto del cliente. La notificación del radicado se envía por correo y por WhatsApp (línea de atención de la firma). El estado real se consulta en vivo desde la misma hoja."
       />
 
-      {/* Rediseño pedido explícito del usuario: "organiza los separadores y botones de
-          casos... explicacion de los botones que hace cada uno" -- antes los 5 botones
-          vivían amontonados dentro del encabezado, cada uno solo con una palabra o dos, sin
-          decir qué pasa de verdad al apretarlo (¿a quién le llega algo? ¿tarda mucho?).
-          Ahora son tarjetas con ícono + título + una frase real de qué hace cada uno, en una
-          grilla aparte dedicada solo a esto. */}
-      <div className="mt-6 rounded-2xl border border-line bg-surface p-5">
+      {/* Segundo rediseño pedido explícito del usuario (2026-11-06): "para abogado
+          simplemente deja actualizar desde hoja, busqueda legal tech y legal pro, y crear
+          caso pero hazlo mas chiquito e intuitivo" / "para administrador si dejalos todos
+          pero ordena un poco mejor todo". Antes eran 6 tarjetas grandes sueltas en una
+          grilla sin agrupar, iguales para cualquier rol. Ahora: (1) el ABOGADO solo ve las
+          4 acciones operativas del día a día (sincronizar, crear, y las dos búsquedas
+          judiciales); las 2 de comunicación masiva a clientes quedan solo para
+          ADMIN_GENERAL. (2) las tarjetas son más chicas (menos padding, ícono más pequeño,
+          sin la frase larga de descripción -- un tooltip la reemplaza). (3) para admin se
+          agrupan por intención real (Sincronización | Comunicación a clientes | Búsqueda
+          judicial) con un rótulo propio por grupo en vez de una sola grilla plana. */}
+      <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft/60">Acciones</p>
-        <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <button
             type="button"
             onClick={onSincronizar}
             disabled={sincronizando}
-            className="flex items-start gap-3 rounded-xl bg-gold-pale/40 p-3.5 text-left ring-1 ring-gold-deep/20 transition-colors hover:bg-gold-pale/60 disabled:opacity-60"
+            title="Trae los casos nuevos o editados directamente del Google Sheets de la firma."
+            className="flex items-center gap-2.5 rounded-xl bg-gold-pale/40 p-2.5 text-left ring-1 ring-gold-deep/20 transition-colors hover:bg-gold-pale/60 disabled:opacity-60"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed">
-              <ArrowsClockwise className={`h-4 w-4 ${sincronizando ? "admin-loader-anillo" : ""}`} weight="bold" />
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed">
+              <ArrowsClockwise className={`h-3.5 w-3.5 ${sincronizando ? "admin-loader-anillo" : ""}`} weight="bold" />
             </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-ink">
-                {sincronizando ? "Actualizando..." : "Actualizar desde la hoja"}
-              </span>
-              <span className="mt-0.5 block text-xs leading-snug text-ink-soft">
-                Trae los casos nuevos o editados directamente del Google Sheets de la firma. La acción más usada.
-              </span>
+            <span className="truncate text-[13px] font-semibold text-ink">
+              {sincronizando ? "Actualizando..." : "Actualizar desde la hoja"}
             </span>
           </button>
 
@@ -441,75 +419,27 @@ export default function CasosAdminPage() {
               setDatosInicialesNuevoCaso(null);
               setModalAbierto(true);
             }}
-            className="flex items-start gap-3 rounded-xl bg-ink/5 p-3.5 text-left transition-colors hover:bg-ink/10"
+            title="Solo para un caso puntual que todavía no está en el Google Sheets de la firma."
+            className="flex items-center gap-2.5 rounded-xl bg-ink/5 p-2.5 text-left transition-colors hover:bg-ink/10"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink">
-              <Plus className="h-4 w-4" weight="bold" />
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink">
+              <Plus className="h-3.5 w-3.5" weight="bold" />
             </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-ink">Nuevo caso manual</span>
-              <span className="mt-0.5 block text-xs leading-snug text-ink-soft">
-                Solo para un caso puntual que todavía no está en el Google Sheets de la firma.
-              </span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onEnviarPendientes}
-            disabled={enviandoPendientes}
-            className="flex items-start gap-3 rounded-xl bg-ink/5 p-3.5 text-left transition-colors hover:bg-ink/10 disabled:opacity-60"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink">
-              {enviandoPendientes ? <Spinner className="h-4 w-4 animate-spin" weight="bold" /> : <EnvelopeSimple className="h-4 w-4" weight="bold" />}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-ink">
-                {enviandoPendientes ? "Enviando..." : "Enviar notificaciones pendientes"}
-              </span>
-              <span className="mt-0.5 block text-xs leading-snug text-ink-soft">
-                Manda por correo y WhatsApp el radicado a quienes todavía no lo han recibido. Le llega algo real al cliente.
-              </span>
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onEnviarReporteSemanal}
-            disabled={enviandoReporteSemanal}
-            className="flex items-start gap-3 rounded-xl bg-ink/5 p-3.5 text-left transition-colors hover:bg-ink/10 disabled:opacity-60"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink">
-              {enviandoReporteSemanal ? <Spinner className="h-4 w-4 animate-spin" weight="bold" /> : <Bell className="h-4 w-4" weight="bold" />}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-ink">
-                {enviandoReporteSemanal ? "Enviando..." : "Enviar reporte periódico"}
-              </span>
-              <span className="mt-0.5 block text-xs leading-snug text-ink-soft">
-                Adelanta a mano el reporte que normalmente se envía solo cada quince días. Le llega algo real al cliente.
-              </span>
-            </span>
+            <span className="truncate text-[13px] font-semibold text-ink">Nuevo caso manual</span>
           </button>
 
           <button
             type="button"
             onClick={() => setCromaModalAbierto(true)}
-            className="flex items-start gap-3 rounded-xl bg-gold-pale/35 p-3.5 text-left ring-1 ring-gold-deep/20 transition-all hover:bg-gold-pale/60"
+            title="Busca procesos judiciales por Cédula o Nombre en la Rama Judicial cuando el cliente no sabe su radicado."
+            className="flex items-center gap-2.5 rounded-xl bg-gold-pale/35 p-2.5 text-left ring-1 ring-gold-deep/20 transition-all hover:bg-gold-pale/60"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed shadow-sm">
-              <Sparkle className="h-4 w-4" weight="fill" />
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed shadow-sm">
+              <Sparkle className="h-3.5 w-3.5" weight="fill" />
             </span>
-            <span className="min-w-0">
-              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
-                Búsqueda Legal-Tech
-                <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-gold-deep">
-                  Croma Free
-                </span>
-              </span>
-              <span className="mt-0.5 block text-xs leading-snug text-ink-soft">
-                Busca procesos judiciales por Cédula o Nombre en la Rama Judicial cuando el cliente no sabe su radicado.
-              </span>
+            <span className="min-w-0 truncate text-[13px] font-semibold text-ink">
+              Búsqueda Legal-Tech
+              <span className="ml-1.5 rounded-full bg-gold/20 px-1.5 py-0.5 text-[9.5px] font-bold text-gold-deep">Free</span>
             </span>
           </button>
 
@@ -519,24 +449,57 @@ export default function CasosAdminPage() {
               setCasoParaLegalPro(null);
               setLegalProAbierto(true);
             }}
-            className="flex items-start gap-3 rounded-xl bg-ink/90 p-3.5 text-left text-paper ring-1 ring-gold/40 transition-all hover:bg-ink"
+            title="Selecciona un caso y extrae todo su informe (actuaciones, notificaciones, boletines y correos del juzgado) si el motor normal no trajo todo."
+            className="flex items-center gap-2.5 rounded-xl bg-ink/90 p-2.5 text-left text-paper ring-1 ring-gold/40 transition-all hover:bg-ink"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed shadow-sm">
-              <ShieldCheck className="h-4 w-4" weight="fill" />
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gold text-ink-fixed shadow-sm">
+              <ShieldCheck className="h-3.5 w-3.5" weight="fill" />
             </span>
-            <span className="min-w-0">
-              <span className="flex items-center gap-2 text-sm font-semibold text-paper">
-                Legal-Pro (Informe Profundo)
-                <span className="rounded-full bg-gold/25 px-2 py-0.5 text-[10px] font-bold text-gold">
-                  Croma API
-                </span>
-              </span>
-              <span className="mt-0.5 block text-xs leading-snug text-paper/80">
-                Selecciona un caso y extrae todo su informe (actuaciones, notificaciones, boletines y correos del juzgado) si el motor normal no trajo todo.
-              </span>
+            <span className="min-w-0 truncate text-[13px] font-semibold text-paper">
+              Legal-Pro
+              <span className="ml-1.5 rounded-full bg-gold/25 px-1.5 py-0.5 text-[9.5px] font-bold text-gold">API</span>
             </span>
           </button>
         </div>
+
+        {esAdmin && (
+          <div className="mt-3 border-t border-line pt-3">
+            <p className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-soft/50">
+              Comunicación masiva a clientes (solo administración)
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={onEnviarPendientes}
+                disabled={enviandoPendientes}
+                title="Manda por correo y WhatsApp el radicado a quienes todavía no lo han recibido. Le llega algo real al cliente."
+                className="flex items-center gap-2.5 rounded-xl bg-ink/5 p-2.5 text-left transition-colors hover:bg-ink/10 disabled:opacity-60"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink">
+                  {enviandoPendientes ? <Spinner className="h-3.5 w-3.5 animate-spin" weight="bold" /> : <EnvelopeSimple className="h-3.5 w-3.5" weight="bold" />}
+                </span>
+                <span className="truncate text-[13px] font-semibold text-ink">
+                  {enviandoPendientes ? "Enviando..." : "Enviar notificaciones pendientes"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onEnviarReporteSemanal}
+                disabled={enviandoReporteSemanal}
+                title="Adelanta a mano el reporte que normalmente se envía solo cada quince días. Le llega algo real al cliente."
+                className="flex items-center gap-2.5 rounded-xl bg-ink/5 p-2.5 text-left transition-colors hover:bg-ink/10 disabled:opacity-60"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink">
+                  {enviandoReporteSemanal ? <Spinner className="h-3.5 w-3.5 animate-spin" weight="bold" /> : <Bell className="h-3.5 w-3.5" weight="bold" />}
+                </span>
+                <span className="truncate text-[13px] font-semibold text-ink">
+                  {enviandoReporteSemanal ? "Enviando..." : "Enviar reporte periódico"}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Pedido explícito del usuario (2026-11-01): "quita todo boton que haga que dispare
@@ -669,45 +632,6 @@ export default function CasosAdminPage() {
             </div>
           </div>
 
-          {/* Pedido explícito del usuario: "que sea un despegable... al lado un boton de
-              ascendente y descendente que diga como funciona" -- un desplegable para el
-              criterio (antes eran 3 píldoras sueltas) y, aparte, un botón de dirección con
-              texto explícito (nunca solo una flecha ambigua). "Fecha de último movimiento"
-              ordena por fechaUltimoMovimientoJudicial (la fecha real del despacho), NO por
-              fechaUltimoSeguimiento ni por cuándo nuestro sistema detectó la actuación (ver
-              nota en compararCasos arriba de este componente). */}
-          <div className="border-t border-line pt-5">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft/60">
-              <SortAscending className="h-3.5 w-3.5" weight="bold" />
-              Ordenar
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <select
-                value={ordenarPor}
-                onChange={(e) => onCambiarCriterio(e.target.value as CriterioOrden)}
-                className="rounded-full border border-line bg-paper px-4 py-2 text-xs font-medium text-ink focus:border-gold-deep focus:outline-none"
-              >
-                {OPCIONES_ORDEN.map((o) => (
-                  <option key={o.valor} value={o.valor}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={onAlternarDireccion}
-                className="inline-flex items-center gap-1.5 rounded-full bg-gold-pale/60 px-4 py-2 text-xs font-medium text-gold-deep ring-1 ring-gold-deep/30 transition-colors hover:bg-gold-pale"
-              >
-                {ordenDireccion === "asc" ? (
-                  <CaretUp className="h-3 w-3" weight="bold" />
-                ) : (
-                  <CaretDown className="h-3 w-3" weight="bold" />
-                )}
-                {descripcionDireccion(ordenarPor, ordenDireccion)}
-              </button>
-            </div>
-          </div>
-
         </div>
       )}
 
@@ -777,16 +701,26 @@ export default function CasosAdminPage() {
                   <p className="font-display text-xl leading-snug text-ink">{c.nombreCliente}</p>
                   {/* Pedido explícito del usuario (2026-11-04, revierte la decisión original
                       de "solo administrador" de esta misma sesión de trabajo): "permite que
-                      todos los gerentes y abogados puedan editar la informacion de un caso". */}
-                  <div className="flex shrink-0 items-center gap-1">
+                      todos los gerentes y abogados puedan editar la informacion de un caso".
+                      Rediseño pedido explícito (2026-11-06): "los botones de editar y
+                      finalizar/archivar hazlos mas intuitivos" -- antes eran dos círculos
+                      grises idénticos, sin forma de distinguir a simple vista cuál es la
+                      acción reversible (editar) y cuál la consecuente (archivar/finalizar).
+                      Ahora cada uno tiene su propio color de intención (azul = editar, ámbar
+                      = finalizar, el mismo lenguaje de color de "por vencer" en el resto del
+                      panel) y un separador fino entre los dos para que no se lean como un
+                      solo bloque de dos clics iguales. */}
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setCasoEditando(c)}
                       aria-label="Editar caso"
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/10 hover:text-ink"
+                      title="Editar información del caso"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft ring-1 ring-transparent transition-colors hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200"
                     >
                       <PencilSimple className="h-4 w-4" weight="bold" />
                     </button>
+                    <span className="h-5 w-px bg-line" aria-hidden="true" />
                     {/* Pedido explícito del usuario (2026-11-05): "un boton para cada caso el
                         cual nos permita finalizarlo". */}
                     <button
@@ -794,8 +728,8 @@ export default function CasosAdminPage() {
                       onClick={() => onFinalizar(c)}
                       disabled={finalizandoId === c.id}
                       aria-label="Finalizar caso"
-                      title="Finalizar caso (se mueve a Casos Finalizados)"
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/10 hover:text-ink disabled:opacity-50"
+                      title="Finalizar caso (se mueve a Casos Finalizados y deja de vigilarse)"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft ring-1 ring-transparent transition-colors hover:bg-amber-50 hover:text-amber-700 hover:ring-amber-200 disabled:opacity-50"
                     >
                       {finalizandoId === c.id ? (
                         <Spinner className="h-4 w-4 animate-spin" weight="bold" />

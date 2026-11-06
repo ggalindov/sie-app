@@ -41,6 +41,23 @@ public class AnclaDiariaIntegridad {
     @Column(name = "creado_en", nullable = false)
     private LocalDateTime creadoEn;
 
+    // Pedido explícito del usuario (auditoría 2026-11-06): "cualquier cambio sea
+    // automaticamente detectado... de ninguna forma se pueda vulnerar". El ancla se sella
+    // una vez con RFC 3161 pero sin esto nunca se volvía a comparar contra el estado actual
+    // de documento_eventos_checkpoints -- ver reverificarAnclasAnteriores() en
+    // AnclaDiariaIntegridadScheduler, que recalcula el hash agregado de cada día pasado y lo
+    // compara contra este valor sellado. false = los checkpoints de ese día cambiaron
+    // después de haber sido sellados externamente (evidencia de manipulación directa de la
+    // base de datos, no de un documento individual).
+    @Column(nullable = false)
+    private boolean integra = true;
+
+    @Column(name = "detalle_compromiso", columnDefinition = "TEXT")
+    private String detalleCompromiso;
+
+    @Column(name = "verificado_en")
+    private LocalDateTime verificadoEn;
+
     protected AnclaDiariaIntegridad() {
     }
 
@@ -54,6 +71,16 @@ public class AnclaDiariaIntegridad {
     public void completarSello(byte[] tokenRfc3161, String urlTsa) {
         this.tokenRfc3161 = tokenRfc3161;
         this.urlTsa = urlTsa;
+    }
+
+    public void marcarComprometida(String detalle, LocalDateTime cuando) {
+        this.integra = false;
+        this.detalleCompromiso = detalle;
+        this.verificadoEn = cuando;
+    }
+
+    public void marcarVerificadaIntegra(LocalDateTime cuando) {
+        this.verificadoEn = cuando;
     }
 
     public Long getId() {
@@ -82,5 +109,17 @@ public class AnclaDiariaIntegridad {
 
     public LocalDateTime getCreadoEn() {
         return creadoEn;
+    }
+
+    public boolean isIntegra() {
+        return integra;
+    }
+
+    public String getDetalleCompromiso() {
+        return detalleCompromiso;
+    }
+
+    public LocalDateTime getVerificadoEn() {
+        return verificadoEn;
     }
 }
