@@ -29,16 +29,19 @@ public class CromaAdminController {
     private final CromaCreditosService creditosService;
     private final CromaLegalProService legalProService;
     private final BusquedaMultirramaService busquedaMultirramaService;
+    private final CromaLegalProCacheRepository legalProCacheRepository;
 
     public CromaAdminController(
             CromaClient cromaClient,
             CromaCreditosService creditosService,
             CromaLegalProService legalProService,
-            BusquedaMultirramaService busquedaMultirramaService) {
+            BusquedaMultirramaService busquedaMultirramaService,
+            CromaLegalProCacheRepository legalProCacheRepository) {
         this.cromaClient = cromaClient;
         this.creditosService = creditosService;
         this.legalProService = legalProService;
         this.busquedaMultirramaService = busquedaMultirramaService;
+        this.legalProCacheRepository = legalProCacheRepository;
     }
 
     @GetMapping("/cuota")
@@ -67,6 +70,24 @@ public class CromaAdminController {
             @RequestParam(required = false) String radicado) {
         return legalProService.obtenerDesdeMemoria(casoId, radicado)
                 .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    // Pedido explícito del usuario (2026-11-05): "audita y revisa que informacion y
+    // documentos puede traer adicionalmente de casos" -- diagnóstico de un solo uso, SIN
+    // gastar créditos nuevos: expone el JSON crudo que Croma YA devolvió en una extracción
+    // anterior (guardado tal cual en croma_legal_pro_cache, ver CromaLegalProCache), para ver
+    // de verdad qué campos trae la API más allá de los que CromaClient ya parsea hoy. Solo
+    // ADMIN_GENERAL -- es un volcado interno de diagnóstico, no un dato de uso normal.
+    @GetMapping("/legal-pro/memoria/crudo")
+    @PreAuthorize("hasRole('ADMIN_GENERAL')")
+    public ResponseEntity<String> obtenerMemoriaCrudo(
+            @RequestParam(required = false) Long casoId,
+            @RequestParam(required = false) String radicado) {
+        var cache = radicado != null
+                ? legalProCacheRepository.findByRadicado(radicado)
+                : (casoId != null ? legalProCacheRepository.findFirstByCasoIdOrderByFechaExtraccionDesc(casoId) : java.util.Optional.<CromaLegalProCache>empty());
+        return cache.map(c -> ResponseEntity.ok(c.getPayloadJson()))
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }
