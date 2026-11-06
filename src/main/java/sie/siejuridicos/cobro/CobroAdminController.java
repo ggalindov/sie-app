@@ -11,7 +11,10 @@ import sie.siejuridicos.cobro.dto.ClienteCobroResponse;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatorioPrueba;
 import sie.siejuridicos.cobro.dto.ResumenEnvioRecordatoriosCobros;
 import sie.siejuridicos.cobro.dto.ResumenSincronizacionCobros;
+import sie.siejuridicos.cobro.dto.SaludWebhookWhatsAppResponse;
 import sie.siejuridicos.cobro.dto.SimularRespuestaCobroRequest;
+import sie.siejuridicos.registro.RegistroSistemaService;
+import sie.siejuridicos.registro.TipoRegistroSistema;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
 import java.util.List;
@@ -26,17 +29,35 @@ import java.util.List;
 public class CobroAdminController {
 
     private final CobroService cobroService;
+    private final RegistroSistemaService registroSistemaService;
     private final boolean bloqueoTotalClientes;
 
     public CobroAdminController(CobroService cobroService,
+                                RegistroSistemaService registroSistemaService,
                                 @org.springframework.beans.factory.annotation.Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.cobroService = cobroService;
+        this.registroSistemaService = registroSistemaService;
         this.bloqueoTotalClientes = bloqueoTotalClientes;
     }
 
     @GetMapping
     public ResponseEntity<List<ClienteCobroResponse>> listar() {
         return ResponseEntity.ok(cobroService.listarActivos());
+    }
+
+    // Pedido explícito del usuario (2026-11-06): "revisa porque el aceptar o rechazar pagos
+    // en whatsapp no se esta reflejando" -- auditoría en producción (logs del backend y del
+    // borde Caddy) confirmó que Meta nunca entregó un evento real a nuestro webhook; las
+    // únicas 2 llamadas registradas en todo el historial disponible fueron pruebas manuales
+    // con curl/Python, nunca tráfico real de WhatsApp Cloud API. El problema está en la
+    // suscripción del webhook del Meta Business Manager (fuera del alcance de este sistema),
+    // no en el código. Este endpoint deja la evidencia visible en el panel para detectar
+    // automáticamente si esto vuelve a pasar, en vez de descubrirlo semanas después.
+    @GetMapping("/salud-webhook")
+    public ResponseEntity<SaludWebhookWhatsAppResponse> saludWebhook() {
+        var ultima = registroSistemaService.listar(TipoRegistroSistema.RESPUESTA_WEBHOOK_WHATSAPP_COBRO, 0, 1)
+                .stream().findFirst();
+        return ResponseEntity.ok(new SaludWebhookWhatsAppResponse(ultima.map(r -> r.fechaHora()).orElse(null)));
     }
 
     // Botón "Actualizar" del panel: trae/actualiza todos los clientes activos desde las dos

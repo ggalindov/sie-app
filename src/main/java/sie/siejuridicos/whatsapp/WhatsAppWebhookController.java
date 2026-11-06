@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import sie.siejuridicos.cobro.CobroService;
+import sie.siejuridicos.registro.RegistroSistemaService;
+import sie.siejuridicos.registro.TipoRegistroSistema;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -46,6 +48,7 @@ public class WhatsAppWebhookController {
     private static final String ALGORITMO_HMAC = "HmacSHA256";
 
     private final CobroService cobroService;
+    private final RegistroSistemaService registroSistemaService;
     private final ObjectMapper objectMapper;
     private final String verifyToken;
     private final String appSecret;
@@ -53,11 +56,13 @@ public class WhatsAppWebhookController {
     private final boolean bloqueoTotalClientes;
 
     public WhatsAppWebhookController(CobroService cobroService,
+                                      RegistroSistemaService registroSistemaService,
                                       ObjectMapper objectMapper,
                                       @Value("${app.whatsapp.webhook-verify-token:}") String verifyToken,
                                       @Value("${app.whatsapp.app-secret:}") String appSecret,
                                       @Value("${app.bloqueo-total-clientes:true}") boolean bloqueoTotalClientes) {
         this.cobroService = cobroService;
+        this.registroSistemaService = registroSistemaService;
         this.objectMapper = objectMapper;
         this.verifyToken = verifyToken;
         this.appSecret = appSecret;
@@ -171,6 +176,16 @@ public class WhatsAppWebhookController {
                     log.info("Webhook WhatsApp: respuesta recibida de {}: '{}' -> interpretada como '{}'",
                             telefonoNormalizado, textoRespuesta, interpretado);
                     cobroService.registrarRespuesta(telefonoNormalizado, interpretado);
+                    // Pedido explícito del usuario (2026-11-06): "revisa porque el aceptar o
+                    // rechazar pagos en whatsapp no se esta reflejando" -- distinto del
+                    // registro que ya hace CobroService (ese también se dispara desde
+                    // /simular-respuesta). Este solo se escribe AQUÍ, en el único lugar donde
+                    // de verdad llegó algo real de Meta, para que /admin/cobros pueda mostrar
+                    // honestamente "la última vez que recibimos algo real" y detectar
+                    // automáticamente si el webhook deja de recibir eventos.
+                    registroSistemaService.registrar(TipoRegistroSistema.RESPUESTA_WEBHOOK_WHATSAPP_COBRO,
+                            "Respuesta real recibida por WhatsApp de " + telefonoNormalizado + ": '" + interpretado + "'",
+                            true);
                 }
             }
         }

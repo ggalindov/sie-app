@@ -2387,6 +2387,18 @@ export function enviarRecordatoriosCobros(): Promise<ResumenEnvioRecordatoriosCo
 
 }
 
+// Pedido explícito del usuario (2026-11-06): "revisa porque el aceptar o rechazar pagos en
+// whatsapp no se esta reflejando" -- ultimaRespuestaReal es null si Meta JAMÁS ha entregado un
+// evento real a nuestro webhook (nunca cuenta /simular-respuesta ni el ajuste manual del
+// admin, ver RESPUESTA_WEBHOOK_WHATSAPP_COBRO en el backend).
+export type SaludWebhookWhatsApp = {
+  ultimaRespuestaReal: string | null;
+};
+
+export function obtenerSaludWebhookCobros(): Promise<SaludWebhookWhatsApp> {
+  return pedido<SaludWebhookWhatsApp>("/api/admin/cobros/salud-webhook");
+}
+
 
 
 // Envío aislado de un único recordatorio al número de prueba fijo de la firma (3126029742),

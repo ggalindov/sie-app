@@ -14,6 +14,7 @@ import {
   Prohibit,
   Spinner,
   TestTube,
+  WarningCircle,
   WhatsappLogo,
   X,
 } from "@phosphor-icons/react";
@@ -23,6 +24,7 @@ import {
   enviarRecordatoriosCobros,
   enviarRecordatorioPrueba,
   actualizarEstadoPagoCobro,
+  obtenerSaludWebhookCobros,
   ApiError,
   type ClienteCobro,
 } from "@/lib/admin-api";
@@ -88,6 +90,11 @@ export default function CobrosAdminPage() {
   const [filtroEstado, setFiltroEstado] = useState<EstadoCobroFiltro>("TODOS");
   const [busqueda, setBusqueda] = useState("");
   const [actualizandoId, setActualizandoId] = useState<number | null>(null);
+  // Pedido explícito del usuario (2026-11-06): "revisa porque el aceptar o rechazar pagos en
+  // whatsapp no se esta reflejando" -- null significa "nunca, ni una vez, se ha recibido un
+  // evento real de Meta" (ver RESPUESTA_WEBHOOK_WHATSAPP_COBRO en el backend). undefined
+  // mientras carga, para no mostrar la alerta de golpe antes de tener la respuesta real.
+  const [ultimaRespuestaWebhook, setUltimaRespuestaWebhook] = useState<string | null | undefined>(undefined);
 
   async function onCambiarEstadoPago(id: number, pagoEsteMes: boolean | null, respuesta: string | null) {
     setActualizandoId(id);
@@ -127,6 +134,16 @@ export default function CobrosAdminPage() {
   useEffect(() => {
     if (sesion?.rol === "ADMIN_GENERAL") cargar();
   }, [cargar, sesion]);
+
+  useEffect(() => {
+    if (sesion?.rol !== "ADMIN_GENERAL") return;
+    obtenerSaludWebhookCobros()
+      .then((salud) => setUltimaRespuestaWebhook(salud.ultimaRespuestaReal))
+      .catch(() => {
+        // Silencioso a propósito: esta alerta es un dato secundario, un fallo acá no debe
+        // bloquear ni interrumpir la carga principal de la lista de cobros.
+      });
+  }, [sesion]);
 
   if (sesion && sesion.rol !== "ADMIN_GENERAL") {
     return (
@@ -309,6 +326,28 @@ export default function CobrosAdminPage() {
         titulo="Enviando recordatorios de cobro"
         descripcion="Notificando clientes activos pendientes de pago a través de WhatsApp Cloud API y Gmail SMTP con pausas de seguridad..."
       />
+
+      {/* Pedido explícito del usuario (2026-11-06): "revisa porque el aceptar o rechazar
+          pagos en whatsapp no se esta reflejando" -- auditoría en producción confirmó que
+          Meta nunca ha entregado un evento real a nuestro webhook (problema de suscripción
+          en el Meta Business Manager, no de nuestro código). Esta alerta deja ese hecho
+          visible de inmediato en vez de que se note semanas después solo porque "muchos
+          clientes respondieron y no se refleja". ultimaRespuestaWebhook === undefined
+          mientras carga -- nunca se muestra la alerta antes de tener la respuesta real. */}
+      {ultimaRespuestaWebhook === null && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3.5">
+          <WarningCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" weight="bold" />
+          <div className="text-sm text-red-900">
+            <p className="font-semibold">El sistema nunca ha recibido una respuesta automática real de WhatsApp.</p>
+            <p className="mt-1 text-red-800/90">
+              Los clientes pueden estar respondiendo Sí/No por WhatsApp sin que esto llegue a reflejarse aquí. Esto
+              casi siempre significa que el webhook no está suscrito correctamente en el Meta Business Manager
+              (Configuración → Webhooks → campo &quot;messages&quot;), no un error de este sistema. Verifica esa
+              configuración con quien administre la cuenta de WhatsApp Business de la firma.
+            </p>
+          </div>
+        </div>
+      )}
 
       {resumen && clientes && clientes.length > 0 && (
         <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
