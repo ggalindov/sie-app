@@ -115,6 +115,52 @@ public class AnclaDiariaIntegridadScheduler {
         }
     }
 
+    // Recalcula el hash agregado de cada ancla de un día ANTERIOR (nunca el de hoy, que
+    // recién se está armando) a partir del estado ACTUAL de documento_eventos_checkpoints, y
+    // lo compara contra el que ya quedó sellado externamente con RFC 3161 ese mismo día. Si
+    // no coincide, es prueba de que esos checkpoints fueron modificados DESPUÉS del sello,
+    // sin pasar por la aplicación (DocumentoEventoCheckpointRepository no expone ningún
+    // método de escritura fuera de AnclaDiariaIntegridadScheduler). Nunca marca documentos
+    // individuales ALTERADO desde aquí: el ancla solo prueba el agregado de un día completo,
+    // no identifica cuál checkpoint cambió -- amerita alerta crítica y revisión manual, no
+    // un flag automático que podría señalar al documento equivocado.
+    private void reverificarAnclasAnteriores() {
+        LocalDate hoy = LocalDate.now();
+        List<AnclaDiariaIntegridad> anclas = anclaRepository.findByFechaBeforeAndIntegraTrue(hoy);
+        LocalDateTime ahora = LocalDateTime.now();
+        for (AnclaDiariaIntegridad ancla : anclas) {
+            String hashRecalculado = recalcularHashAgregado(ancla.getFecha());
+            if (hashRecalculado.equalsIgnoreCase(ancla.getHashAgregado())) {
+                ancla.marcarVerificadaIntegra(ahora);
+                continue;
+            }
+            String detalle = "El hash agregado recalculado a partir de los checkpoints actuales ya no coincide "
+                    + "con el sellado externamente con RFC 3161 el " + ancla.getCreadoEn()
+                    + " -- los registros de auditoría de ese día cambiaron después de haber sido sellados.";
+            ancla.marcarComprometida(detalle, ahora);
+            anclaRepository.save(ancla);
+            log.error("¡ALERTA CRÍTICA! El ancla diaria de integridad del {} ya no coincide con los checkpoints "
+                    + "actuales -- posible manipulación directa de la base de datos.", ancla.getFecha());
+            eventPublisher.publishEvent(new AnclaIntegridadComprometidaEvent(ancla.getFecha(), detalle));
+        }
+    }
+
+    // MISMO formato canónico y MISMO criterio de orden que generarAnclaDiaria() al crear el
+    // ancla original -- documentoId:secuencia:hashEvento, ordenado por UUID.compareTo() en
+    // Java. Nunca se usa un ORDER BY de SQL para esto: Postgres ordena su tipo uuid por bytes
+    // crudos, que NO coincide con UUID.compareTo() de Java, así que confiar en el orden de la
+    // consulta produciría una "alteración" falsa en días que en realidad están intactos.
+    private String recalcularHashAgregado(LocalDate fecha) {
+        List<DocumentoEventoCheckpoint> checkpoints = checkpointRepository.findByFecha(fecha).stream()
+                .sorted(Comparator.comparing(c -> c.getDocumento().getId()))
+                .toList();
+        StringBuilder canonico = new StringBuilder();
+        for (DocumentoEventoCheckpoint c : checkpoints) {
+            canonico.append(c.getDocumento().getId()).append(':').append(c.getCantidadEventos()).append(':').append(c.getHashUltimoEvento()).append('|');
+        }
+        return HashUtil.sha256Hex(canonico.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
     private void sellarSiEsPosible(AnclaDiariaIntegridad ancla, String hashAgregadoHex) {
         rfc3161TimestampClient.sellar(HashUtil.hexToBytes(hashAgregadoHex))
                 .ifPresent(resultado -> ancla.completarSello(resultado.token(), resultado.urlTsa()));
