@@ -16,10 +16,8 @@ import {
   Check,
   CheckSquare,
   CurrencyDollar,
-  DotsSixVertical,
   EnvelopeSimple,
   FileText,
-  Funnel,
   IdentificationCard,
   MagnifyingGlass,
   MapPin,
@@ -27,8 +25,6 @@ import {
   Phone,
   Plus,
   Trash,
-  User,
-  UserCheck,
   Users,
   WhatsappLogo,
   X,
@@ -39,15 +35,11 @@ import {
   crearClienteCrm,
   actualizarClienteCrm,
   archivarClienteCrm,
-  obtenerPipelineCrm,
-  cambiarEtapaPipeline,
-  convertirProspectoACrm,
   obtenerDashboardCrm,
   contarTareasPendientesPorCaso,
   ApiError,
   type ClienteCrm,
   type ClienteCrmDetalle,
-  type ItemPipeline,
   type CrmDashboard,
   type TipoClienteCrm,
   type EstadoClienteCrm,
@@ -80,17 +72,6 @@ const ETAPAS_ORDENADAS: { key: EtapaPipeline; label: string; tone: "neutral" | "
   { key: "DESCARTADO", label: "Descartado", tone: "danger" },
 ];
 
-// Color de acento por etapa, reutilizado en la barra superior de cada columna y en el
-// avatar de iniciales de cada tarjeta -- mismo lenguaje visual que el acento dorado del
-// ítem activo del sidebar, para que el pipeline se sienta parte del mismo sistema.
-const TONE_ACCENT: Record<string, string> = {
-  neutral: "bg-ink/25",
-  gold: "bg-gold",
-  warning: "bg-amber-400",
-  success: "bg-emerald-500",
-  danger: "bg-red-400",
-};
-
 function formatearMoneda(val: number | null) {
   if (!val || val === 0) return "$ 0 COP";
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(val);
@@ -101,13 +82,6 @@ function formatearFecha(iso: string | null) {
   return new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function iniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/).filter(Boolean);
-  if (partes.length === 0) return "?";
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[1][0]).toUpperCase();
-}
-
 export default function CrmAdminPage() {
   const { sesion } = useAuth();
   // Llega prellenado desde el buscador total del panel (ver buscador-global.tsx, navega a
@@ -115,17 +89,7 @@ export default function CrmAdminPage() {
   // Directorio, no el Pipeline (tab por defecto), así que si viene con "q" se abre ahí.
   const qInicial = useSearchParams().get("q") ?? "";
 
-  const [tabActiva, setTabActiva] = useState<"pipeline" | "directorio" | "dashboard">(
-    qInicial ? "directorio" : "pipeline",
-  );
-
-  // Estado Pipeline
-  const [pipelineItems, setPipelineItems] = useState<ItemPipeline[] | null>(null);
-  const [cargandoPipeline, setCargandoPipeline] = useState(false);
-  // Arrastrar y soltar entre etapas (además de las flechas, que siguen siendo el único
-  // camino en touch -- el drag and drop nativo de HTML5 no funciona en móvil/tablet).
-  const [arrastrandoId, setArrastrandoId] = useState<number | null>(null);
-  const [columnaSobrevolada, setColumnaSobrevolada] = useState<EtapaPipeline | null>(null);
+  const [tabActiva, setTabActiva] = useState<"directorio" | "dashboard">("directorio");
 
   // Estado Directorio
   const [clientes, setClientes] = useState<ClienteCrm[] | null>(null);
@@ -186,18 +150,6 @@ export default function CrmAdminPage() {
   const [guardandoCliente, setGuardandoCliente] = useState(false);
 
   // Cargas
-  const cargarPipeline = useCallback(async () => {
-    setCargandoPipeline(true);
-    try {
-      const data = await obtenerPipelineCrm();
-      setPipelineItems(data);
-    } catch {
-      toast.error("No se pudo cargar el pipeline.");
-    } finally {
-      setCargandoPipeline(false);
-    }
-  }, []);
-
   const cargarClientes = useCallback(async () => {
     setCargandoClientes(true);
     try {
@@ -262,11 +214,10 @@ export default function CrmAdminPage() {
   }, []);
 
   useEffect(() => {
-    cargarPipeline();
     cargarClientes();
     cargarDashboard();
     cargarConteoTareas();
-  }, [cargarPipeline, cargarClientes, cargarDashboard, cargarConteoTareas]);
+  }, [cargarClientes, cargarDashboard, cargarConteoTareas]);
 
   useEffect(() => {
     setModoEdicionCliente(false);
@@ -292,32 +243,6 @@ export default function CrmAdminPage() {
     setEditEstado(clienteDetalle.cliente.estado);
     setEditNotas(clienteDetalle.cliente.notas ?? "");
   }, [clienteDetalle]);
-
-  // Transiciones de Pipeline
-  async function onMoverEtapa(solicitudId: number, nuevaEtapa: EtapaPipeline) {
-    try {
-      await cambiarEtapaPipeline(solicitudId, nuevaEtapa);
-      toast.success("Etapa actualizada");
-      cargarPipeline();
-      cargarDashboard();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error al cambiar etapa");
-    }
-  }
-
-  async function onConvertirACliente(solicitudId: number) {
-    try {
-      const cliente = await convertirProspectoACrm(solicitudId, {
-        tipo: "PERSONA_NATURAL",
-      });
-      toast.success(`Prospecto convertido en Cliente CRM exitosamente: ${cliente.nombre}`);
-      cargarPipeline();
-      cargarClientes();
-      cargarDashboard();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Error al convertir prospecto");
-    }
-  }
 
   // Creación de Cliente Directo
   async function onSubmitNuevoCliente(e: React.FormEvent) {
@@ -416,7 +341,6 @@ export default function CrmAdminPage() {
             <AdminButton
               variant="secondary"
               onClick={() => {
-                cargarPipeline();
                 cargarClientes();
                 cargarDashboard();
               }}
@@ -434,24 +358,6 @@ export default function CrmAdminPage() {
 
       {/* Navegación por pestañas */}
       <div className="flex border-b border-line">
-        <button
-          type="button"
-          onClick={() => setTabActiva("pipeline")}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-medium transition-colors ${
-            tabActiva === "pipeline"
-              ? "border-gold text-ink"
-              : "border-transparent text-ink-soft hover:border-line hover:text-ink"
-          }`}
-        >
-          <Funnel className="h-4 w-4" weight="bold" />
-          Pipeline de Oportunidades
-          {pipelineItems && (
-            <span className="rounded-full bg-gold/20 px-2 py-0.5 text-xs text-gold-deep font-semibold">
-              {pipelineItems.length}
-            </span>
-          )}
-        </button>
-
         <button
           type="button"
           onClick={() => setTabActiva("directorio")}
@@ -484,185 +390,7 @@ export default function CrmAdminPage() {
         </button>
       </div>
 
-      {/* ======================= PESTAÑA 1: PIPELINE ======================= */}
-      {tabActiva === "pipeline" && (
-        <div>
-          {cargandoPipeline && !pipelineItems ? (
-            <AdminLoader />
-          ) : (
-            <div>
-              {/* Cuadrícula que envuelve en filas en vez de una tira horizontal con scroll
-                  lateral -- pedido explícito del usuario ("no así a lo horizontal, que se
-                  vea completo"): con 7 etapas, antes siempre sobraba al menos una columna
-                  fuera de la pantalla. Ahora las columnas se acomodan solas según el ancho
-                  disponible y las 7 quedan visibles de un vistazo, sin scroll lateral. */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {ETAPAS_ORDENADAS.map((etapa, idx) => {
-                  const itemsEnEtapa = pipelineItems?.filter((p) => p.etapa === etapa.key) || [];
-                  const valorTotalEtapa = itemsEnEtapa.reduce((acc, curr) => acc + (curr.valorEstimado || 0), 0);
-                  const vacia = itemsEnEtapa.length === 0;
-                  const sobrevolada = columnaSobrevolada === etapa.key;
-
-                  return (
-                    <div
-                      key={etapa.key}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        if (columnaSobrevolada !== etapa.key) setColumnaSobrevolada(etapa.key);
-                      }}
-                      onDragLeave={() => setColumnaSobrevolada((c) => (c === etapa.key ? null : c))}
-                      onDrop={() => {
-                        if (arrastrandoId !== null) onMoverEtapa(arrastrandoId, etapa.key);
-                        setArrastrandoId(null);
-                        setColumnaSobrevolada(null);
-                      }}
-                      className={`flex flex-col rounded-xl border bg-paper-soft p-3 transition-colors ${
-                        sobrevolada ? "border-gold bg-gold-pale/25" : "border-line"
-                      } ${vacia && !sobrevolada ? "opacity-70" : ""}`}
-                    >
-                      {/* Barra de acento arriba (mismo lenguaje visual que el ítem activo del
-                          sidebar) en vez de un Badge suelto -- identifica la etapa de un
-                          vistazo sin competir en peso visual con el nombre. */}
-                      <div className={`-mx-3 -mt-3 mb-2 h-[3px] shrink-0 rounded-t-xl ${TONE_ACCENT[etapa.tone]}`} />
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-ink">{etapa.label}</p>
-                        <span className="text-[11px] font-mono text-ink-soft">{itemsEnEtapa.length}</span>
-                      </div>
-                      {valorTotalEtapa > 0 && (
-                        <p className="mt-0.5 text-[11px] font-mono text-gold-deep">
-                          {formatearMoneda(valorTotalEtapa)}
-                        </p>
-                      )}
-
-                      {/* Tarjetas del Kanban: alto fijo moderado (no atado al viewport como
-                          antes) -- con varias filas de columnas en pantalla, una sola columna
-                          no debe estirarse casi a pantalla completa. Si una etapa tiene más
-                          tarjetas de las que caben, esta lista interna scrollea sola. */}
-                      <div className="mt-3 flex-1 space-y-2.5 overflow-y-auto max-h-80 pr-1">
-                        {vacia ? (
-                          <div
-                            className={`rounded-lg border border-dashed p-4 text-center text-[11px] transition-colors ${
-                              sobrevolada ? "border-gold text-gold-deep" : "border-line/60 text-ink-soft"
-                            }`}
-                          >
-                            {sobrevolada ? "Soltar aquí" : "Sin oportunidades"}
-                          </div>
-                        ) : (
-                          itemsEnEtapa.map((item) => (
-                            <div
-                              key={item.id}
-                              draggable
-                              onDragStart={() => setArrastrandoId(item.id)}
-                              onDragEnd={() => {
-                                setArrastrandoId(null);
-                                setColumnaSobrevolada(null);
-                              }}
-                              className={`group cursor-grab rounded-lg border border-line bg-paper p-3 shadow-xs transition-all hover:shadow-sm active:cursor-grabbing ${
-                                arrastrandoId === item.id ? "opacity-40" : ""
-                              }`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <span
-                                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-ink-fixed ${TONE_ACCENT[etapa.tone]}`}
-                                >
-                                  {iniciales(item.nombre)}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-semibold text-ink">{item.nombre}</p>
-                                  {item.areaPractica && (
-                                    <p className="truncate text-[10px] text-ink-soft">{item.areaPractica}</p>
-                                  )}
-                                </div>
-                                <DotsSixVertical
-                                  className="h-3.5 w-3.5 shrink-0 text-ink-soft/40 opacity-0 transition-opacity group-hover:opacity-100"
-                                  weight="bold"
-                                />
-                              </div>
-
-                              <div className="mt-2 space-y-1 text-[11px] text-ink-soft">
-                                {item.telefono && (
-                                  <div className="flex items-center gap-1">
-                                    <Phone className="h-3 w-3 shrink-0" />
-                                    <span>{item.telefono}</span>
-                                  </div>
-                                )}
-                                {item.correo && (
-                                  <div className="flex items-center gap-1 truncate">
-                                    <EnvelopeSimple className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">{item.correo}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {item.mensaje && (
-                                <p className="mt-2 text-[11px] text-ink-soft line-clamp-2 italic bg-paper-soft/60 p-1.5 rounded">
-                                  "{item.mensaje}"
-                                </p>
-                              )}
-
-                              <div className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-between">
-                                <span className="text-[11px] font-mono font-medium text-gold-deep">
-                                  {item.valorEstimado ? formatearMoneda(item.valorEstimado) : "Sin cotizar"}
-                                </span>
-
-                                <div className="flex items-center gap-1">
-                                  {item.clienteCrmId ? (
-                                    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                      <UserCheck weight="bold" className="h-3 w-3" />
-                                      Cliente
-                                    </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => onConvertirACliente(item.id)}
-                                      className="inline-flex items-center gap-1 rounded bg-gold/20 hover:bg-gold/30 px-1.5 py-0.5 text-[10px] font-medium text-gold-deep transition-colors"
-                                      title="Convertir a Cliente 360"
-                                    >
-                                      <User weight="bold" className="h-3 w-3" />
-                                      Convertir
-                                    </button>
-                                  )}
-                                  {/* Flechas: único camino en touch, el drag nativo de HTML5
-                                      no existe en móvil/tablet */}
-                                  {idx > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onMoverEtapa(item.id, ETAPAS_ORDENADAS[idx - 1].key)}
-                                      className="p-1 text-ink-soft hover:text-ink hover:bg-ink/5 rounded"
-                                      title={`Retroceder a ${ETAPAS_ORDENADAS[idx - 1].label}`}
-                                    >
-                                      <ArrowLeft className="h-3 w-3" weight="bold" />
-                                    </button>
-                                  )}
-                                  {idx < ETAPAS_ORDENADAS.length - 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onMoverEtapa(item.id, ETAPAS_ORDENADAS[idx + 1].key)}
-                                      className="p-1 text-gold-deep hover:bg-gold/20 rounded font-medium"
-                                      title={`Avanzar a ${ETAPAS_ORDENADAS[idx + 1].label}`}
-                                    >
-                                      <ArrowRight className="h-3 w-3" weight="bold" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="mt-3 text-[11px] text-ink-soft">
-                Arrastra una tarjeta a otra columna para cambiarla de etapa, o usa las flechas.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ======================= PESTAÑA 2: DIRECTORIO 360° ======================= */}
+      {/* ======================= PESTAÑA 1: DIRECTORIO 360° ======================= */}
       {tabActiva === "directorio" && (
         <div className="space-y-4">
           {/* Filtros y Buscador */}

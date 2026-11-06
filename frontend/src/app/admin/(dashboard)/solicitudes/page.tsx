@@ -232,8 +232,6 @@ export default function SolicitudesPage() {
                 <p className="mt-2 text-sm text-ink-soft">{s.mensaje}</p>
                 <p className="mt-2 text-xs text-ink-soft">
                   Recibida {formatearFecha(s.fechaCreacion)}
-                  {s.fechaCita && ` · Reunión: ${formatearFecha(s.fechaCita)}`}
-                  {s.fechaCita && s.responsables.length > 0 && ` (${s.responsables.map((r) => r.nombre).join(", ")})`}
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
