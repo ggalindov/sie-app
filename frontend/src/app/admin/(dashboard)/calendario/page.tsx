@@ -11,6 +11,7 @@ import {
   VideoCamera,
   MapPin,
   EnvelopeSimple,
+  Gavel,
   Scales,
   WhatsappLogo,
   X,
@@ -24,12 +25,14 @@ import {
   listarSolicitudes,
   listarCasos,
   listarTerminosCalendario,
+  listarAudienciasCalendario,
   crearSolicitudDirecta,
   ApiError,
   type Responsable,
   type Solicitud,
   type CasoAdmin,
   type TerminoCalendario,
+  type AudienciaCalendario,
 } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader, AdminButton, AdminCard, AdminLoader, Badge, EmptyState } from "@/components/admin/ui";
@@ -59,6 +62,10 @@ export default function CalendarioPage() {
   // para este calendario (ver TerminoCalendario y VigilanciaAdminController.terminosCalendario).
   const [terminos, setTerminos] = useState<TerminoCalendario[]>([]);
   const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoCalendario | null>(null);
+  // Gap real detectado comparando en vivo contra la "AGENDA DE DILIGENCIAS" de LUPA (pedido
+  // explícito del usuario, 2026-11-06): audiencias programadas detectadas automáticamente en
+  // el texto de las actuaciones (ver ExtractorFechaAudiencia en el backend).
+  const [audiencias, setAudiencias] = useState<AudienciaCalendario[]>([]);
   const [casoSeguimiento, setCasoSeguimiento] = useState<CasoParaSeguimiento | null>(null);
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [filtroAbogadoId, setFiltroAbogadoId] = useState<number | undefined>(undefined);
@@ -88,6 +95,15 @@ export default function CalendarioPage() {
       .catch(() => {
         // Silencioso a propósito: los términos son un dato secundario del calendario (las
         // reuniones siguen siendo lo principal), un fallo acá no debe bloquear la vista.
+      });
+    listarAudienciasCalendario({
+      desde: isoFecha(rango.desde),
+      hasta: isoFecha(rango.hasta),
+      abogadoId: filtroAbogadoId,
+    })
+      .then(setAudiencias)
+      .catch(() => {
+        // Mismo criterio que términos: dato secundario, nunca bloquea el calendario.
       });
   }, [rango, filtroAbogadoId]);
 
@@ -125,6 +141,10 @@ export default function CalendarioPage() {
     const [anio, mesNum, dia] = t.fechaVencimiento.split("-").map(Number);
     return mismodia(new Date(anio, mesNum - 1, dia), diaSeleccionado);
   });
+
+  const audienciasDelDiaSeleccionado = audiencias
+    .filter((a) => mismodia(new Date(a.fechaHora), diaSeleccionado))
+    .sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime());
 
   function onAgendada(actualizada: Solicitud) {
     setEventos((prev) => {
@@ -202,9 +222,11 @@ export default function CalendarioPage() {
             mes={mes}
             eventos={eventos}
             terminos={terminos}
+            audiencias={audiencias}
             diaSeleccionado={diaSeleccionado}
             onSeleccionarDia={setDiaSeleccionado}
             onSeleccionarTermino={setTerminoSeleccionado}
+            onSeleccionarAudiencia={(a) => setDiaSeleccionado(new Date(a.fechaHora))}
             mostrarResponsable={esAdmin}
           />
 
@@ -362,6 +384,50 @@ export default function CalendarioPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Gap real detectado comparando en vivo contra la "AGENDA DE DILIGENCIAS" de
+                LUPA (pedido explícito del usuario, 2026-11-06): audiencias programadas
+                detectadas automáticamente en el texto de las actuaciones -- nunca un hecho
+                verificado por un humano, siempre hay que leer el auto real. */}
+            {audienciasDelDiaSeleccionado.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                  Audiencias programadas ({audienciasDelDiaSeleccionado.length})
+                </p>
+                {audienciasDelDiaSeleccionado.map((audiencia) => (
+                  <div
+                    key={audiencia.actuacionId}
+                    className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 shadow-sm transition-all hover:ring-1 hover:ring-violet-300"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 ring-1 ring-violet-300/50">
+                        <Gavel className="h-3.5 w-3.5" weight="bold" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-ink leading-snug">{audiencia.nombreCliente}</p>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                          {audiencia.horaEstimada
+                            ? "Hora por confirmar"
+                            : new Date(audiencia.fechaHora).toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}
+                          {" · "}
+                          {audiencia.nombreActuacion}
+                        </p>
+                        {audiencia.radicadoId && (
+                          <p className="mt-1 font-mono text-[10.5px] font-semibold text-violet-700">{audiencia.radicadoId}</p>
+                        )}
+                        {esAdmin && audiencia.abogadoAsignadoNombre && (
+                          <p className="mt-1 text-[11px] text-ink-soft">Asignado a {audiencia.abogadoAsignadoNombre}</p>
+                        )}
+                        <p className="mt-2 text-[10.5px] leading-snug text-ink-soft/80">
+                          Detectada automáticamente a partir del texto de la actuación -- confirme la fecha y hora
+                          exactas leyendo el auto real antes de agendar nada sobre ella.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

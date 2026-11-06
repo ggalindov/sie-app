@@ -24,6 +24,7 @@ import sie.siejuridicos.usuario.RolUsuario;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 import sie.siejuridicos.vigilancia.dto.ActualizarProcesoCandidatoRequest;
 import sie.siejuridicos.vigilancia.dto.ActuacionRegistradaResponse;
+import sie.siejuridicos.vigilancia.dto.AudienciaCalendarioResponse;
 import sie.siejuridicos.vigilancia.dto.BoletinJudicialResponse;
 import sie.siejuridicos.vigilancia.dto.ControlDiarioProcesalResponse;
 import sie.siejuridicos.vigilancia.dto.LineaTiempoJudicialResponse;
@@ -380,6 +381,58 @@ public class VigilanciaAdminController {
                     return TerminoCalendarioResponse.desde(t, bol);
                 })
                 .toList();
+        return ResponseEntity.ok(resultado);
+    }
+
+    // Gap real detectado comparando en vivo contra LUPA Jurídica (su "AGENDA DE
+    // DILIGENCIAS": audiencias programadas con fecha y hora, algo que SIE no mostraba en
+    // ningún lado salvo como texto suelto dentro de la línea de tiempo de cada caso). Pedido
+    // explícito del usuario (2026-11-06): "el sistema debe detectar tambien si programa el
+    // estado alguna audiencia... se tiene que ver reflejada de manera automatica y detectada
+    // por nuestro sistema" -- alimenta el calendario (/admin/calendario) con un marcador
+    // nuevo, independiente de reuniones (Solicitud.fechaCita) y términos (TerminoProcesal).
+    // Mismo filtrado de rol y de privacidad que terminosCalendario() arriba.
+    @GetMapping("/casos/audiencias-calendario")
+    public ResponseEntity<List<AudienciaCalendarioResponse>> audienciasCalendario(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Long abogadoId,
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        LocalDateTime desdeInicio = desde.atStartOfDay();
+        LocalDateTime hastaFin = hasta.plusDays(1).atStartOfDay();
+
+        List<AudienciaCalendarioResponse> resultado = new java.util.ArrayList<>();
+        for (ActuacionJudicialRegistrada a : actuacionRepository.buscarConMencionDeAudiencia()) {
+            if (ClasificadorMovimientoJudicial.clasificarTipo(a.getNombreActuacion())
+                    .filter(t -> t == ClasificadorMovimientoJudicial.TipoMovimiento.AUDIENCIA_PROGRAMADA)
+                    .isEmpty()) {
+                continue;
+            }
+            Caso caso = a.getCaso();
+            if (abogadoId != null && (caso.getAbogadoAsignado() == null || !abogadoId.equals(caso.getAbogadoAsignado().getId()))) {
+                continue;
+            }
+            // "nunca se puede cruzar la informacion" (2026-11-05): mismo guardián de
+            // privacidad que el resto de este controlador.
+            if (!casoService.tieneAccesoPrivado(caso, principal.getUsuario())) {
+                continue;
+            }
+            String texto = (a.getNombreActuacion() == null ? "" : a.getNombreActuacion())
+                    + " " + (a.getAnotacion() == null ? "" : a.getAnotacion());
+            ExtractorFechaAudiencia.extraer(texto).ifPresent(fa -> {
+                LocalDateTime fechaHora = fa.hora() != null ? fa.fecha().atTime(fa.hora()) : fa.fecha().atStartOfDay();
+                if (fechaHora.isBefore(desdeInicio) || !fechaHora.isBefore(hastaFin)) {
+                    return;
+                }
+                resultado.add(new AudienciaCalendarioResponse(
+                        caso.getId(), nombreMostrado(caso), caso.getRadicadoId(),
+                        a.getId(), a.getNombreActuacion(), a.getAnotacion(),
+                        fechaHora, fa.hora() == null,
+                        caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getId() : null,
+                        caso.getAbogadoAsignado() != null ? caso.getAbogadoAsignado().getNombre() : null));
+            });
+        }
+        resultado.sort(Comparator.comparing(AudienciaCalendarioResponse::fechaHora));
         return ResponseEntity.ok(resultado);
     }
 

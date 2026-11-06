@@ -142,4 +142,18 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
     List<ActuacionJudicialRegistrada> findByFechaRegistroEntre(
             @org.springframework.data.repository.query.Param("desde") LocalDateTime desde,
             @org.springframework.data.repository.query.Param("hasta") LocalDateTime hasta);
+
+    // Para VigilanciaAdminController.audienciasCalendario() (pedido explícito del usuario,
+    // 2026-11-06: "el sistema debe detectar tambien si programa el estado alguna
+    // audiencia... se tiene que ver reflejada de manera automatica"). Pre-filtro grueso en
+    // SQL (acota a lo que PODRÍA mencionar una audiencia, barato de escanear) -- la
+    // clasificación precisa y la extracción de fecha/hora (ver ExtractorFechaAudiencia)
+    // corren después en Java sobre este conjunto ya reducido, nunca sobre la tabla completa.
+    // Sin filtro de fecha de registro a propósito: la FECHA DE LA AUDIENCIA (extraída del
+    // texto) puede caer mucho después de cuándo el despacho publicó el auto que la fija.
+    @Query("SELECT a FROM ActuacionJudicialRegistrada a "
+            + "JOIN FETCH a.caso c "
+            + "LEFT JOIN FETCH c.abogadoAsignado ab "
+            + "WHERE LOWER(a.nombreActuacion) LIKE '%audiencia%' OR LOWER(a.anotacion) LIKE '%audiencia%'")
+    List<ActuacionJudicialRegistrada> buscarConMencionDeAudiencia();
 }

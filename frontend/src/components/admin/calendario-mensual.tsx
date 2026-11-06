@@ -1,7 +1,7 @@
 "use client";
 
-import { Scales } from "@phosphor-icons/react";
-import type { Solicitud, TerminoCalendario } from "@/lib/admin-api";
+import { Gavel, Scales } from "@phosphor-icons/react";
+import type { AudienciaCalendario, Solicitud, TerminoCalendario } from "@/lib/admin-api";
 import { cn } from "@/lib/utils";
 
 const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -57,9 +57,11 @@ export function CalendarioMensual({
   mes,
   eventos,
   terminos = [],
+  audiencias = [],
   diaSeleccionado,
   onSeleccionarDia,
   onSeleccionarTermino,
+  onSeleccionarAudiencia,
   mostrarResponsable,
 }: {
   mes: Date;
@@ -68,9 +70,13 @@ export function CalendarioMensual({
   // /admin/calendario" -- opcional para no romper ningún otro lugar que ya use este
   // componente sin pasar términos.
   terminos?: TerminoCalendario[];
+  // Gap real detectado comparando en vivo contra la "AGENDA DE DILIGENCIAS" de LUPA (pedido
+  // explícito del usuario, 2026-11-06) -- opcional por el mismo motivo que terminos.
+  audiencias?: AudienciaCalendario[];
   diaSeleccionado: Date | null;
   onSeleccionarDia: (dia: Date) => void;
   onSeleccionarTermino?: (termino: TerminoCalendario) => void;
+  onSeleccionarAudiencia?: (audiencia: AudienciaCalendario) => void;
   /** true para ADMIN_GENERAL (necesita distinguir de quién es cada reunión). */
   mostrarResponsable: boolean;
 }) {
@@ -102,6 +108,14 @@ export function CalendarioMensual({
     terminosPorDia.set(clave, lista);
   }
 
+  const audienciasPorDia = new Map<string, AudienciaCalendario[]>();
+  for (const audiencia of audiencias) {
+    const clave = claveDia(new Date(audiencia.fechaHora));
+    const lista = audienciasPorDia.get(clave) ?? [];
+    lista.push(audiencia);
+    audienciasPorDia.set(clave, lista);
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
       <div className="grid grid-cols-7 border-b border-line bg-ink/[0.02]">
@@ -122,6 +136,9 @@ export function CalendarioMensual({
           const terminosDelDia = terminosPorDia.get(claveDia(dia)) ?? [];
           const terminosVisibles = terminosDelDia.slice(0, 2);
           const terminosRestantes = terminosDelDia.length - terminosVisibles.length;
+          const audienciasDelDia = audienciasPorDia.get(claveDia(dia)) ?? [];
+          const audienciasVisibles = audienciasDelDia.slice(0, 2);
+          const audienciasRestantes = audienciasDelDia.length - audienciasVisibles.length;
 
           return (
             <button
@@ -190,6 +207,28 @@ export function CalendarioMensual({
                 })}
                 {terminosRestantes > 0 && (
                   <span className="px-1.5 text-[10.5px] font-medium text-ink-soft">+{terminosRestantes} término(s)</span>
+                )}
+                {/* Audiencias programadas (gap real detectado contra la "AGENDA DE
+                    DILIGENCIAS" de LUPA, pedido explícito del usuario, 2026-11-06) --
+                    violeta a propósito, para no confundirse con el verde/ámbar/rojo de
+                    términos (urgencia) ni con los chips de color por responsable de arriba. */}
+                {audienciasVisibles.map((audiencia) => (
+                  <button
+                    key={audiencia.actuacionId}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSeleccionarAudiencia?.(audiencia);
+                    }}
+                    className="flex w-full items-center gap-1 truncate rounded-md bg-violet-100 px-1.5 py-0.5 text-left text-[10.5px] font-medium leading-tight text-violet-800 transition-transform hover:scale-[1.02] active:scale-[0.98] sm:text-[11px]"
+                    title={`${audiencia.horaEstimada ? "Hora por confirmar" : new Date(audiencia.fechaHora).toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })} · ${audiencia.nombreCliente} · Audiencia programada (detectada automáticamente, confirme leyendo el auto)`}
+                  >
+                    <Gavel className="h-3 w-3 shrink-0" weight="bold" />
+                    <span className="truncate">{audiencia.nombreCliente}</span>
+                  </button>
+                ))}
+                {audienciasRestantes > 0 && (
+                  <span className="px-1.5 text-[10.5px] font-medium text-ink-soft">+{audienciasRestantes} audiencia(s)</span>
                 )}
               </div>
             </button>

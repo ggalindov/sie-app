@@ -49,16 +49,31 @@ class CifradoServiceTest {
     }
 
     @Test
-    void unValorCifradoAlteradoNoDescifra() {
+    void unValorCifradoAlteradoNoDescifraComoTextoValido() {
         // Simula un atacante modificando bytes en la base de datos directamente (sin pasar
-        // por la aplicación): GCM debe detectarlo y rechazar, nunca devolver texto corrupto
-        // en silencio.
+        // por la aplicación): GCM debe detectarlo. Hueco real encontrado y cerrado en la
+        // auditoría del motor de firma (2026-11-06): esta prueba ANTES esperaba que
+        // descifrar() lanzara una excepción, pero la implementación real la atrapaba junto
+        // con el caso legítimo de "texto plano histórico" y devolvía el valor cifrado
+        // corrupto EN SILENCIO, como si fuera un dato válido -- sin alertar a nadie. Se
+        // decidió deliberadamente NO lanzar una excepción desde aquí (CifradoService.
+        // descifrar() corre dentro de CampoCifradoConverter, el AttributeConverter de JPA: una
+        // sola fila dañada en una tabla haría fallar la carga de TODA una lista de clientes,
+        // un daño mayor que el problema). En cambio, CifradoService ahora distingue este caso
+        // (formato válido, tag GCM inválido) del de texto plano legítimo y deja un WARNING
+        // explícito en los logs -- ver el comentario de CifradoService.descifrar().
         CifradoService servicio = servicio();
-        String cifrado = servicio.cifrar("dato-sensible");
+        String original = "dato-sensible";
+        String cifrado = servicio.cifrar(original);
         byte[] bytes = Base64.getDecoder().decode(cifrado);
         bytes[bytes.length - 1] ^= 0x01; // voltea el último bit del tag de autenticación
         String alterado = Base64.getEncoder().encodeToString(bytes);
-        assertThrows(IllegalStateException.class, () -> servicio.descifrar(alterado));
+        String resultado = servicio.descifrar(alterado);
+        // Nunca debe "arreglarse solo" y devolver el original ni ningún otro texto plano
+        // creíble: el valor que vuelve debe seguir siendo la forma cifrada/corrupta tal cual,
+        // nunca algo que un humano pueda confundir con un dato real sin saber que fue alterado.
+        assertNotEquals(original, resultado);
+        assertEquals(alterado, resultado);
     }
 
     @Test

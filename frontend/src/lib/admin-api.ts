@@ -1914,6 +1914,31 @@ export function listarCasosActualizadosRecientes(): Promise<CasoActualizado[]> {
   return pedido<CasoActualizado[]>("/api/admin/vigilancia/casos/actualizados-recientes");
 }
 
+// Pedido explícito del usuario (2026-11-06): "el sistema debe detectar tambien si programa
+// el estado alguna audiencia... se tiene que ver reflejada de manera automatica" -- gap real
+// detectado contra la "AGENDA DE DILIGENCIAS" de LUPA. fechaHora viene extraída de texto
+// libre (nunca un hecho verificado, ver ExtractorFechaAudiencia en el backend); horaEstimada
+// en true significa que no se encontró una hora específica en el texto (medianoche por
+// defecto, mostrar "hora por confirmar" en vez de la hora literal).
+export type AudienciaCalendario = {
+  casoId: number;
+  nombreCliente: string;
+  radicadoId: string | null;
+  actuacionId: number;
+  nombreActuacion: string;
+  anotacion: string | null;
+  fechaHora: string;
+  horaEstimada: boolean;
+  abogadoAsignadoId: number | null;
+  abogadoAsignadoNombre: string | null;
+};
+
+export function listarAudienciasCalendario(filtros: { desde: string; hasta: string; abogadoId?: number }): Promise<AudienciaCalendario[]> {
+  const params = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta });
+  if (filtros.abogadoId) params.set("abogadoId", String(filtros.abogadoId));
+  return pedido<AudienciaCalendario[]>(`/api/admin/vigilancia/casos/audiencias-calendario?${params.toString()}`);
+}
+
 
 
 // Pedido explicito del usuario (2026-11-04, auditoria en vivo de LUPA/IUS: "deja la

@@ -1,8 +1,11 @@
 package sie.siejuridicos.common.cifrado;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.AEADBadTagException;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
@@ -33,6 +36,8 @@ import java.util.Locale;
 // el uso de una llave entre AES y HMAC facilita ciertos ataques de reutilización de llave).
 @Service
 public class CifradoService {
+
+    private static final Logger log = LoggerFactory.getLogger(CifradoService.class);
 
     private static final String ALGORITMO_AES = "AES/GCM/NoPadding";
     private static final int TAMANO_IV_BYTES = 12;
@@ -105,9 +110,27 @@ public class CifradoService {
             cipher.init(Cipher.DECRYPT_MODE, claveCifrado, new GCMParameterSpec(TAMANO_TAG_BITS, iv));
             byte[] plano = cipher.doFinal(cifrado);
             return new String(plano, StandardCharsets.UTF_8);
+        } catch (AEADBadTagException ex) {
+            // Hueco real encontrado en la auditoría del motor de firma (2026-11-06, el mismo
+            // principio que protege documentos: "cualquier cambio sea automaticamente
+            // detectado"): a diferencia de un Base64 inválido o un valor demasiado corto
+            // (legítimamente texto plano histórico, ver abajo), este valor SÍ tenía el
+            // formato correcto (IV + ciphertext de este mismo servicio) pero el tag de
+            // autenticación GCM no coincide -- evidencia concreta de que alguien alteró los
+            // bytes cifrados directamente en la base de datos. No se lanza una excepción
+            // (romper la carga completa de una lista de clientes por UNA fila dañada sería
+            // peor que el problema) pero sí queda un WARNING explícito en los logs, visible y
+            // monitoreable, en vez de devolver el texto corrupto en silencio como si fuera un
+            // dato válido.
+            log.warn("Valor cifrado con formato válido pero autenticación GCM fallida (posible manipulación "
+                    + "directa de la base de datos). El valor se devuelve tal cual para no romper la carga del "
+                    + "registro, pero NO debe tratarse como un dato confiable.");
+            return valorCifrado;
         } catch (IllegalArgumentException | GeneralSecurityException ex) {
-            // Si el valor no era Base64 válido o no pudo descifrarse (p.ej. texto plano histórico
-            // o insertado directamente en SQL), se retorna como texto plano de forma segura y tolerante.
+            // Si el valor no era Base64 válido o es demasiado corto para ser nuestro propio
+            // formato (p.ej. texto plano histórico o insertado directamente en SQL), se
+            // retorna como texto plano de forma segura y tolerante -- caso legítimo, distinto
+            // del de arriba, no amerita advertencia.
             return valorCifrado;
         }
     }
