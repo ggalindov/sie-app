@@ -69,8 +69,12 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     // los 362 casos uno por uno preguntando. b.caso.esPrivadoCifrado = false (2026-11-05):
     // mismo motivo que listarPendientesGerente/listarPendientesPorAbogado -- un caso privado
     // nunca recibe el digest semanal al cliente tampoco.
+    // b.caso.finalizado = false (2026-11-09, pedido explícito del usuario: "que caso que se
+    // finalice deje de recibir notificaciones"): sin esto, un boletín que ya estaba cacheado
+    // y sin enviar ANTES de finalizar el caso se le seguiría mandando al cliente igual.
     @Query("SELECT DISTINCT b.caso.id FROM BoletinJudicialCache b "
-            + "WHERE b.enviadoCliente = false AND b.coincideNombreActuacion = true AND b.caso.esPrivadoCifrado = false")
+            + "WHERE b.enviadoCliente = false AND b.coincideNombreActuacion = true "
+            + "AND b.caso.esPrivadoCifrado = false AND b.caso.finalizado = false")
     List<Long> listarIdsCasosConPendientesCliente();
 
     // Pedido explícito del usuario: un indicador (punto azul) en /admin/casos junto al de

@@ -611,6 +611,42 @@ public class EmailService {
         return exito;
     }
 
+    // Pedido explícito del usuario (2026-11-09): "que caso que se finalice... se envie un
+    // correo que agradezca su confianza con nosotros y que su caso fue cerrado" -- disparado
+    // una sola vez desde CasoService.finalizar(), nunca en el ciclo automático (un caso
+    // finalizado deja de recibir cualquier otro correo recurrente, ver CasoRepository.
+    // listarPendientesReporte y BoletinJudicialCacheRepository.
+    // listarIdsCasosConPendientesCliente, ambos corregidos el mismo día para excluir
+    // finalizado = true).
+    @Async
+    public void enviarCasoFinalizado(String nombreCliente, String correo, String radicadoId) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.NOTIFICACIONES_CORREO)) {
+            log.info("Correo de caso finalizado omitido: NOTIFICACIONES_CORREO está apagado desde el panel.");
+            return;
+        }
+        String asunto = radicadoId != null && !radicadoId.isBlank()
+                ? "Tu proceso " + radicadoId + " ha finalizado - " + nombreFirma
+                : "Tu proceso con " + nombreFirma + " ha finalizado";
+        boolean exito = enviarHtml(correo, asunto, cuerpoCasoFinalizado(nombreCliente, radicadoId));
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.CASO_FINALIZADO,
+                nombreCliente, correo, radicadoId != null ? "Radicado " + radicadoId : "Sin radicado", exito);
+    }
+
+    private String cuerpoCasoFinalizado(String nombreCliente, String radicadoId) {
+        String lineaRadicado = radicadoId != null && !radicadoId.isBlank()
+                ? " con radicado <strong>%s</strong>".formatted(escaparHtml(radicadoId))
+                : "";
+        return """
+                <p style="margin:0 0 16px;">Hola %s,</p>
+                <p style="margin:0 0 16px;">Queremos agradecerte por la confianza que depositaste en %s durante
+                este proceso. Te confirmamos que tu caso%s ha sido cerrado en nuestro sistema de seguimiento.</p>
+                <p style="margin:0 0 16px;">Si en el futuro necesitas nuestra asesoría nuevamente, o si surge
+                cualquier inquietud relacionada con este proceso, nuestro equipo estará disponible para
+                ayudarte.</p>
+                %s
+                """.formatted(escaparHtml(nombreCliente), nombreFirma, lineaRadicado, firmaCierre());
+    }
+
     // Variante de prueba pedida por el usuario: "reporte periodico + boletin adjunto" -- el
     // mismo cuerpo de arriba, pero con el boletín más reciente del caso anexado, y un aviso
     // explícito en el texto de que viene adjunto (para que se note la diferencia al leerlo,

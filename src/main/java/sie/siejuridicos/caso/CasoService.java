@@ -651,6 +651,16 @@ public class CasoService {
             caso.setFinalizadoPor(actor);
             casoRepository.save(caso);
 
+            // Pedido explícito del usuario (2026-11-09): "que caso que se finalice... se
+            // envie un correo que agradezca su confianza con nosotros y que su caso fue
+            // cerrado". Nunca bloquea la finalización si el cliente no tiene correo o si el
+            // envío falla -- el caso ya quedó finalizado arriba, esto es un detalle de
+            // cortesía, no una condición para poder cerrar el caso.
+            if (caso.getCliente() != null && caso.getCliente().getCorreo() != null) {
+                String nombreMostrado = caso.getNombreEnHoja() != null ? caso.getNombreEnHoja() : caso.getCliente().getNombre();
+                emailService.enviarCasoFinalizado(nombreMostrado, caso.getCliente().getCorreo(), caso.getRadicadoId());
+            }
+
             registroSistemaService.registrar(
                     TipoRegistroSistema.EDICION_CASO,
                     ("'%s' finalizó el caso #%d (%s) -- se mueve a Casos Finalizados y deja de recibir "

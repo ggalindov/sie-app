@@ -56,7 +56,11 @@ public enum TipoEnvio {
     CORREO_DESPACHO_JUDICIAL("Correo a despacho judicial"),
     // Pedido explícito del usuario (2026-11-09): reporte semanal a gerencia (lunes 8am) de
     // calidad de datos -- ver ReporteCalidadDatosCasosScheduler.
-    REPORTE_CALIDAD_DATOS("Reporte de calidad de datos");
+    REPORTE_CALIDAD_DATOS("Reporte de calidad de datos"),
+    // Pedido explícito del usuario (2026-11-09): "que caso que se finalice... se envie un
+    // correo que agradezca su confianza... y que su caso fue cerrado" -- ver
+    // CasoService.finalizar()/EmailService.enviarCasoFinalizado().
+    CASO_FINALIZADO("Caso finalizado");
 
     private final String nombreVisible;
 

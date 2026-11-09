@@ -679,6 +679,9 @@ export default function CasosAdminPage() {
             <TablaCasos
               casos={casosFiltrados ?? []}
               onAbrirSeguimiento={(c) => setCasoConSeguimientoAbierto({ id: c.id, nombreCliente: c.nombreCliente, radicadoId: c.radicadoId })}
+              onEditar={(c) => setCasoEditando(c)}
+              onFinalizar={onFinalizar}
+              finalizandoId={finalizandoId}
             />
           ) : (
         <div className="mt-4 space-y-4">
@@ -700,30 +703,26 @@ export default function CasosAdminPage() {
             >
               {/* Columna 1: identidad del caso */}
               <div className="min-w-0">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
                   <p className="font-display text-xl leading-snug text-ink">{c.nombreCliente}</p>
-                  {/* Pedido explícito del usuario (2026-11-04, revierte la decisión original
-                      de "solo administrador" de esta misma sesión de trabajo): "permite que
-                      todos los gerentes y abogados puedan editar la informacion de un caso".
-                      Rediseño pedido explícito (2026-11-06): "los botones de editar y
-                      finalizar/archivar hazlos mas intuitivos" -- antes eran dos círculos
-                      grises idénticos, sin forma de distinguir a simple vista cuál es la
-                      acción reversible (editar) y cuál la consecuente (archivar/finalizar).
-                      Ahora cada uno tiene su propio color de intención (azul = editar, ámbar
-                      = finalizar, el mismo lenguaje de color de "por vencer" en el resto del
-                      panel) y un separador fino entre los dos para que no se lean como un
-                      solo bloque de dos clics iguales. */}
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  {/* Rediseño (2026-11-09, pedido explícito del usuario: "haz mas visibles o
+                      mejora el editar y finalizar caso para que sea mejor y mas explicito"):
+                      antes eran dos círculos grises de 32px sin color ni texto, visibles solo
+                      al pasar el mouse -- fáciles de no ver nunca, sobre todo en una tarjeta
+                      con mucha información. Ahora son píldoras con color de intención propio
+                      SIEMPRE visible (azul = editar, ámbar = finalizar) y su etiqueta de
+                      texto, no solo un ícono que hay que adivinar. */}
+                  <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setCasoEditando(c)}
                       aria-label="Editar caso"
                       title="Editar información del caso"
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft ring-1 ring-transparent transition-colors hover:bg-blue-50 hover:text-blue-700 hover:ring-blue-200"
+                      className="flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-200 transition-colors hover:bg-blue-100 hover:ring-blue-300"
                     >
-                      <PencilSimple className="h-4 w-4" weight="bold" />
+                      <PencilSimple className="h-3.5 w-3.5" weight="bold" />
+                      Editar
                     </button>
-                    <span className="h-5 w-px bg-line" aria-hidden="true" />
                     {/* Pedido explícito del usuario (2026-11-05): "un boton para cada caso el
                         cual nos permita finalizarlo". */}
                     <button
@@ -731,14 +730,15 @@ export default function CasosAdminPage() {
                       onClick={() => onFinalizar(c)}
                       disabled={finalizandoId === c.id}
                       aria-label="Finalizar caso"
-                      title="Finalizar caso (se mueve a Casos Finalizados y deja de vigilarse)"
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft ring-1 ring-transparent transition-colors hover:bg-amber-50 hover:text-amber-700 hover:ring-amber-200 disabled:opacity-50"
+                      title="Finalizar caso (se mueve a Casos Finalizados, deja de vigilarse y notifica al cliente)"
+                      className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 transition-colors hover:bg-amber-100 hover:ring-amber-300 disabled:opacity-50"
                     >
                       {finalizandoId === c.id ? (
-                        <Spinner className="h-4 w-4 animate-spin" weight="bold" />
+                        <Spinner className="h-3.5 w-3.5 animate-spin" weight="bold" />
                       ) : (
-                        <Archive className="h-4 w-4" weight="bold" />
+                        <Archive className="h-3.5 w-3.5" weight="bold" />
                       )}
+                      Finalizar
                     </button>
                   </div>
                 </div>
@@ -1097,13 +1097,19 @@ export default function CasosAdminPage() {
 function TablaCasos({
   casos,
   onAbrirSeguimiento,
+  onEditar,
+  onFinalizar,
+  finalizandoId,
 }: {
   casos: CasoAdmin[];
   onAbrirSeguimiento: (caso: CasoAdmin) => void;
+  onEditar: (caso: CasoAdmin) => void;
+  onFinalizar: (caso: CasoAdmin) => void;
+  finalizandoId: number | null;
 }) {
   return (
     <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-surface">
-      <table className="w-full min-w-[1400px] border-collapse text-sm">
+      <table className="w-full min-w-[1500px] border-collapse text-sm">
         <thead>
           <tr className="sticky top-0 z-10 bg-ink text-paper">
             <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">Radicado</th>
@@ -1117,6 +1123,10 @@ function TablaCasos({
             <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">Abogado</th>
             <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">Última actualización</th>
             <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">Seguimiento</th>
+            {/* Pedido explícito del usuario (2026-11-09): "haz mas visibles o mejora el
+                editar y finalizar caso" -- antes la vista de Tabla no tenía NINGUNA forma de
+                editar o finalizar un caso, solo "Ver" seguimiento. */}
+            <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -1160,6 +1170,35 @@ function TablaCasos({
                   <ClockCounterClockwise className="h-3 w-3" weight="bold" />
                   Ver
                 </button>
+              </td>
+              <td className="whitespace-nowrap px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onEditar(c)}
+                    aria-label="Editar caso"
+                    title="Editar información del caso"
+                    className="flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-200 transition-colors hover:bg-blue-100"
+                  >
+                    <PencilSimple className="h-3 w-3" weight="bold" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onFinalizar(c)}
+                    disabled={finalizandoId === c.id}
+                    aria-label="Finalizar caso"
+                    title="Finalizar caso (se mueve a Casos Finalizados, deja de vigilarse y notifica al cliente)"
+                    className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    {finalizandoId === c.id ? (
+                      <Spinner className="h-3 w-3 animate-spin" weight="bold" />
+                    ) : (
+                      <Archive className="h-3 w-3" weight="bold" />
+                    )}
+                    Finalizar
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

@@ -57,8 +57,13 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     // vivo): un caso privado -- de Gerencia o de la bóveda personal de un abogado -- NUNCA
     // debe recibir el reporte periódico automático, "son casos de extrema sensibilidad... no
     // enviara eso reportes ni diarios, ni mensuales ni nada". Antes esto SÍ se colaba.
+    // c.finalizado = false (2026-11-09, gap real encontrado en la misma auditoría: "que caso
+    // que se finalice deje de recibir notificaciones"): un caso finalizado seguía recibiendo
+    // el reporte periódico de correo/WhatsApp para siempre, aunque ya estuviera cerrado --
+    // esta consulta nunca filtraba por finalizado, a diferencia de todas las demás del ciclo
+    // de vigilancia judicial (que sí lo hacían desde la migración V84).
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente WHERE c.radicadoId IS NOT NULL "
-            + "AND c.esPrivadoCifrado = false "
+            + "AND c.esPrivadoCifrado = false AND c.finalizado = false "
             + "AND ("
             + "  (c.cliente.correo IS NOT NULL AND (c.fechaUltimoReporteSemanal IS NULL OR c.fechaUltimoReporteSemanal < :inicioSemana)) "
             + "  OR (c.cliente.telefono IS NOT NULL AND (c.fechaUltimoReporteWhatsapp IS NULL OR c.fechaUltimoReporteWhatsapp < :inicioQuincena))"
