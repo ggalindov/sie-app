@@ -109,6 +109,9 @@ public class BoletinJudicialCacheService {
 
     private final BoletinPendienteRepository pendienteRepository;
     private final CorreoDespachoJudicialService correoDespachoJudicialService;
+    // Pedido explícito del usuario (2026-11-09, caso real de Juzgado 1 Promiscuo Municipal de
+    // San Mateo, Boyacá): ver sincronizarCasosSinProcesoIdentificado() más abajo.
+    private final sie.siejuridicos.caso.CasoRepository casoRepository;
 
     public BoletinJudicialCacheService(ActuacionJudicialRegistradaRepository actuacionRepository,
                                         BoletinJudicialCacheRepository boletinRepository,
@@ -117,6 +120,7 @@ public class BoletinJudicialCacheService {
                                         PublicacionesProcesalesClient publicacionesProcesalesClient,
                                         RamaJudicialCpnuClient cpnuClient,
                                         CorreoDespachoJudicialService correoDespachoJudicialService,
+                                        sie.siejuridicos.caso.CasoRepository casoRepository,
                                         @Value("${app.vigilancia.boletin-pausa-entre-casos-ms}") long pausaEntreConsultasMs) {
         this.actuacionRepository = actuacionRepository;
         this.boletinRepository = boletinRepository;
@@ -125,6 +129,7 @@ public class BoletinJudicialCacheService {
         this.publicacionesProcesalesClient = publicacionesProcesalesClient;
         this.cpnuClient = cpnuClient;
         this.correoDespachoJudicialService = correoDespachoJudicialService;
+        this.casoRepository = casoRepository;
         this.pausaEntreConsultasMs = pausaEntreConsultasMs;
     }
 
@@ -273,6 +278,7 @@ public class BoletinJudicialCacheService {
             log.info("Cache de boletines judiciales: 0 actuación(es) revisada(s) de 0, 0 boletín(es) nuevo(s) cacheado(s).");
             progresoFase = "EN_ESPERA";
             recuperarPendientes();
+            sincronizarCasosSinProcesoIdentificado();
             return;
         }
         // Rota la lista para que esta corrida empiece donde se quedó la anterior (ver
@@ -336,6 +342,10 @@ public class BoletinJudicialCacheService {
         // Segunda etapa: volver SOLO sobre lo que fallo (busquedas incompletas y PDFs ya
         // localizados que no se pudieron bajar), sin repetir lo que ya salio bien.
         recuperarPendientes();
+        // Tercera etapa: casos sin proceso identificado en ninguna rama (ver el método de
+        // abajo) -- invisibles para todo lo anterior, que depende de que exista al menos una
+        // ActuacionJudicialRegistrada.
+        sincronizarCasosSinProcesoIdentificado();
         progresoFase = "EN_ESPERA";
         progresoFin = LocalDateTime.now();
         log.info("Cache de boletines judiciales: ciclo terminado -- {} boletín(es) nuevo(s) en total, "
@@ -344,6 +354,61 @@ public class BoletinJudicialCacheService {
     }
 
     private record ResultadoActuacion(int nuevos, boolean busquedaIncompleta) {
+    }
+
+    // Pedido explícito del usuario (2026-11-09, caso real reportado: Juzgado 1 Promiscuo
+    // Municipal de San Mateo, Boyacá -- "ya tiene documento pero no tiene el seguimiento...
+    // el motor esta demasiado precario"): un caso cuyo radicado (con formato válido) nunca fue
+    // identificado como proceso real por el CPNU ni por SAMAI (ver
+    // CasoRepository.listarSinProcesoIdentificadoParaReporte(), la misma consulta del reporte
+    // semanal de calidad de datos) jamás entra a construirObjetivos() de arriba -- TODAS sus
+    // fuentes dependen de que exista al menos una ActuacionJudicialRegistrada, y sin proceso
+    // identificado nunca se crea ninguna. El resultado confirmado en vivo: Legal-Pro (manual,
+    // bajo demanda) SÍ encontró un documento real para ese caso escaneando el despacho
+    // completo en Publicaciones Procesales, pero el ciclo 24/7 automático nunca lo intentaba
+    // por su cuenta -- estos casos quedaban completamente invisibles para la vigilancia
+    // continua, dependiendo de que un humano entrara y diera clic manualmente cada vez.
+    //
+    // Reutiliza exactamente el mismo escaneo que ya demostró funcionar ahí
+    // (buscarTodosLosDocumentosRecientesDelProceso, el mismo método que usa Legal-Pro) y lo
+    // cachea con el mismo método que ya usa Legal-Pro (cachearDesdeConsultaManual) -- sin
+    // fechas de referencia, porque no existe ninguna actuación con fecha conocida para filtrar
+    // por cercanía; el emparejamiento por año+consecutivo del radicado dentro del nombre del
+    // PDF sigue aplicando igual (ver ese método), así que no se vuelve menos preciso.
+    private void sincronizarCasosSinProcesoIdentificado() {
+        List<sie.siejuridicos.caso.Caso> casos = casoRepository.listarSinProcesoIdentificadoParaReporte();
+        if (casos.isEmpty()) {
+            return;
+        }
+        int candidatosEncontrados = 0;
+        for (int i = 0; i < casos.size(); i++) {
+            if (publicacionesProcesalesClient.pareceCaido()) {
+                log.warn("Cache de boletines judiciales: Publicaciones Procesales parece caído, se corta el "
+                                + "escaneo de casos sin proceso identificado en {}/{}.",
+                        i, casos.size());
+                break;
+            }
+            sie.siejuridicos.caso.Caso caso = casos.get(i);
+            try {
+                List<DocumentoProvidenciaCandidato> candidatos =
+                        publicacionesProcesalesClient.buscarTodosLosDocumentosRecientesDelProceso(
+                                caso.getRadicadoId(), java.util.Set.of());
+                if (!candidatos.isEmpty()) {
+                    candidatosEncontrados += candidatos.size();
+                    cachearDesdeConsultaManual(caso, candidatos);
+                }
+            } catch (Exception ex) {
+                log.warn("Fallo inesperado escaneando el caso {} (sin proceso identificado en ninguna rama): {}",
+                        caso.getId(), ex.getMessage());
+            }
+            if (i < casos.size() - 1) {
+                pausar(pausaEntreConsultasMs);
+            }
+        }
+        if (candidatosEncontrados > 0) {
+            log.info("Cache de boletines judiciales: {} documento(s) candidato(s) encontrado(s) entre {} caso(s) "
+                    + "sin proceso identificado en ninguna rama.", candidatosEncontrados, casos.size());
+        }
     }
 
     // Cuando el freno de seguridad salta (portal sin responder), en vez de rendirse espera y
