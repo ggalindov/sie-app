@@ -49,30 +49,12 @@ export function Contacto() {
               className="md:col-span-5 flex flex-col justify-between"
             >
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-gold-deep/30 bg-gold-pale/40 px-3 py-1 text-xs font-semibold text-gold-deep">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                  </span>
-                  Canales oficiales de atención jurídica
-                </div>
-
-                <h2 className="mt-4 font-display text-3xl sm:text-4xl leading-tight tracking-tight md:text-5xl text-ink">
+                <h2 className="font-display text-3xl sm:text-4xl leading-tight tracking-tight md:text-5xl text-ink">
                   Contacto
                 </h2>
                 <p className="mt-3.5 max-w-md text-sm sm:text-base leading-relaxed text-ink-soft">
                   Comunícate directamente con nuestro equipo de abogados. Elige el medio que prefieras para una respuesta ágil y confidencial.
                 </p>
-
-                {/* Horario y disponibilidad */}
-                <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-ink-soft">
-                  <span className="rounded-md bg-ink/5 px-2.5 py-1 font-medium text-ink">
-                    Lunes a Viernes: 8:00 a. m. – 6:00 p. m.
-                  </span>
-                  <span className="rounded-md bg-ink/5 px-2.5 py-1 text-ink-soft/80">
-                    Sábados: 9:00 a. m. – 1:00 p. m.
-                  </span>
-                </div>
 
                 {/* Redes Sociales Oficiales */}
                 <div className="mt-6 flex flex-wrap items-center gap-2.5">
