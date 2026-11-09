@@ -164,166 +164,154 @@ function ConsultaCasoContent() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Tarjeta de Consulta: Se contrae fluidamente cuando se abre el expediente */}
+        {/* Tarjeta de Consulta -- rediseño (2026-11-09, pedido explícito del usuario: "no
+            esta nada intuitivo, redisenala completamente, mas simplificada, minimalista,
+            funcional y nueva"): antes era un marco doble (una tarjeta oscura envolviendo
+            otra clara, con una etiqueta diminuta en mayúsculas de dos líneas) -- ahora es
+            UNA sola tarjeta limpia, el campo de texto es el elemento más grande y obvio de
+            la página (la única acción que importa aquí), y el botón siempre queda a su lado
+            o justo debajo, nunca escondido. */}
         <motion.div
           layout
           transition={{ duration: 0.35, ease: EASE }}
-          className={`rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] ring-1 ring-ink/10 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.06)] transition-all duration-300 ${
-            formularioContraido ? "mt-4 p-1 sm:p-1.5" : "mt-8 sm:mt-10 p-1.5 sm:p-2.5"
+          className={`rounded-2xl bg-paper ring-1 ring-line shadow-[0_24px_60px_-28px_rgba(0,0,0,0.14)] transition-all duration-300 ${
+            formularioContraido ? "mt-4 p-4 sm:p-5" : "mt-8 sm:mt-10 p-5 sm:p-9"
           }`}
         >
-          <motion.div
-            layout
-            transition={{ duration: 0.35, ease: EASE }}
-            className={`rounded-[1.4rem] sm:rounded-[1.9rem] bg-paper ring-1 ring-line transition-all duration-300 ${
-              formularioContraido ? "p-3 sm:p-4 px-4 sm:px-6" : "p-5 sm:p-8 md:p-10"
-            }`}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {formularioContraido ? (
-                /* Estado Contraído: Cápsula compacta con acceso rápido a modificar */
-                <motion.div
-                  key="barra-contraida"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.3, ease: EASE }}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/10 text-gold-deep ring-1 ring-gold/25">
-                      <MagnifyingGlass weight="bold" className="h-4 w-4" />
+          <AnimatePresence mode="wait" initial={false}>
+            {formularioContraido ? (
+              /* Estado Contraído: Cápsula compacta con acceso rápido a modificar */
+              <motion.div
+                key="barra-contraida"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.3, ease: EASE }}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/10 text-gold-deep ring-1 ring-gold/25">
+                    <MagnifyingGlass weight="bold" className="h-4 w-4" />
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-ink-soft">Expediente consultado</span>
+                    <span className="font-mono text-xs sm:text-sm font-bold tracking-wider text-ink bg-surface px-2.5 py-1 rounded-lg ring-1 ring-line">
+                      {resultado?.radicadoId || radicado}
                     </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
-                        Expediente consultado:
-                      </span>
-                      <span className="font-mono text-xs sm:text-sm font-bold tracking-wider text-ink bg-surface px-2.5 py-1 rounded-lg ring-1 ring-line">
-                        {resultado?.radicadoId || radicado}
-                      </span>
-                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={abrirFormulario}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface hover:bg-gold/10 hover:border-gold/40 px-4 py-2 text-xs font-medium text-ink transition-all cursor-pointer group"
+                >
+                  <PencilSimple weight="bold" className="h-3.5 w-3.5 text-gold-deep group-hover:scale-110 transition-transform" />
+                  <span>Consultar otro radicado</span>
+                  <CaretDown weight="bold" className="h-3 w-3 text-ink-soft group-hover:translate-y-0.5 transition-transform" />
+                </button>
+              </motion.div>
+            ) : (
+              /* Estado Expandido: Formulario completo */
+              <motion.div
+                key="formulario-expandido"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.3, ease: EASE }}
+              >
+                <form onSubmit={onSubmit}>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <label htmlFor="radicado-input" className="text-base font-semibold text-ink">
+                      Radicado o código de expediente
+                    </label>
+                    {resultado && (
+                      <button
+                        type="button"
+                        onClick={() => setFormularioContraido(true)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep hover:underline cursor-pointer"
+                      >
+                        <CaretUp weight="bold" className="h-3 w-3" />
+                        <span>Contraer</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <MagnifyingGlass
+                      weight="bold"
+                      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gold-deep"
+                    />
+                    <input
+                      ref={inputRef}
+                      id="radicado-input"
+                      value={radicado}
+                      onChange={(e) => setRadicado(e.target.value)}
+                      required
+                      placeholder="Ej: SIE-2024-001 o radicado judicial"
+                      className="w-full rounded-xl border-2 border-line bg-surface py-4 pl-12 pr-4 font-mono text-base tracking-wide text-ink placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-ink-soft/45 focus:border-gold-deep focus:bg-paper focus:outline-none focus:ring-4 focus:ring-gold/10 transition-all duration-200"
+                    />
                   </div>
 
                   <button
-                    type="button"
-                    onClick={abrirFormulario}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-surface hover:bg-gold/10 hover:border-gold/40 px-4 py-2 text-xs font-medium text-ink transition-all cursor-pointer group"
+                    type="submit"
+                    disabled={cargando}
+                    className="cta-boton group mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-7 py-4 text-sm font-semibold text-ink-fixed shadow-sm active:scale-[0.98] disabled:opacity-60 transition-all duration-200 cursor-pointer"
                   >
-                    <PencilSimple weight="bold" className="h-3.5 w-3.5 text-gold-deep group-hover:scale-110 transition-transform" />
-                    <span>Consultar otro radicado</span>
-                    <CaretDown weight="bold" className="h-3 w-3 text-ink-soft group-hover:translate-y-0.5 transition-transform" />
-                  </button>
-                </motion.div>
-              ) : (
-                /* Estado Expandido: Formulario completo */
-                <motion.div
-                  key="formulario-expandido"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.3, ease: EASE }}
-                >
-                  <form onSubmit={onSubmit}>
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
-                      <label
-                        htmlFor="radicado-input"
-                        className="block text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft"
-                      >
-                        Número de Radicado o Código de Expediente
-                      </label>
-                      <div className="flex items-center gap-3">
-                        {resultado && (
-                          <button
-                            type="button"
-                            onClick={() => setFormularioContraido(true)}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep hover:underline cursor-pointer"
-                          >
-                            <CaretUp weight="bold" className="h-3 w-3" />
-                            <span>Contraer consulta</span>
-                          </button>
-                        )}
-                        <span className="hidden sm:inline-flex items-center gap-1 text-xs text-ink-soft/70">
-                          <ShieldCheck weight="light" className="h-3.5 w-3.5 text-gold-deep" />
-                          Acceso directo sin contraseña
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="relative flex-1">
-                        <MagnifyingGlass
+                    {cargando ? (
+                      <>
+                        <Spinner className="h-4 w-4 animate-spin text-ink-fixed" weight="bold" />
+                        <span>Verificando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Consultar expediente</span>
+                        <ArrowRight
                           weight="bold"
-                          className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gold-deep"
+                          className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
                         />
-                        <input
-                          ref={inputRef}
-                          id="radicado-input"
-                          value={radicado}
-                          onChange={(e) => setRadicado(e.target.value)}
-                          required
-                          placeholder="Ej: SIE-2024-001 o radicado judicial"
-                          className="w-full rounded-xl sm:rounded-2xl border border-line bg-surface py-3.5 pl-11 pr-4 font-mono text-base tracking-wide text-ink placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-ink-soft/45 focus:border-gold-deep focus:bg-paper focus:outline-none focus:ring-2 focus:ring-gold/20 transition-all duration-200"
-                        />
-                      </div>
+                      </>
+                    )}
+                  </button>
 
-                      <button
-                        type="submit"
-                        disabled={cargando}
-                        className="cta-boton group flex shrink-0 items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-gold px-7 py-3.5 text-sm font-medium text-ink-fixed shadow-sm active:scale-[0.98] disabled:opacity-60 transition-all duration-200 cursor-pointer"
-                      >
-                        {cargando ? (
-                          <>
-                            <Spinner className="h-4 w-4 animate-spin text-ink-fixed" weight="bold" />
-                            <span>Verificando...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Consultar expediente</span>
-                            <ArrowRight
-                              weight="bold"
-                              className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
-                            />
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Ayuda contextual de radicado: una sola línea, más grande y simple --
-                        el enlace de WhatsApp pequeño de antes se reemplaza por la tarjeta de
-                        ayuda grande y siempre visible de abajo (ver TarjetaAyuda), más fácil
-                        de encontrar para alguien que no está familiarizado con la página. */}
-                    <p className="mt-4 flex items-center gap-2 text-sm text-ink-soft">
+                  {/* Una sola línea de ayuda + confianza, en vez de un rótulo de confianza
+                      escondido a la derecha (invisible en móvil) y una línea de ayuda aparte. */}
+                  <div className="mt-4 flex flex-col gap-1.5 text-xs text-ink-soft sm:flex-row sm:items-center sm:justify-between">
+                    <span className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold-deep/60" />
-                      Encuentra el código en el correo o mensaje de WhatsApp que te enviamos al abrir tu caso.
-                    </p>
-                  </form>
+                      Encuentra el código en el correo o WhatsApp que te enviamos al abrir tu caso.
+                    </span>
+                    <span className="flex items-center gap-1.5 text-ink-soft/70">
+                      <ShieldCheck weight="light" className="h-3.5 w-3.5 text-gold-deep" />
+                      Acceso directo, sin contraseña
+                    </span>
+                  </div>
+                </form>
 
-                  {/* Guía simple de 3 pasos, en vez de tres frases de reafirmación abstracta:
-                      pedido explícito del usuario -- más intuitivo para quien usa esto por
-                      primera vez (incluyendo personas mayores), que una lista de garantías. */}
-                  {!resultado && (
-                    <div className="mt-8 border-t border-line/70 pt-6">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Cómo funciona</p>
-                      <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-3">
-                        {[
-                          { numero: "1", texto: "Busca el radicado en el correo o WhatsApp que te enviamos al abrir tu caso." },
-                          { numero: "2", texto: "Escríbelo o pégalo en el campo de arriba, tal como lo recibiste." },
-                          { numero: "3", texto: "Verás el estado de tu proceso al instante, sin crear ninguna cuenta." },
-                        ].map((paso) => (
-                          <div key={paso.numero} className="flex items-start gap-3">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-sm font-bold text-ink-fixed">
-                              {paso.numero}
-                            </span>
-                            <p className="pt-1 text-sm leading-relaxed text-ink">{paso.texto}</p>
-                          </div>
-                        ))}
-                      </div>
+                {/* Guía simple de 3 pasos -- compacta y horizontal, sin números grandes
+                    compitiendo con el campo de búsqueda por ser lo "más importante" de la
+                    tarjeta. */}
+                {!resultado && (
+                  <div className="mt-6 border-t border-line/70 pt-5">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      {[
+                        "Busca el radicado en el correo o WhatsApp que te enviamos.",
+                        "Escríbelo o pégalo tal como lo recibiste.",
+                        "Verás el estado de tu proceso al instante.",
+                      ].map((texto, i) => (
+                        <div key={texto} className="flex items-start gap-2.5">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/15 text-[11px] font-bold text-gold-deep ring-1 ring-gold/25">
+                            {i + 1}
+                          </span>
+                          <p className="text-xs leading-relaxed text-ink-soft">{texto}</p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Tarjeta de ayuda: grande, siempre visible (no depende de encontrar un enlace

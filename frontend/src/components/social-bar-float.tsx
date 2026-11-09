@@ -49,11 +49,15 @@ const redes = [
   },
 ];
 
-export function SocialBarFloat() {
+// Pedido explícito del usuario (2026-11-09): en /consulta-caso, en móvil, esta barra queda
+// encima de la tarjeta de búsqueda y del contenido (no hay suficiente ancho para dejarle un
+// carril propio a la izquierda sin tapar nada) -- se oculta solo ahí y solo en pantallas
+// angostas (sm: la recupera), nunca en el resto del sitio ni en escritorio.
+export function SocialBarFloat({ ocultarEnMovil = false }: { ocultarEnMovil?: boolean }) {
   return (
     <aside
       aria-label="Redes sociales oficiales"
-      className="fixed left-0 top-1/2 z-40 -translate-y-1/2 flex flex-col rounded-r-xl overflow-hidden border-r border-y border-gold-deep/30 bg-night/95 backdrop-blur-md shadow-2xl divide-y divide-gold-deep/15 select-none"
+      className={`fixed left-0 top-1/2 z-40 -translate-y-1/2 ${ocultarEnMovil ? "hidden sm:flex" : "flex"} flex-col rounded-r-xl overflow-hidden border-r border-y border-gold-deep/30 bg-night/95 backdrop-blur-md shadow-2xl divide-y divide-gold-deep/15 select-none`}
     >
       {redes.map((r, i) => {
         const Icono = r.icono;

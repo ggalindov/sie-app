@@ -78,7 +78,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         {children}
         <SiteFooter />
         <SlideNav />
-        <SocialBarFloat />
+        <SocialBarFloat ocultarEnMovil={esConsultaCaso} />
         {!esConsultaCaso && <ConsultaCasoFloat />}
         <WhatsappFloat />
         <ChatbotWidget />
