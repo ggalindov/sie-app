@@ -124,6 +124,38 @@ public class BoletinJudicialDigestService {
                 : "Reciente";
     }
 
+    // Pedido explícito del usuario (2026-11-09): "agrega una descripcion a cada cosa que
+    // encuentre el sistema, de que es o porque para que el reporte sea mas completo" -- la
+    // tabla de "Providencias y Estados Electrónicos Descargables" solo traía radicado, nombre
+    // de archivo y fecha, sin decir NUNCA qué tipo de documento es ni por qué el sistema lo
+    // adjuntó. Cuando el boletín SÍ está ligado a una actuación real (caso normal, resuelto por
+    // el canal exacto de CPNU o el heurístico), se usa el nombre real de esa actuación -- el
+    // dato más preciso posible. Cuando NO hay actuación asociada (ver
+    // BoletinJudicialCacheService.sincronizarCasosSinProcesoIdentificado(): casos sin proceso
+    // identificado en ninguna rama, el documento se encontró escaneando el tablero completo del
+    // despacho, nunca ligado a una actuación puntual), se explica honestamente el origen en vez
+    // de inventar un tipo de actuación que no se puede confirmar.
+    private String descripcionBoletin(BoletinJudicialCache boletin) {
+        ActuacionJudicialRegistrada actuacion = boletin.getActuacion();
+        if (actuacion != null && actuacion.getNombreActuacion() != null && !actuacion.getNombreActuacion().isBlank()) {
+            return actuacion.getNombreActuacion();
+        }
+        String nombreArchivo = boletin.getNombreArchivo() != null
+                ? boletin.getNombreArchivo().toLowerCase(Locale.ROOT) : "";
+        String tipoPorNombre;
+        if (nombreArchivo.contains("sentencia")) {
+            tipoPorNombre = "Sentencia";
+        } else if (nombreArchivo.contains("auto")) {
+            tipoPorNombre = "Auto";
+        } else if (nombreArchivo.contains("notifica")) {
+            tipoPorNombre = "Notificación";
+        } else {
+            tipoPorNombre = "Documento oficial";
+        }
+        return tipoPorNombre + " encontrado en el tablero de Estados Electrónicos del despacho "
+                + "(proceso aún sin identificar en el motor estándar, sin actuación estructurada asociada).";
+    }
+
     // Diario 10:00 AM (ver BoletinJudicialScheduler). Envía a Gerencia TODOS los movimientos procesales
     // y boletines detectados que aún no hayan sido notificados.
     @Transactional
@@ -670,6 +702,7 @@ public class BoletinJudicialDigestService {
                         <tr style="background-color:#f1f5f9;color:#475569;text-transform:uppercase;font-size:11px;">
                           <th style="padding:8px 12px;text-align:left;">Radicado</th>
                           <th style="padding:8px 12px;text-align:left;">Documento Oficial</th>
+                          <th style="padding:8px 12px;text-align:left;">Qué es / Por qué aparece</th>
                           <th style="padding:8px 12px;text-align:left;">Fecha Publicación</th>
                           <th style="padding:8px 12px;text-align:center;">Acción</th>
                         </tr>
@@ -681,17 +714,20 @@ public class BoletinJudicialDigestService {
                 Caso caso = b.getCaso();
                 String rad = caso != null ? caso.getRadicadoId() : "Sin radicado";
                 String fDesc = fechaOficialPublicacion(b);
+                String descripcion = descripcionBoletin(b);
 
                 html.append("""
                         <tr style="border-bottom:1px solid #f1f5f9;">
                           <td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#0f172a;">%s</td>
                           <td style="padding:10px 12px;font-weight:600;color:#0284c7;">%s</td>
+                          <td style="padding:10px 12px;color:#334155;max-width:220px;line-height:1.35;">%s</td>
                           <td style="padding:10px 12px;color:#64748b;">%s</td>
                           <td style="padding:10px 12px;text-align:center;">
                             <a href="%s" style="color:#D9A925;font-weight:bold;text-decoration:underline;">Descargar PDF &rarr;</a>
                           </td>
                         </tr>
-                        """.formatted(escaparHtml(rad), escaparHtml(b.getNombreArchivo()), escaparHtml(fDesc), enlaceDocumentoPropio(b)));
+                        """.formatted(escaparHtml(rad), escaparHtml(b.getNombreArchivo()), escaparHtml(descripcion),
+                        escaparHtml(fDesc), enlaceDocumentoPropio(b)));
             }
 
             html.append("""
