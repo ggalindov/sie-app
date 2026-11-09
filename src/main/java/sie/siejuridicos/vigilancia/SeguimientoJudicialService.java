@@ -11,8 +11,10 @@ import sie.siejuridicos.usuario.UsuarioInterno;
 import sie.siejuridicos.vigilancia.dto.ResumenSeguimientoJudicial;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -297,6 +299,26 @@ public class SeguimientoJudicialService {
                     if (fundamental) {
                         fundamentalesNuevas++;
                     }
+                }
+            }
+            // Bug real reportado por el usuario (2026-11-09): el panel mostraba "Rama
+            // actualizó" con una fecha vieja aunque ya hubiera actuaciones nuevas más
+            // recientes en la línea de tiempo debajo. Causa: ultimaActualizacionRama solo se
+            // llenaba al resolver el proceso por primera vez (arriba), tomando el campo
+            // Proceso/Detalle.ultimaActualizacion de ESE momento -- nunca se volvía a tocar en
+            // los ciclos incrementales siguientes, aunque entraran actuaciones nuevas. Se
+            // actualiza aquí al fechaActuacion más reciente de las actuaciones ya traídas en
+            // este ciclo (sin llamada adicional al CPNU), solo si es más nueva que la que ya
+            // teníamos -- nunca la retrocede.
+            if (!actuaciones.isEmpty()) {
+                LocalDateTime masReciente = actuaciones.stream()
+                        .map(ActuacionJudicial::fechaActuacion)
+                        .filter(Objects::nonNull)
+                        .max(Comparator.naturalOrder())
+                        .orElse(null);
+                if (masReciente != null && (caso.getUltimaActualizacionRama() == null
+                        || masReciente.isAfter(caso.getUltimaActualizacionRama()))) {
+                    caso.setUltimaActualizacionRama(masReciente);
                 }
             }
             marcarSeguimiento(caso, true);

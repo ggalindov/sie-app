@@ -100,7 +100,16 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
             + "ORDER BY b.fechaDescarga DESC")
     List<BoletinJudicialCache> listarTodosConCaso();
 
+    // LEFT JOIN FETCH b.actuacion es necesario: BoletinJudicialResponse.desde() llama
+    // b.getActuacion().getFechaRegistro() y este método lo usa también desde
+    // CromaLegalProService.generarInformeProfundo(), que NO es @Transactional a propósito
+    // (para no retener una conexión de BD durante sus llamadas HTTP externas lentas a Croma y
+    // al CPNU). Sin el fetch explícito aquí, acceder al proxy lazy de actuacion fuera de
+    // sesión lanzaba LazyInitializationException y tumbaba Legal-Pro con "Ocurrió un error
+    // inesperado" para cualquier caso con boletines cacheados que tuvieran actuación asociada
+    // (bug real reportado por el usuario, 2026-11-09).
     @Query("SELECT b FROM BoletinJudicialCache b JOIN FETCH b.caso c LEFT JOIN FETCH c.cliente "
+            + "LEFT JOIN FETCH b.actuacion "
             + "WHERE c.id = :casoId ORDER BY b.fechaDescarga DESC")
     List<BoletinJudicialCache> listarConCasoPorCasoId(@Param("casoId") Long casoId);
 
