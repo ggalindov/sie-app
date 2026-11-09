@@ -319,50 +319,74 @@ function ConsultaCasoContent() {
             pedido explícito del usuario de "direccionar ayuda más fácil" pensando en
             personas mayores que pueden no recordar su radicado o sentirse perdidas en la
             página. Llamar usa tel: directo, un toque desde el teléfono, sin pasos extra. */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.1, ease: EASE }}
-          className="mt-6 rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] p-1.5 sm:p-2.5 ring-1 ring-ink/10"
-        >
-          <div className="rounded-[1.4rem] sm:rounded-[1.9rem] bg-paper p-6 sm:p-8 ring-1 ring-line">
-            <div className="flex flex-col items-center gap-1 text-center sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:text-left">
-              <div>
-                <p className="font-display text-xl text-ink sm:text-2xl">¿No encuentras tu radicado o necesitas ayuda?</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-                  Llámanos o escríbenos directamente y un abogado te ayuda a encontrar tu caso.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <a
-                href={siteConfig.telefonoHref}
-                className="flex items-center justify-center gap-2.5 rounded-xl border border-line bg-surface px-5 py-4 text-base font-semibold text-ink transition-colors hover:border-gold-deep"
-              >
-                <Phone weight="fill" className="h-5 w-5 shrink-0 text-gold-deep" />
-                Llamar ahora
-              </a>
-              <a
-                href={`${siteConfig.whatsapp}?text=${encodeURIComponent("Hola equipo SIE Jurídicos, necesito ayuda para consultar el radicado de mi caso.")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2.5 rounded-xl bg-[#25D366] px-5 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#20bd5a]"
-              >
-                <WhatsappLogo weight="fill" className="h-5 w-5 shrink-0" />
-                Escribir por WhatsApp
-              </a>
-            </div>
-
+        {/* Pedido explícito del usuario (2026-11-09): "al ya buscar con numero de radicado
+            quita [la tarjeta completa], deja solo necesitas ayuda con el boton de
+            whatsapp" -- una vez la persona YA encontró su expediente (resultado existe),
+            el mensaje de "¿no encuentras tu radicado?" y el botón de llamar ya no aplican;
+            solo queda un acceso mínimo a WhatsApp por si tiene una duda puntual. */}
+        {resultado ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1, ease: EASE }}
+            className="mt-6"
+          >
             <a
-              href={`mailto:${siteConfig.correo}`}
-              className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-ink-soft hover:text-ink"
+              href={`${siteConfig.whatsapp}?text=${encodeURIComponent(`Hola equipo SIE Jurídicos, acabo de consultar mi expediente ${resultado.radicadoId} y tengo una pregunta.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2.5 rounded-xl bg-[#25D366] px-5 py-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#20bd5a]"
             >
-              <Envelope weight="light" className="h-4 w-4" />
-              O escríbenos a {siteConfig.correo}
+              <WhatsappLogo weight="fill" className="h-5 w-5 shrink-0" />
+              ¿Necesitas ayuda? Escríbenos por WhatsApp
             </a>
-          </div>
-        </motion.div>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1, ease: EASE }}
+            className="mt-6 rounded-[1.75rem] sm:rounded-[2.25rem] bg-ink/[0.03] p-1.5 sm:p-2.5 ring-1 ring-ink/10"
+          >
+            <div className="rounded-[1.4rem] sm:rounded-[1.9rem] bg-paper p-6 sm:p-8 ring-1 ring-line">
+              <div className="flex flex-col items-center gap-1 text-center sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:text-left">
+                <div>
+                  <p className="font-display text-xl text-ink sm:text-2xl">¿No encuentras tu radicado o necesitas ayuda?</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+                    Llámanos o escríbenos directamente y un abogado te ayuda a encontrar tu caso.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <a
+                  href={siteConfig.telefonoHref}
+                  className="flex items-center justify-center gap-2.5 rounded-xl border border-line bg-surface px-5 py-4 text-base font-semibold text-ink transition-colors hover:border-gold-deep"
+                >
+                  <Phone weight="fill" className="h-5 w-5 shrink-0 text-gold-deep" />
+                  Llamar ahora
+                </a>
+                <a
+                  href={`${siteConfig.whatsapp}?text=${encodeURIComponent("Hola equipo SIE Jurídicos, necesito ayuda para consultar el radicado de mi caso.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5 rounded-xl bg-[#25D366] px-5 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#20bd5a]"
+                >
+                  <WhatsappLogo weight="fill" className="h-5 w-5 shrink-0" />
+                  Escribir por WhatsApp
+                </a>
+              </div>
+
+              <a
+                href={`mailto:${siteConfig.correo}`}
+                className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-ink-soft hover:text-ink"
+              >
+                <Envelope weight="light" className="h-4 w-4" />
+                O escríbenos a {siteConfig.correo}
+              </a>
+            </div>
+          </motion.div>
+        )}
 
         {/* Notificación de Error */}
         <AnimatePresence>
