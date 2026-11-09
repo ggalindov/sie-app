@@ -553,27 +553,33 @@ public class VigilanciaAdminController {
     // @Transactional obligatorio, no cosmético: caso.getCliente() es LAZY (ver Caso), y sin
     // una sesión de Hibernate abierta lanza LazyInitializationException -- el mismo bug real
     // que ya costó tiempo en TerminoProcesalService esta misma sesión.
+    // "correo" opcional (2026-11-09, mismo criterio ya usado en probarDigestBoletin de más
+    // abajo): antes esto SOLO podía mandar al correo real ya guardado del cliente del caso --
+    // útil para no tocar nunca a un cliente real, pero inútil para que un admin vea cómo le
+    // llegaría el reporte a SU PROPIO correo de prueba. Si no se manda "correo", se comporta
+    // exactamente igual que antes (al contacto real del caso).
     @Transactional(readOnly = true)
     @PostMapping("/casos/{id}/pruebas/reporte-periodico")
-    public ResponseEntity<Boolean> probarReportePeriodico(@PathVariable Long id) {
+    public ResponseEntity<Boolean> probarReportePeriodico(
+            @PathVariable Long id, @RequestParam(value = "correo", required = false) String correoOverride) {
         Caso caso = casoDePrueba(id);
-        boolean exito = emailService.enviarReporteSemanalCasoSincrono(
-                nombreMostrado(caso), caso.getCliente().getCorreo(), caso.getRadicadoId());
+        String correo = correoOverride != null && !correoOverride.isBlank() ? correoOverride : caso.getCliente().getCorreo();
+        boolean exito = emailService.enviarReporteSemanalCasoSincrono(nombreMostrado(caso), correo, caso.getRadicadoId());
         return ResponseEntity.ok(exito);
     }
 
     // Mismo reporte periódico, pero por WhatsApp -- pedido explícito del usuario: "testea...
-    // tanto por correo y whatsapp". Mismo criterio de seguridad que el resto de esta sección:
-    // nunca manda al teléfono del request, siempre al que ya tiene guardado el propio caso.
+    // tanto por correo y whatsapp". "telefono" opcional, mismo criterio que arriba.
     @Transactional(readOnly = true)
     @PostMapping("/casos/{id}/pruebas/reporte-periodico-whatsapp")
-    public ResponseEntity<Boolean> probarReportePeriodicoWhatsapp(@PathVariable Long id) {
+    public ResponseEntity<Boolean> probarReportePeriodicoWhatsapp(
+            @PathVariable Long id, @RequestParam(value = "telefono", required = false) String telefonoOverride) {
         Caso caso = casoDePrueba(id);
-        if (caso.getCliente().getTelefono() == null) {
+        String telefono = telefonoOverride != null && !telefonoOverride.isBlank() ? telefonoOverride : caso.getCliente().getTelefono();
+        if (telefono == null) {
             throw new RecursoNoEncontradoException("Este caso no tiene teléfono -- no se puede probar por WhatsApp.");
         }
-        boolean exito = whatsAppService.enviarReporteSemanalCasoSincrono(
-                nombreMostrado(caso), caso.getCliente().getTelefono(), caso.getRadicadoId());
+        boolean exito = whatsAppService.enviarReporteSemanalCasoSincrono(nombreMostrado(caso), telefono, caso.getRadicadoId());
         return ResponseEntity.ok(exito);
     }
 
