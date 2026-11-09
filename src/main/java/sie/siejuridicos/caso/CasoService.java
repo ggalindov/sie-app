@@ -942,6 +942,18 @@ public class CasoService {
                 radicado = null;
                 radicadosInvalidos++;
             }
+            // Bug real encontrado en producción (2026-11-09, reportado por el usuario: el
+            // popup de "cambios detectados" repetía el MISMO caso una y otra vez con un
+            // "cambio" de radicado que en realidad nunca cambiaba): Caso.setRadicadoId() ya
+            // normaliza con RadicadoUtil.normalizarParaAlmacenar() (quita notas como
+            // "(2026-01059)" o ceros residuales de exportación) antes de guardar -- pero aquí
+            // se comparaba el texto CRUDO de la celda contra el valor YA NORMALIZADO que
+            // había quedado guardado. Si la celda trae cualquier nota/ruido, nunca eran
+            // iguales en ningún ciclo, así que cada sincronización volvía a "detectar" el
+            // mismo cambio inexistente (y de paso reseteaba correoEnviado/whatsappEnviado sin
+            // necesidad). Normalizar aquí, antes de cualquier comparación, dos
+            // normalizaciones del mismo radicado real ahora sí son iguales.
+            radicado = RadicadoUtil.normalizarParaAlmacenar(radicado);
             Optional<Caso> existente = casoRepository.findByFuenteAndNumeroCaso(fila.fuente(), numeroCaso);
 
             if (existente.isPresent()) {

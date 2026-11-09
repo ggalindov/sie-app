@@ -181,40 +181,39 @@ export function CasosPendientesPopup() {
               </p>
               <div className="mt-3 space-y-2">
                 {cambios!.map((cambio) => (
-                  <div
-                    key={cambio.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-line bg-paper px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink">
+                  <div key={cambio.id} className="rounded-xl border border-line bg-paper px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-medium text-ink">
                         {cambio.nombreCliente} <span className="text-ink-soft">· Nº{cambio.numeroCaso ?? "-"}</span>
                       </p>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-soft">
-                        <ArrowsClockwise className="h-3 w-3 shrink-0" />
-                        <strong>{NOMBRES_CAMPO[cambio.campo] ?? cambio.campo}:</strong>{" "}
-                        <span className="truncate line-through decoration-red-400/60">
-                          {cambio.valorAnterior ?? "(vacío)"}
-                        </span>{" "}
-                        &rarr; <span className="truncate font-medium text-ink">{cambio.valorNuevo ?? "(vacío)"}</span>
-                      </p>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Link
+                          href={`/admin/casos?q=${encodeURIComponent(cambio.numeroCaso ?? cambio.nombreCliente)}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink/5 text-ink-soft hover:bg-ink/10"
+                          title="Ver caso"
+                        >
+                          <PencilSimple className="h-4 w-4" />
+                        </Link>
+                        <AdminButton
+                          variant="ghost"
+                          className="!px-3 !py-1.5 text-xs"
+                          disabled={procesando.has(`cambio-${cambio.id}`)}
+                          onClick={() => revisarCambio(cambio.id)}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Revisado
+                        </AdminButton>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Link
-                        href={`/admin/casos?q=${encodeURIComponent(cambio.numeroCaso ?? cambio.nombreCliente)}`}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink-soft hover:bg-ink/10"
-                        title="Ver caso"
-                      >
-                        <PencilSimple className="h-4 w-4" />
-                      </Link>
-                      <AdminButton
-                        variant="ghost"
-                        className="!px-3 !py-2 text-xs"
-                        disabled={procesando.has(`cambio-${cambio.id}`)}
-                        onClick={() => revisarCambio(cambio.id)}
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                        Revisado
-                      </AdminButton>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gold-deep">
+                      <ArrowsClockwise className="h-3 w-3 shrink-0" />
+                      {NOMBRES_CAMPO[cambio.campo] ?? cambio.campo}
+                    </div>
+                    <div className="mt-1.5 grid gap-1 rounded-lg bg-ink/[0.03] p-2.5 font-mono text-xs">
+                      <p className="break-all text-red-500/80 line-through decoration-red-400">
+                        {cambio.valorAnterior ?? "(vacío)"}
+                      </p>
+                      <p className="break-all font-semibold text-ink">{cambio.valorNuevo ?? "(vacío)"}</p>
                     </div>
                   </div>
                 ))}
