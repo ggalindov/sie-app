@@ -175,19 +175,23 @@ public interface ActuacionJudicialRegistradaRepository extends JpaRepository<Act
     // que el sistema traiga absolutamente todos los documentos, autos, no esta trayendo nada
     // de momento"): BoletinJudicialCacheService.construirObjetivos() solo intentaba resolver
     // documento para la ÚLTIMA actuación de cada caso o las registradas en los últimos
-    // DIAS_VENTANA_BUSQUEDA (30) días -- medido en vivo contra la base real: de 151
-    // actuaciones marcadas conDocumentos=true por la propia Rama Judicial, solo 24 (16%)
-    // tenían un boletín resuelto, y el correo de solicitud al despacho (ver
-    // CorreoDespachoJudicialService) nunca se había disparado NI UNA SOLA VEZ en toda la
-    // historia -- porque las otras 127 actuaciones con documento disponible, al caer fuera de
-    // esa ventana de 30 días, nunca llegaban siquiera a intentarse.
+    // DIAS_VENTANA_BUSQUEDA días -- medido en vivo contra la base real: de 151 actuaciones
+    // marcadas conDocumentos=true por la propia Rama Judicial, solo 24 (16%) tenían un boletín
+    // resuelto, y el correo de solicitud al despacho (ver CorreoDespachoJudicialService) nunca
+    // se había disparado NI UNA SOLA VEZ en toda la historia.
     //
-    // Esta consulta es el backlog COMPLETO, sin ventana de fecha: toda actuación con
-    // conDocumentos=true que todavía NO tiene ningún boletín cacheado (NOT EXISTS) Y que
-    // todavía no agotó su intento final (correoDespachoSolicitadoEn IS NULL) -- una vez que
-    // ese correo se envía (el último recurso, ver CorreoDespachoJudicialService), la actuación
-    // sale sola de este backlog para siempre, así que esta lista nunca crece sin límite ni
-    // insiste eternamente sobre algo ya irresoluble por canales automáticos.
+    // SIN ventana de fecha A PROPÓSITO, incluso tras el ajuste del 2026-11-09 ("el sistema esta
+    // trayendo boletines del 2025 y fechas anteriores... de ahora en adelante el sistema solo
+    // busca los boletines de los ultimos dos meses maximo" + "deja funcional y activo el pedir
+    // a despacho el auto reportado pero no subido"): esas dos peticiones NO se contradicen.
+    // La ventana de 2 meses aplica al canal HEURÍSTICO de Publicaciones Procesales (el que
+    // escanea boletines completos por fecha y es el que atribuía documentos viejos/equivocados
+    // -- ver el chequeo de ventana en BoletinJudicialCacheService.procesarActuacion()). Esta
+    // consulta, en cambio, alimenta el canal EXACTO de la CPNU (nunca trae el documento
+    // equivocado, es por id de actuación) y, si tampoco hay nada ahí, el correo directo al
+    // despacho -- el camino seguro para resolver justo las actuaciones viejas que el heurístico
+    // ya no debe tocar. Quitarle la ventana aquí dejaría sin solución posible, para siempre,
+    // cualquier actuación con documento reportado de hace más de 2 meses.
     // c.finalizado = false: un caso ya archivado no necesita más documentos nuevos.
     @Query("SELECT a FROM ActuacionJudicialRegistrada a "
             + "JOIN FETCH a.caso c "

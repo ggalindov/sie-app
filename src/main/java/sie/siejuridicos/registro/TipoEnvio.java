@@ -53,7 +53,10 @@ public enum TipoEnvio {
     // Pedido explícito del usuario (2026-11-04, replicando el flujo real de LUPA Jurídica):
     // correo saliente a un despacho judicial solicitando el documento de una actuación que
     // ningún canal automático pudo resolver -- ver CorreoDespachoJudicialService.
-    CORREO_DESPACHO_JUDICIAL("Correo a despacho judicial");
+    CORREO_DESPACHO_JUDICIAL("Correo a despacho judicial"),
+    // Pedido explícito del usuario (2026-11-09): reporte semanal a gerencia (lunes 8am) de
+    // calidad de datos -- ver ReporteCalidadDatosCasosScheduler.
+    REPORTE_CALIDAD_DATOS("Reporte de calidad de datos");
 
     private final String nombreVisible;
 

@@ -159,4 +159,48 @@ public interface CasoRepository extends JpaRepository<Caso, Long> {
     // en la misma operación, sin dos consultas separadas.
     @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado WHERE c.id = :id")
     Optional<Caso> buscarConClienteYAbogadoPorId(@Param("id") Long id);
+
+    // Las 4 consultas siguientes alimentan ReporteCalidadDatosCasosService (pedido explícito
+    // del usuario, 2026-11-09: "reporte de casos con fallos, radicados no correctos o
+    // invalidos, correos y numeros de telefono fallidos... o que simplemente no han tenido
+    // reportes correctos en las ramas", lunes 8am a gerencia). c.esPrivadoCifrado = false en
+    // las 4: mismo criterio de privacidad ya aplicado en el resto de reportes automáticos de
+    // este sistema -- un caso de la bóveda privada de un abogado o de Gerencia nunca debe
+    // aparecer en un reporte masivo, aunque tenga datos incompletos. c.finalizado = false en
+    // las 4: un caso archivado ya no es una prioridad operativa pendiente de corregir.
+
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.radicadoFormatoInvalido = true AND c.finalizado = false AND c.esPrivadoCifrado = false "
+            + "ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarConRadicadoInvalidoParaReporte();
+
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.cliente.correo IS NULL AND c.finalizado = false AND c.esPrivadoCifrado = false "
+            + "ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarSinCorreoClienteParaReporte();
+
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.cliente.telefono IS NULL AND c.finalizado = false AND c.esPrivadoCifrado = false "
+            + "ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarSinTelefonoClienteParaReporte();
+
+    // "No han tenido reportes correctos en las ramas": radicado con formato válido pero
+    // NINGUNO de los dos motores (CPNU ni SAMAI, ver SeguimientoJudicialService) logró
+    // identificar nunca el proceso real -- el caso queda ciego para toda la vigilancia
+    // judicial 24/7 sin que nada lo señale hoy (se confirmó en vivo el 2026-11-09 un caso
+    // real así, ver radicado de San Mateo, Boyacá: 13 dígitos de despacho resueltos por
+    // Croma pero cero actuaciones, "Sin proceso CPNU identificado").
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.radicadoId IS NOT NULL AND c.radicadoFormatoInvalido = false "
+            + "AND c.idProcesoCpnu IS NULL AND c.idProcesoSamai IS NULL "
+            + "AND c.finalizado = false AND c.esPrivadoCifrado = false "
+            + "ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarSinProcesoIdentificadoParaReporte();
+
+    // Para el popup de "casos nuevos identificados" (pedido explícito del usuario,
+    // 2026-11-09, ver migración V88): casos creados por CasoService.sincronizarDesdeHoja()
+    // todavía sin aceptar por un gerente o abogado.
+    @Query("SELECT c FROM Caso c JOIN FETCH c.cliente LEFT JOIN FETCH c.abogadoAsignado "
+            + "WHERE c.pendienteAprobacion = true ORDER BY c.fechaCreacion DESC")
+    List<Caso> listarPendientesAprobacion();
 }

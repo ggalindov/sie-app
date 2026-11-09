@@ -185,17 +185,16 @@ public class BoletinJudicialCacheService {
         }
     }
 
-    // Dias hacia atras de actuaciones RECIENTES que ademas se buscan en el portal heuristico
-    // (ultima de cada caso ya entra sin importar la fecha). Subido de 15 a 30 (pedido
-    // explicito del usuario, 2026-11-04: "traer absolutamente todos los docuemtos del ultimo
-    // mes"): para el canal heuristico de Publicaciones Procesales el portal solo expone sus
-    // boletines mas recientes (una ventana mayor no encuentra nada nuevo ahi). Desde
-    // 2026-11-06 esto YA NO es el unico alcance del ciclo: el backlog historico COMPLETO (sin
-    // limite de dias) tambien se suma en construirObjetivos() via
-    // conDocumentosSinResolverHistorico() -- esta ventana sigue existiendo solo para decidir
-    // que tan atras vale la pena intentar el canal heuristico (de corta memoria); el canal
-    // EXACTO de la CPNU y el correo al despacho ya cubren cualquier antiguedad via el backlog.
-    private static final int DIAS_VENTANA_BUSQUEDA = 30;
+    // CORRECCIÓN (2026-11-09, pedido explícito del usuario: "el sistema esta trayendo
+    // boletines del 2025 y fechas anteriores... de ahora en adelante el sistema solo busca los
+    // boletines de los ultimos dos meses maximo... necesitamos son los boletines mas
+    // recientes"): esta ventana ahora gobierna TODO el ciclo, no solo el canal heurístico --
+    // subida de 30 a 60 días (2 meses) y usada también como tope del backlog histórico (ver
+    // conDocumentosSinResolverHistorico() y el filtro aplicado más abajo sobre
+    // ultimaActuacionConFechaPorCaso()). Revierte a propósito el diseño anterior de esta misma
+    // sesión ("backlog historico COMPLETO, sin limite de dias"): ese backlog sin tope era
+    // exactamente lo que volvía a buscar boletines de actuaciones de 2025 o antes.
+    private static final int DIAS_VENTANA_BUSQUEDA = 60;
     // Rondas de reintento al terminar la pasada principal, con espera entre rondas para que el
     // portal se recupere de una racha de fallos (la del 2026-11-01 duro una hora).
     private static final int MAX_RONDAS_RECUPERACION = 3;
@@ -221,18 +220,25 @@ public class BoletinJudicialCacheService {
     // actuaciones ese dia -- aceptable: ya hay pausa entre cada una y el circuit breaker
     // (pareceCaido()) sigue protegiendo contra una racha de fallos.
     private List<ActuacionJudicialRegistrada> construirObjetivos() {
-        List<ActuacionJudicialRegistrada> todas = new ArrayList<>(actuacionRepository.ultimaActuacionConFechaPorCaso());
-        todas.addAll(actuacionRepository.conFechaRegistroDesde(
-                LocalDate.now().minusDays(DIAS_VENTANA_BUSQUEDA).atStartOfDay()));
-        // Backlog histórico completo, SIN ventana de fecha (gap real confirmado en producción
-        // 2026-11-06, ver el comentario de conDocumentosSinResolverHistorico() en el
-        // repositorio): las dos listas de arriba solo cubren lo reciente, dejando fuera para
-        // siempre cualquier actuación con documento disponible de hace más de
-        // DIAS_VENTANA_BUSQUEDA días que no fuera la última de su caso. El cursor de rotación
-        // (ver más abajo) ya reparte esta lista combinada entre varios ciclos sin saturar
-        // ningún ciclo individual, así que agregar el backlog completo aquí es seguro aunque
-        // sea grande -- cada actuación sale sola de esta lista en cuanto se resuelve su
-        // documento o se agota el intento final (correo al despacho).
+        LocalDateTime ventana = LocalDate.now().minusDays(DIAS_VENTANA_BUSQUEDA).atStartOfDay();
+        // Filtrada por la ventana vigente (antes entraba sin importar la fecha): pedido
+        // explícito del usuario (2026-11-09) de no volver a buscar boletines de actuaciones
+        // viejas (2025 o antes) solo porque son la última conocida de un caso sin movimiento
+        // reciente.
+        List<ActuacionJudicialRegistrada> todas = new ArrayList<>();
+        for (ActuacionJudicialRegistrada a : actuacionRepository.ultimaActuacionConFechaPorCaso()) {
+            LocalDateTime fecha = a.getFechaRegistro() != null ? a.getFechaRegistro() : a.getFechaActuacion();
+            if (fecha != null && !fecha.isBefore(ventana)) {
+                todas.add(a);
+            }
+        }
+        todas.addAll(actuacionRepository.conFechaRegistroDesde(ventana));
+        // Backlog histórico de actuaciones con documento sin resolver, SIN ventana de fecha a
+        // propósito (ver el comentario de conDocumentosSinResolverHistorico() en el
+        // repositorio): procesarActuacion() ya protege contra boletines viejos/equivocados
+        // saltándose el canal heurístico fuera de esta misma ventana para cualquier actuación
+        // que entre por aquí -- lo único que corre para una actuación vieja es el canal EXACTO
+        // de la CPNU y, si tampoco hay nada, el correo directo al despacho.
         todas.addAll(actuacionRepository.conDocumentosSinResolverHistorico());
         todas.sort(Comparator
                 .comparing((ActuacionJudicialRegistrada a) -> a.getCaso().getId())
@@ -566,9 +572,29 @@ public class BoletinJudicialCacheService {
                 return descargarYGuardarCandidatos(caso, actuacion, exactos, false);
             }
         }
-        PublicacionesProcesalesClient.ResultadoBusqueda busqueda = publicacionesProcesalesClient.buscarDocumentosConEstado(
-                caso.getRadicadoId(), fechaDeBoletin(actuacion), actuacion.getNombreActuacion());
-        ResultadoActuacion resultado = descargarYGuardarCandidatos(caso, actuacion, busqueda.candidatos(), busqueda.incompleta());
+
+        // Pedido explícito del usuario (2026-11-09): "el sistema esta trayendo boletines del
+        // 2025 y fechas anteriores... de ahora en adelante el sistema solo busca los boletines
+        // de los ultimos dos meses maximo". El canal heurístico de Publicaciones Procesales
+        // escanea el boletín COMPLETO de un despacho por fecha y empareja por texto -- el
+        // propio portal "solo expone sus boletines mas recientes" (ver DIAS_VENTANA_BUSQUEDA),
+        // así que consultarlo para una actuación vieja nunca encuentra nada real y solo arriesga
+        // un emparejamiento equivocado. Fuera de la ventana se salta directo a la solicitud al
+        // despacho de abajo -- el canal seguro para documentos viejos reportados pero no
+        // subidos.
+        LocalDate fechaActuacion = fechaDeBoletin(actuacion);
+        boolean dentroDeVentanaReciente = fechaActuacion != null
+                && !fechaActuacion.isBefore(LocalDate.now().minusDays(DIAS_VENTANA_BUSQUEDA));
+        ResultadoActuacion resultado;
+        boolean busquedaIncompleta = false;
+        if (dentroDeVentanaReciente) {
+            PublicacionesProcesalesClient.ResultadoBusqueda busqueda = publicacionesProcesalesClient.buscarDocumentosConEstado(
+                    caso.getRadicadoId(), fechaActuacion, actuacion.getNombreActuacion());
+            resultado = descargarYGuardarCandidatos(caso, actuacion, busqueda.candidatos(), busqueda.incompleta());
+            busquedaIncompleta = busqueda.incompleta();
+        } else {
+            resultado = new ResultadoActuacion(0, false);
+        }
 
         // Pedido explícito del usuario (2026-11-04, replicando el flujo real de LUPA
         // Jurídica): si NI el canal exacto de la CPNU NI el heurístico de Publicaciones
@@ -585,7 +611,7 @@ public class BoletinJudicialCacheService {
         // descarta como duplicado (existsByCaso_IdAndUrlOrigen) y resultado.nuevos() da 0 --
         // sin el chequeo de abajo, eso se interpretaba como "nunca se encontró nada" y se le
         // escribía igual al despacho pidiendo un documento que el sistema YA tiene guardado.
-        if (actuacion.isConDocumentos() && resultado.nuevos() == 0 && !busqueda.incompleta()
+        if (actuacion.isConDocumentos() && resultado.nuevos() == 0 && !busquedaIncompleta
                 && !boletinRepository.existsByActuacion_IdAndCoincideNombreActuacionTrue(actuacion.getId())) {
             correoDespachoJudicialService.intentarSolicitarAlDespacho(caso, actuacion);
         }

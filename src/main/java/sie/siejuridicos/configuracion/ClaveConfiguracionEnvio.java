@@ -28,7 +28,13 @@ public enum ClaveConfiguracionEnvio {
     // ningún canal (CPNU exacto ni heurístico de boletines) pudo resolver, con el documento
     // de presentación y autorización del sistema adjunto (ver CorreoDespachoJudicialService).
     // Solo correo: un despacho judicial no recibe WhatsApp.
-    CORREO_DESPACHO_JUDICIAL("Correo a despachos judiciales (solicitud de documento)");
+    CORREO_DESPACHO_JUDICIAL("Correo a despachos judiciales (solicitud de documento)"),
+    // Pedido explícito del usuario (2026-11-09): reporte semanal a gerencia (lunes 8am) de
+    // calidad de datos -- radicados inválidos, clientes sin correo/teléfono capturado y
+    // casos sin proceso identificado en ninguna rama. Ver
+    // ReporteCalidadDatosCasosScheduler. Solo correo: es un reporte interno con varias
+    // tablas, no pensado para WhatsApp.
+    REPORTE_CALIDAD_DATOS_CORREO("Reporte de calidad de datos a gerencia (correo)");
 
     private final String nombreVisible;
 

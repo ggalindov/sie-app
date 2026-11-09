@@ -129,7 +129,15 @@ public class HojaCalculoService {
             int idxRadicado,
             Integer idxNombreCliente,
             int idxCorreoCliente,
-            int idxTelefonoCliente
+            int idxTelefonoCliente,
+            // Pedido explícito del usuario (2026-11-09): "en la columna E se tiene apoderado
+            // que en este caso es el correspondiente abogado asignado... ajusta el abogado
+            // asignado de los casos ya en el sistema". Antes esta columna se leía (ver el
+            // comentario de JUDICIALES/PROCESOS_COMISARIA más arriba, "nunca se expone") pero
+            // jamás se extraía ni se usaba -- null aquí significa "esta fuente no tiene
+            // apoderado" (ej. SUPERINTENDENCIA), igual criterio que el resto de campos Integer
+            // de este record.
+            Integer idxApoderado
     ) {
     }
 
@@ -139,7 +147,7 @@ public class HojaCalculoService {
         Map<FuenteCaso, ConfiguracionFuente> mapa = new EnumMap<>(FuenteCaso.class);
         mapa.put(FuenteCaso.JUDICIALES, new ConfiguracionFuente(
                 FuenteCaso.JUDICIALES, "JUDICIALES!A3:Q",
-                null, 1, 2, null, 3, 7, 9, 8, 6, 5, 15, 16));
+                null, 1, 2, null, 3, 7, 9, 8, 6, 5, 15, 16, 4));
         // idxNumeroCaso=null a propósito -- CAMBIO CRÍTICO DE INTEGRIDAD encontrado en esta
         // migración a la hoja nueva, no en la anterior: JUDICIALES SÍ confiaba en la columna
         // "NO." como llave estable (a diferencia de las otras dos fuentes, ver más abajo),
@@ -158,10 +166,10 @@ public class HojaCalculoService {
         // filas en el futuro.
         mapa.put(FuenteCaso.SUPERINTENDENCIA, new ConfiguracionFuente(
                 FuenteCaso.SUPERINTENDENCIA, "SUPERINTENDENCIA!A4:M",
-                null, 1, 5, 6, null, 7, 8, 9, 3, 5, 11, 12));
+                null, 1, 5, 6, null, 7, 8, 9, 3, 5, 11, 12, null));
         mapa.put(FuenteCaso.PROCESOS_COMISARIA, new ConfiguracionFuente(
                 FuenteCaso.PROCESOS_COMISARIA, "'PROCESOS COMISARÍA'!A3:N",
-                null, 0, 1, null, 2, 6, null, null, 5, 4, 12, 13));
+                null, 0, 1, null, 2, 6, null, null, 5, 4, 12, 13, 3));
 
         // Pedido explícito del usuario: "deja solo Judiciales, Super intendencia y procesos comisaria
         // como esta en produccion... posteriormente integramos las otras hojas".
@@ -385,7 +393,8 @@ public class HojaCalculoService {
                     radicadoValidoOVacio(fila, config.idxRadicado()),
                     config.idxNombreCliente() != null ? valorEn(fila, config.idxNombreCliente()) : null,
                     valorNuloSiVacio(fila, config.idxCorreoCliente()),
-                    valorNuloSiVacio(fila, config.idxTelefonoCliente())
+                    valorNuloSiVacio(fila, config.idxTelefonoCliente()),
+                    config.idxApoderado() != null ? valorNuloSiVacio(fila, config.idxApoderado()) : null
             ));
         }
         // Se desambigua SIEMPRE, no solo en fuentes con columna "NO." real: la huella de
@@ -462,7 +471,8 @@ public class HojaCalculoService {
                         fila.radicadoId(),
                         fila.nombreCliente(),
                         fila.correoCliente(),
-                        fila.telefonoCliente()
+                        fila.telefonoCliente(),
+                        fila.apoderadoNombre()
                 ));
             }
         }

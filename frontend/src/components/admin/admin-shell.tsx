@@ -38,6 +38,7 @@ import { Tooltip } from "@base-ui/react/tooltip";
 import { useAuth } from "@/lib/auth-context";
 import { AdminLoader } from "@/components/admin/ui";
 import { NotificacionesPanel } from "@/components/admin/notificaciones-panel";
+import { CasosPendientesPopup } from "@/components/admin/casos-pendientes-popup";
 import { BuscadorGlobal } from "@/components/admin/buscador-global";
 import { listarSolicitudes, listarPqrs, listarCasos, listarCasosPrivados, listarCobros, listarTareasPendientes, listarProcesosDetectados } from "@/lib/admin-api";
 
@@ -193,7 +194,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   // NotificacionesPanel: un contador es un dato secundario, no debe bloquear ni interrumpir
   // con un toast de error la navegación del panel).
   const [contadores, setContadores] = useState<Record<string, number>>({});
-  const [contraido, setContraido] = useState(false);
+  // Pedido explícito del usuario (2026-11-09): "deja como predeterminado al abrir el sistema
+  // la barra de menu izquierda que quede contraida al abrir el panel" -- default true, el
+  // useEffect de abajo solo lo SOBRESCRIBE si el usuario ya guardó una preferencia explícita
+  // (expandirlo manualmente) en una sesión anterior.
+  const [contraido, setContraido] = useState(true);
 
   useEffect(() => {
     try {
@@ -304,6 +309,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
     // que los hijos flex puedan encogerse por debajo de su alto de contenido -- sin eso el
     // min-height:auto por defecto de un flex item anula el overflow-y-auto interno.
     <div className="flex h-dvh overflow-hidden bg-paper">
+      {/* Pedido explícito del usuario (2026-11-09): popup de integridad Google Sheets <->
+          sistema (casos nuevos identificados + cambios detectados), visible para gerente o
+          abogado sin importar en qué página del panel estén -- montado una sola vez aquí. */}
+      <CasosPendientesPopup />
       {/* Sidebar desktop: semi-oscuro con degradado sutil (de un carbón cálido a un negro
           casi puro) en vez de un bg-night plano -- pedido explícito del usuario tras ver el
           primer intento ("horrible, algo más elegante"): un color sólido liso se veía plano

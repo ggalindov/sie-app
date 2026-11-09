@@ -110,7 +110,18 @@ async function pedido<T>(
 
   if (res.status === 204) return undefined as T;
 
-  return res.json();
+  // Bug real encontrado en vivo (2026-11-09): varios endpoints "void" del backend responden
+  // 200 OK con cuerpo VACÍO (ResponseEntity.ok().build(), ej. PATCH de configuracion-envios)
+  // en vez de 204 -- res.json() sobre un cuerpo vacío lanza SyntaxError ("Unexpected end of
+  // JSON input"), que esta función propagaba como si la petición hubiera fallado. El
+  // interruptor del dashboard SÍ cambiaba en el servidor (confirmado en la base de datos),
+  // pero el frontend revertía el cambio optimista y mostraba "No se pudo actualizar" por este
+  // error de parseo, no por un fallo real -- solo se veía reflejado tras recargar la página.
+  // Leer como texto primero y solo parsear si hay contenido cubre 200-vacío y 204 por igual,
+  // sin tener que tocar cada controlador existente que ya use uno u otro.
+  const texto = await res.text();
+  if (!texto) return undefined as T;
+  return JSON.parse(texto) as T;
 
 }
 
@@ -1447,6 +1458,41 @@ export function reabrirCaso(id: number): Promise<CasoAdmin> {
 
 export function listarCasosFinalizados(): Promise<CasoAdmin[]> {
   return pedido<CasoAdmin[]>("/api/admin/casos/finalizados");
+}
+
+// Pedido explícito del usuario (2026-11-09): popup de "casos nuevos identificados" desde el
+// Google Sheets, con opción de aceptar la vinculación (y editar antes, vía actualizarCaso()).
+export function listarCasosPendientesAprobacion(): Promise<CasoAdmin[]> {
+  return pedido<CasoAdmin[]>("/api/admin/casos/pendientes-aprobacion");
+}
+
+export function aprobarCasoNuevo(id: number): Promise<CasoAdmin> {
+  return pedido<CasoAdmin>(`/api/admin/casos/${id}/aprobar`, { method: "POST" });
+}
+
+export type CasoCambioDetectado = {
+  id: number;
+  casoId: number;
+  numeroCaso: string | null;
+  nombreCliente: string;
+  radicadoId: string | null;
+  campo: string;
+  valorAnterior: string | null;
+  valorNuevo: string | null;
+  fechaDeteccion: string;
+};
+
+// Popup de "casos con cambios detectados" (radicado, nombre o abogado corregidos en la hoja
+// sobre un caso que ya existía).
+export function listarCambiosPendientesCasos(): Promise<CasoCambioDetectado[]> {
+  return pedido<CasoCambioDetectado[]>("/api/admin/casos/cambios-pendientes");
+}
+
+export function marcarCambiosRevisados(ids: number[]): Promise<void> {
+  return pedido<void>("/api/admin/casos/cambios-pendientes/revisar", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
 }
 
 

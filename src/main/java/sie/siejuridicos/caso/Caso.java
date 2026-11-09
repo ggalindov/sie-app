@@ -278,6 +278,48 @@ public class Caso {
     @JoinColumn(name = "finalizado_por_id")
     private UsuarioInterno finalizadoPor;
 
+    // Pedido explícito del usuario (2026-11-09): "cuando el sistema detecte la creacion de un
+    // nuevo caso del google sheet salga un popup de notificaciones de casos nuevos
+    // identificados, donde se pueda aceptar la vinculacion del caso al sistema y se pueda
+    // editar" -- true SOLO en casos creados desde CasoService.sincronizarDesdeHoja() a partir
+    // de la migración V88 (nunca retroactivo sobre casos ya existentes, ver esa migración).
+    // Un caso pendiente sigue viéndose y operando con normalidad en el resto del sistema
+    // (vigilancia, correos, etc.) -- esto es una notificación de revisión, no un bloqueo de
+    // acceso.
+    @Column(name = "pendiente_aprobacion", nullable = false)
+    private boolean pendienteAprobacion = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "aprobado_por_id")
+    private UsuarioInterno aprobadoPor;
+
+    @Column(name = "fecha_aprobado")
+    private LocalDateTime fechaAprobado;
+
+    public boolean isPendienteAprobacion() {
+        return pendienteAprobacion;
+    }
+
+    public void setPendienteAprobacion(boolean pendienteAprobacion) {
+        this.pendienteAprobacion = pendienteAprobacion;
+    }
+
+    public UsuarioInterno getAprobadoPor() {
+        return aprobadoPor;
+    }
+
+    public void setAprobadoPor(UsuarioInterno aprobadoPor) {
+        this.aprobadoPor = aprobadoPor;
+    }
+
+    public LocalDateTime getFechaAprobado() {
+        return fechaAprobado;
+    }
+
+    public void setFechaAprobado(LocalDateTime fechaAprobado) {
+        this.fechaAprobado = fechaAprobado;
+    }
+
     public Long getId() {
         return id;
     }

@@ -153,9 +153,11 @@ export default function CasosAdminPage() {
   // Pedido explícito del usuario: "implementar un nuevo apartado solo para ver asi como en
   // IUS... para ver todos los casos como en un libro de excel" -- un segundo modo de ver la
   // MISMA lista ya cargada/filtrada/ordenada (nunca una página aparte con su propia carga),
-  // como una tabla densa de una sola fila por caso en vez de las tarjetas grandes. Las
-  // tarjetas siguen siendo la vista por defecto -- esto es un complemento, no un reemplazo.
-  const [vista, setVista] = useState<"tarjetas" | "tabla">("tarjetas");
+  // como una tabla densa de una sola fila por caso en vez de las tarjetas grandes. Pedido
+  // explícito del usuario (2026-11-09): "en casos que el pre determinado sea tabla" -- la
+  // tabla pasó a ser la vista por defecto (antes eran las tarjetas), el toggle sigue
+  // permitiendo cambiar a tarjetas cuando se prefiera.
+  const [vista, setVista] = useState<"tarjetas" | "tabla">("tabla");
   // Pedido explícito del usuario (origen): "implementa un ordenador por actualizacion, deja
   // ese predeterminado, arriba se van poniendo los que tuvieron actualizacion de
   // seguimiento" -- el caso con el movimiento judicial real más reciente va primero (ver

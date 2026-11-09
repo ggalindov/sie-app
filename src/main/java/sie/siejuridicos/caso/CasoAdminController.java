@@ -134,6 +134,35 @@ public class CasoAdminController {
         return ResponseEntity.ok(casoService.listarFinalizados());
     }
 
+    // Pedido explícito del usuario (2026-11-09): popup de "casos nuevos identificados" desde
+    // el Google Sheets -- mismo nivel de acceso que el resto del controlador (gerente o
+    // abogado).
+    @GetMapping("/pendientes-aprobacion")
+    public ResponseEntity<List<CasoAdminResponse>> listarPendientesAprobacion() {
+        return ResponseEntity.ok(casoService.listarPendientesAprobacion());
+    }
+
+    @PostMapping("/{id}/aprobar")
+    public ResponseEntity<CasoAdminResponse> aprobarNuevo(
+            @PathVariable Long id, @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        return ResponseEntity.ok(casoService.aprobarCasoNuevo(id, principal.getUsuario()));
+    }
+
+    // Popup de "casos con cambios detectados" (radicado, nombre o abogado corregidos en la
+    // hoja sobre un caso que ya existía) -- ver CasoCambioDetectado.
+    @GetMapping("/cambios-pendientes")
+    public ResponseEntity<List<sie.siejuridicos.caso.dto.CasoCambioDetectadoResponse>> listarCambiosPendientes() {
+        return ResponseEntity.ok(casoService.listarCambiosPendientes());
+    }
+
+    @PostMapping("/cambios-pendientes/revisar")
+    public ResponseEntity<Void> marcarCambiosRevisados(
+            @RequestBody sie.siejuridicos.caso.dto.MarcarCambiosRevisadosRequest request,
+            @AuthenticationPrincipal UsuarioInternoPrincipal principal) {
+        casoService.marcarCambiosRevisados(request.ids(), principal.getUsuario());
+        return ResponseEntity.noContent().build();
+    }
+
     // Botón "Actualizar" del panel: trae/actualiza todos los casos desde el Google Sheets de
     // la firma, sin necesidad de cargarlos uno por uno.
     @PostMapping("/sincronizar")

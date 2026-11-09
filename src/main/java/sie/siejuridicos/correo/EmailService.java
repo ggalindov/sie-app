@@ -1056,9 +1056,19 @@ public class EmailService {
     private boolean enviarSolicitudDocumentoDespachoInterno(String nombreCliente, String correoDespacho,
                                                               String radicadoId, String despachoJudicial,
                                                               String nombreActuacion, byte[] pdfAutorizacion) {
+        // Bug real encontrado en la auditoría de correos (2026-11-09, "mejora y revisa todos
+        // los correos que se despachen perfectamente"): nombreCliente llegaba a este método
+        // pero solo se usaba en el registro interno de auditoría -- la carta que de verdad
+        // recibe el despacho judicial nunca decía a nombre de quién se pedía el documento,
+        // solo "SIE Jurídicos actúa como apoderado judicial dentro del proceso...", sin
+        // identificar la parte representada. En un proceso con varias partes eso deja al
+        // secretario sin forma de verificar la legitimación de la solicitud.
+        String nombreClienteSeguro = (nombreCliente == null || nombreCliente.isBlank())
+                ? "la parte que representa en este proceso" : escaparHtml(nombreCliente);
         String cuerpo = """
                 <p style="margin:0 0 16px;">Señor(a) Juez / Secretario(a),</p>
-                <p style="margin:0 0 16px;">%s actúa como apoderado judicial dentro del proceso con radicado
+                <p style="margin:0 0 16px;">%s, en representación de <strong>%s</strong>, actúa como apoderado
+                judicial dentro del proceso con radicado
                 <strong>%s</strong>%s, y solicita respetuosamente copia de la pieza procesal correspondiente a
                 la siguiente actuación, de la cual el despacho reportó la existencia de documento sin que este
                 se encuentre disponible en el portal público de la Rama Judicial:</p>
@@ -1074,7 +1084,7 @@ public class EmailService {
                 electrónico.</p>
                 %s
                 """.formatted(
-                nombreFirma, escaparHtml(radicadoId),
+                nombreFirma, nombreClienteSeguro, escaparHtml(radicadoId),
                 despachoJudicial != null && !despachoJudicial.isBlank() ? " (" + escaparHtml(despachoJudicial) + ")" : "",
                 COLOR_DORADO, escaparHtml(nombreActuacion),
                 nombreFirma,
@@ -1120,6 +1130,25 @@ public class EmailService {
         boolean exito = enviarHtmlConAdjuntos(correoGerente, asunto, cuerpoHtml, adjuntos, ANCHO_DIGEST_INTERNO);
         registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
                 "Gerencia", correoGerente, adjuntos.size() + " boletín(es)", exito);
+    }
+
+    // Pedido explícito del usuario (2026-11-09): "todos los lunes de la semana a las 8 am que
+    // le mande a la gerencia un reporte de casos con fallos, radicados no correctos o
+    // invalidos, correos y numeros de telefono fallidos o que simplemente no han tenido
+    // reportes correctos en las ramas" -- ver ReporteCalidadDatosCasosScheduler/
+    // ReporteCalidadDatosCasosService, que arman el cuerpoHtml completo (tablas por
+    // categoría de problema) y solo le piden a este método el envío, igual patrón que el
+    // resto de digests de este servicio.
+    @Async
+    public void enviarReporteCalidadDatosGerencia(String correoGerente, String cuerpoHtml, int totalCasosConProblema) {
+        if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.REPORTE_CALIDAD_DATOS_CORREO)) {
+            log.info("Reporte semanal de calidad de datos omitido: REPORTE_CALIDAD_DATOS_CORREO está apagado desde el panel.");
+            return;
+        }
+        String asunto = "REPORTE SEMANAL DE CALIDAD DE DATOS - GERENCIA GENERAL";
+        boolean exito = enviarHtmlConAdjuntos(correoGerente, asunto, cuerpoHtml, List.of(), ANCHO_DIGEST_INTERNO);
+        registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.REPORTE_CALIDAD_DATOS,
+                "Gerencia", correoGerente, totalCasosConProblema + " caso(s) con algún problema detectado", exito);
     }
 
     // Mismo digest, pero solo con los casos asignados a ESE abogado puntual (pedido

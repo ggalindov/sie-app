@@ -34,6 +34,7 @@ import sie.siejuridicos.vigilancia.SeguimientoVistoUsuarioRepository;
 import sie.siejuridicos.vigilancia.TerminoProcesalService;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
+import java.text.Normalizer;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -85,6 +86,7 @@ public class CasoService {
     private final TerminoProcesalService terminoProcesalService;
     private final BoletinJudicialCacheRepository boletinJudicialCacheRepository;
     private final ProcesoCandidatoDetectadoRepository procesoCandidatoDetectadoRepository;
+    private final CasoCambioDetectadoRepository casoCambioDetectadoRepository;
 
     @org.springframework.beans.factory.annotation.Autowired
     public CasoService(CasoRepository casoRepository,
@@ -100,7 +102,8 @@ public class CasoService {
                         UsuarioInternoRepository usuarioInternoRepository,
                         TerminoProcesalService terminoProcesalService,
                         BoletinJudicialCacheRepository boletinJudicialCacheRepository,
-                        ProcesoCandidatoDetectadoRepository procesoCandidatoDetectadoRepository) {
+                        ProcesoCandidatoDetectadoRepository procesoCandidatoDetectadoRepository,
+                        CasoCambioDetectadoRepository casoCambioDetectadoRepository) {
         this.casoRepository = casoRepository;
         this.clienteRepository = clienteRepository;
         this.emailService = emailService;
@@ -115,6 +118,7 @@ public class CasoService {
         this.terminoProcesalService = terminoProcesalService;
         this.boletinJudicialCacheRepository = boletinJudicialCacheRepository;
         this.procesoCandidatoDetectadoRepository = procesoCandidatoDetectadoRepository;
+        this.casoCambioDetectadoRepository = casoCambioDetectadoRepository;
     }
 
     // Constructor de compatibilidad para suites de prueba unitarias
@@ -128,7 +132,7 @@ public class CasoService {
                         LimiteEnvioMasivoService limiteEnvioMasivoService) {
         this(casoRepository, clienteRepository, emailService, whatsAppService,
                 hojaCalculoService, cifradoService, registroSistemaService,
-                limiteEnvioMasivoService, null, null, null, null, null, null);
+                limiteEnvioMasivoService, null, null, null, null, null, null, null);
     }
 
     // Respaldo manual: ya no es el flujo principal (ver sincronizarDesdeHoja()), pero se
@@ -711,6 +715,63 @@ public class CasoService {
                 .toList();
     }
 
+    // Pedido explícito del usuario (2026-11-09): "popup de notificaciones de casos nuevos
+    // identificados, donde se pueda aceptar la vinculacion del caso al sistema y se pueda
+    // editar". Sin enriquecimiento de fechas de actuación (null/null/null): un caso recién
+    // creado por la sincronización todavía no tiene ningún seguimiento judicial corrido.
+    @Transactional(readOnly = true)
+    public List<CasoAdminResponse> listarPendientesAprobacion() {
+        return casoRepository.listarPendientesAprobacion().stream()
+                .map(caso -> CasoAdminResponse.desde(caso, false, null, null, null))
+                .toList();
+    }
+
+    // "aceptar la vinculacion del caso al sistema": el caso ya estaba completamente operativo
+    // desde que se creó (vigilancia, correos, etc. nunca esperaron esta aprobación, ver el
+    // comentario de Caso.pendienteAprobacion) -- esto solo apaga la notificación del popup y
+    // deja constancia de quién la revisó. Si el usuario quiere corregir algún dato antes de
+    // aceptar, el frontend llama primero a actualizar() (PATCH /{id}) con los cambios y luego
+    // a este método.
+    @Transactional
+    public CasoAdminResponse aprobarCasoNuevo(Long id, UsuarioInterno actor) {
+        Caso caso = casoRepository.buscarConClienteYAbogadoPorId(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Caso no encontrado"));
+        caso.setPendienteAprobacion(false);
+        caso.setAprobadoPor(actor);
+        caso.setFechaAprobado(LocalDateTime.now());
+        casoRepository.save(caso);
+        return CasoAdminResponse.desde(caso, false, null, null, null);
+    }
+
+    // Pedido explícito del usuario (2026-11-09): "un pop-up al actualizarlos que detecte que
+    // casos tuvieron cambios y cuales fueron" -- ver CasoCambioDetectado, generado dentro de
+    // sincronizarDesdeHoja().
+    @Transactional(readOnly = true)
+    public List<sie.siejuridicos.caso.dto.CasoCambioDetectadoResponse> listarCambiosPendientes() {
+        return casoCambioDetectadoRepository.listarPendientes().stream()
+                .map(sie.siejuridicos.caso.dto.CasoCambioDetectadoResponse::desde)
+                .toList();
+    }
+
+    // El gerente/abogado revisó el popup (lo cerró, o corrigió lo que había que corregir en la
+    // hoja): esos cambios puntuales ya no deben volver a aparecer. Ids que no existen o que ya
+    // estaban revisados se ignoran sin error -- un doble clic o una pestaña vieja no debe
+    // romper nada.
+    @Transactional
+    public void marcarCambiosRevisados(List<Long> ids, UsuarioInterno actor) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        List<CasoCambioDetectado> cambios = casoCambioDetectadoRepository.findAllByIdIn(ids);
+        LocalDateTime ahora = LocalDateTime.now();
+        for (CasoCambioDetectado cambio : cambios) {
+            cambio.setRevisado(true);
+            cambio.setRevisadoPor(actor);
+            cambio.setFechaRevisado(ahora);
+        }
+        casoCambioDetectadoRepository.saveAll(cambios);
+    }
+
     // Solo la PRIMERA racha de dígitos, no todos los dígitos del texto: "40-2" (un número
     // duplicado en la hoja desambiguado por HojaCalculoService) debe ordenar junto a "40", no
     // como "402" -- concatenar todos los dígitos rompería justo el orden que se está pidiendo.
@@ -751,10 +812,85 @@ public class CasoService {
     // nombre/correo/teléfono del cliente), ese cambio se refleja aquí mismo: si el radicado
     // cambió de verdad (no solo pasó de vacío a asignado), se resetean los indicadores de
     // notificación para que el cliente reciba el radicado correcto en el próximo envío.
+    // Pedido explícito del usuario (2026-11-09): "en la columna E se tiene apoderado que en
+    // este caso es el correspondiente abogado asignado... identifica de ahora en adelante y
+    // ajusta el abogado asignado de los casos ya en el sistema". Quita tildes, pasa a
+    // mayúsculas, colapsa espacios y recorta títulos comunes ("DR.", "DRA.", "ABOGADO/A") para
+    // que "Dr. Carlos Muñoz" y "CARLOS MUÑOZ" (o cualquier combinación de esas dos formas)
+    // normalicen igual.
+    private static final Pattern TITULOS_APODERADO = Pattern.compile(
+            "\\b(DR|DRA|DOCTOR|DOCTORA|AB|ABG|ABOGADO|ABOGADA)\\.?\\b");
+    private static final Pattern ESPACIOS_MULTIPLES = Pattern.compile("\\s+");
+
+    private static String normalizarNombrePersona(String texto) {
+        if (texto == null) {
+            return "";
+        }
+        String sinTildes = Normalizer.normalize(texto, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        String sinTitulos = TITULOS_APODERADO.matcher(sinTildes.toUpperCase(Locale.ROOT)).replaceAll(" ");
+        return ESPACIOS_MULTIPLES.matcher(sinTitulos).replaceAll(" ").strip();
+    }
+
+    // Construye el índice UNA sola vez por corrida (no por fila) -- consultar a cada una de las
+    // ~260 filas sería un N+1 innecesario. Incluye cualquier usuario interno activo
+    // (ABOGADO o ADMIN_GENERAL): la columna "APODERADO(A)" de la hoja representa a quien sea
+    // que esté llevando el caso, sin importar su rol en el sistema.
+    private Map<String, UsuarioInterno> construirIndiceAbogadosPorNombre() {
+        Map<String, UsuarioInterno> indice = new HashMap<>();
+        for (UsuarioInterno usuario : usuarioInternoRepository.findAll()) {
+            if (usuario.isActivo()) {
+                String clave = normalizarNombrePersona(usuario.getNombre());
+                if (!clave.isBlank()) {
+                    indice.put(clave, usuario);
+                }
+            }
+        }
+        return indice;
+    }
+
+    // Nunca asigna si no hay certeza: coincidencia exacta primero (ya normalizada); si no hay
+    // ninguna, solo se acepta una coincidencia parcial (todas las palabras del nombre más
+    // corto contenidas en el más largo, ej. "CARLOS MUÑOZ" dentro de "CARLOS ANDRES MUÑOZ
+    // PEREZ") cuando resulta en EXACTAMENTE un único candidato -- si hay más de uno (dos
+    // abogados con nombres parecidos) o ninguno, se deja sin tocar en vez de adivinar.
+    private UsuarioInterno resolverAbogadoPorApoderado(String apoderadoTexto, Map<String, UsuarioInterno> indice) {
+        String clave = normalizarNombrePersona(apoderadoTexto);
+        if (clave.isBlank()) {
+            return null;
+        }
+        UsuarioInterno exacto = indice.get(clave);
+        if (exacto != null) {
+            return exacto;
+        }
+        List<String> tokensApoderado = List.of(clave.split(" "));
+        UsuarioInterno unicoCandidato = null;
+        for (Map.Entry<String, UsuarioInterno> entrada : indice.entrySet()) {
+            List<String> tokensUsuario = List.of(entrada.getKey().split(" "));
+            List<String> cortos = tokensApoderado.size() <= tokensUsuario.size() ? tokensApoderado : tokensUsuario;
+            List<String> largos = tokensApoderado.size() <= tokensUsuario.size() ? tokensUsuario : tokensApoderado;
+            if (cortos.size() < 2) {
+                // Un solo nombre/apellido suelto es demasiado ambiguo para cruzarlo por
+                // contención de tokens (ej. "LUIS" calzaría con cualquier abogado que se
+                // llame Luis) -- solo se acepta coincidencia exacta para esos casos.
+                continue;
+            }
+            if (largos.containsAll(cortos)) {
+                if (unicoCandidato != null && unicoCandidato != entrada.getValue()) {
+                    return null;
+                }
+                unicoCandidato = entrada.getValue();
+            }
+        }
+        return unicoCandidato;
+    }
+
     @Transactional
     public ResumenSincronizacion sincronizarDesdeHoja() {
         ResultadoSincronizacionHoja resultadoHoja = hojaCalculoService.listarParaSincronizar();
         List<FilaSincronizacionHoja> filas = resultadoHoja.filas();
+        Map<String, UsuarioInterno> indiceAbogados = construirIndiceAbogadosPorNombre();
+        int abogadosAsignados = 0;
         int nuevos = 0;
         int actualizados = 0;
         // Ya NO significa "se descartó" -- el caso se sincroniza igual (ver más abajo), esto
@@ -769,6 +905,10 @@ public class CasoService {
         // solo vería el resultado tras guardar.
         Set<String> radicadosAsignadosEnEstaCorrida = new HashSet<>();
         Map<FuenteCaso, Set<String>> numerosVistosPorFuente = new EnumMap<>(FuenteCaso.class);
+        // Pedido explícito del usuario (2026-11-09): "un pop-up al actualizarlos que detecte
+        // que casos tuvieron cambios y cuales fueron" -- se acumulan aquí y se guardan todos
+        // juntos al final de la corrida (ver CasoCambioDetectado).
+        List<CasoCambioDetectado> cambiosDetectados = new ArrayList<>();
 
         for (FilaSincronizacionHoja fila : filas) {
             String numeroCaso = fila.numeroCaso().strip();
@@ -824,6 +964,16 @@ public class CasoService {
                                 radicado, fila.fuente(), numeroCaso);
                     } else {
                         boolean eraReasignacion = caso.getRadicadoId() != null;
+                        // Pedido explícito del usuario (2026-11-09): "un pop-up al
+                        // actualizarlos que detecte que casos tuvieron cambios y cuales
+                        // fueron". Solo se registra cuando YA había un radicado real distinto
+                        // (eraReasignacion) -- la asignación de radicado por PRIMERA vez a un
+                        // caso que no tenía ninguno es progreso normal, no una corrección que
+                        // alguien necesite revisar.
+                        if (eraReasignacion) {
+                            cambiosDetectados.add(CasoCambioDetectado.de(
+                                    caso, "radicado", caso.getRadicadoId(), radicado));
+                        }
                         caso.setRadicadoId(radicado);
                         registrarSiRadicadoInvalido(caso);
                         if (eraReasignacion) {
@@ -850,7 +1000,25 @@ public class CasoService {
                 // riesgo de pisar el nombre de OTRO caso del mismo cliente.
                 String nombreDeLaFila = fila.nombreCliente();
                 if (nombreDeLaFila != null && !nombreDeLaFila.equals(caso.getNombreEnHoja())) {
+                    if (caso.getNombreEnHoja() != null && !caso.getNombreEnHoja().isBlank()) {
+                        cambiosDetectados.add(CasoCambioDetectado.de(
+                                caso, "nombre_en_hoja", caso.getNombreEnHoja(), nombreDeLaFila));
+                    }
                     caso.setNombreEnHoja(nombreDeLaFila);
+                    cambio = true;
+                }
+                UsuarioInterno abogadoDetectado = resolverAbogadoPorApoderado(fila.apoderadoNombre(), indiceAbogados);
+                if (abogadoDetectado != null && !abogadoDetectado.equals(caso.getAbogadoAsignado())) {
+                    // Igual criterio que el radicado arriba: solo se alerta una REASIGNACIÓN
+                    // (ya había otro abogado asignado), nunca la primera asignación -- incluida
+                    // la del backfill inicial de esta misma funcionalidad sobre los casos que
+                    // ya estaban en el sistema sin abogado.
+                    if (caso.getAbogadoAsignado() != null) {
+                        cambiosDetectados.add(CasoCambioDetectado.de(caso, "abogado_asignado",
+                                caso.getAbogadoAsignado().getNombre(), abogadoDetectado.getNombre()));
+                    }
+                    caso.setAbogadoAsignado(abogadoDetectado);
+                    abogadosAsignados++;
                     cambio = true;
                 }
                 if (cambio) {
@@ -892,9 +1060,25 @@ public class CasoService {
             nuevoCaso.setNumeroCaso(numeroCaso);
             nuevoCaso.setRadicadoId(radicadoAUsar);
             nuevoCaso.setNombreEnHoja(fila.nombreCliente());
+            // Pedido explícito del usuario (2026-11-09): "cuando el sistema detecte la
+            // creacion de un nuevo caso del google sheet salga un popup de notificaciones de
+            // casos nuevos identificados". Solo casos GENUINAMENTE nuevos pasan por esta rama
+            // (la reconciliación de arriba ya hizo match por fuente+numeroCaso) -- nunca
+            // retroactivo sobre los cientos de casos que ya existían antes de esta
+            // funcionalidad (ver migración V88, DEFAULT FALSE).
+            nuevoCaso.setPendienteAprobacion(true);
+            UsuarioInterno abogadoDelNuevoCaso = resolverAbogadoPorApoderado(fila.apoderadoNombre(), indiceAbogados);
+            if (abogadoDelNuevoCaso != null) {
+                nuevoCaso.setAbogadoAsignado(abogadoDelNuevoCaso);
+                abogadosAsignados++;
+            }
             casoRepository.save(nuevoCaso);
             registrarSiRadicadoInvalido(nuevoCaso);
             nuevos++;
+        }
+
+        if (!cambiosDetectados.isEmpty()) {
+            casoCambioDetectadoRepository.saveAll(cambiosDetectados);
         }
 
         Set<FuenteCaso> fuentesConError = new HashSet<>(resultadoHoja.fuentesConError());
@@ -922,8 +1106,8 @@ public class CasoService {
 
         registroSistemaService.registrar(
                 TipoRegistroSistema.SINCRONIZACION_CASOS,
-                "%d fila(s) leída(s), %d nuevo(s), %d actualizado(s), %d eliminado(s), %d sin correo, %d radicado(s) duplicado(s)%s"
-                        .formatted(filas.size(), nuevos, actualizados, eliminados, omitidos, radicadosDuplicados,
+                "%d fila(s) leída(s), %d nuevo(s), %d actualizado(s), %d eliminado(s), %d sin correo, %d radicado(s) duplicado(s), %d abogado(s) asignado(s) desde la hoja%s"
+                        .formatted(filas.size(), nuevos, actualizados, eliminados, omitidos, radicadosDuplicados, abogadosAsignados,
                                 radicadosInvalidos > 0
                                         ? ", %d radicado(s) con formato inválido (ignorados)".formatted(radicadosInvalidos)
                                         : ""),

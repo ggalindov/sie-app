@@ -359,39 +359,45 @@ public class CromaLegalProService {
         if (request.debeBuscarBoletinesEnVivo()) {
             Map<String, DocumentoProvidenciaCandidato> porUrl = new LinkedHashMap<>();
 
-            // 6.a y 6.b: pedido explícito del usuario (2026-11-06: "que croma traiga todo lo
-            // que exponga o lo que nos pueda retornar, con legal-pro que traiga muchas mas
-            // cosas adicionales") -- ANTES esto se acotaba a "los últimos boletines del mes",
-            // dejando fuera para siempre cualquier documento de una actuación más vieja que
-            // eso en cada consulta en vivo. Ahora se considera el HISTORIAL COMPLETO del
-            // expediente: las actuaciones con documento disponible más RECIENTES primero
-            // (orden natural de exp.actuaciones(), más nueva primero), con un tope generoso
-            // (antes 5) para que la consulta siga respondiendo en segundos -- el canal exacto
-            // de CPNU es un GET puntual por actuación (~0.4-0.5s cada uno, ver
+            // 6.a y 6.b: pedido explícito del usuario (2026-11-09: "el sistema esta trayendo
+            // boletines del 2025 y fechas anteriores... de ahora en adelante el sistema solo
+            // busca los boletines de los ultimos dos meses maximo... necesitamos son los
+            // boletines mas recientes") -- revierte a propósito el diseño sin ventana del
+            // 2026-11-06 ("que croma traiga todo lo que exponga"): eso valía para el HISTORIAL
+            // de actuaciones (actuacionesConsolidada, que sigue sin recortar más abajo), pero
+            // no para la BÚSQUEDA de documentos/boletines, que sí debe acotarse a lo reciente.
+            // El canal exacto de CPNU es un GET puntual por actuación (~0.4-0.5s cada uno, ver
             // RamaJudicialCpnuClient), nunca una búsqueda pesada. completeOnTimeout sigue
-            // protegiendo la UI: si el expediente tiene muchísimas actuaciones con documento,
-            // esta consulta en vivo trae las que alcance dentro del tiempo y el resto ya debe
-            // estar cacheado por el ciclo 24/7 (ver boletinesCacheados más abajo, que ya
-            // muestra TODO el historial, sin ventana de fecha).
+            // protegiendo la UI.
+            LocalDate ventanaBoletines = LocalDate.now().minusDays(60);
             java.util.LinkedHashSet<LocalDate> fechasEstadoDelCaso = new java.util.LinkedHashSet<>();
             for (ActuacionRegistradaResponse act : actuacionesConsolidada) {
                 LocalDate fReg = act.fechaRegistro() != null ? act.fechaRegistro().toLocalDate() : null;
                 LocalDate fAct = act.fechaActuacion() != null ? act.fechaActuacion().toLocalDate() : null;
+                if ((fReg == null || fReg.isBefore(ventanaBoletines)) && (fAct == null || fAct.isBefore(ventanaBoletines))) {
+                    continue;
+                }
                 String nom = act.nombreActuacion() != null ? act.nombreActuacion().toLowerCase() : "";
                 if (nom.contains("estado") || nom.contains("traslado") || nom.contains("auto") || nom.contains("sentencia") || fechasEstadoDelCaso.size() < 8) {
-                    if (fReg != null) fechasEstadoDelCaso.add(fReg);
-                    if (fAct != null) fechasEstadoDelCaso.add(fAct);
+                    if (fReg != null && !fReg.isBefore(ventanaBoletines)) fechasEstadoDelCaso.add(fReg);
+                    if (fAct != null && !fAct.isBefore(ventanaBoletines)) fechasEstadoDelCaso.add(fAct);
                 }
                 if (fechasEstadoDelCaso.size() >= 25) {
                     break;
                 }
             }
-            if (fechasEstadoDelCaso.isEmpty() && exp.fechaUltimaActuacion() != null) {
+            if (fechasEstadoDelCaso.isEmpty() && exp.fechaUltimaActuacion() != null
+                    && !exp.fechaUltimaActuacion().isBefore(ventanaBoletines)) {
                 fechasEstadoDelCaso.add(exp.fechaUltimaActuacion());
             }
 
             List<ActuacionJudicial> actuacionesConDocs = exp.actuaciones().stream()
                     .filter(ActuacionJudicial::conDocumentos)
+                    .filter(a -> {
+                        LocalDate f = a.fechaRegistro() != null ? a.fechaRegistro().toLocalDate()
+                                : (a.fechaActuacion() != null ? a.fechaActuacion().toLocalDate() : null);
+                        return f != null && !f.isBefore(ventanaBoletines);
+                    })
                     .limit(40)
                     .toList();
 
@@ -438,12 +444,17 @@ public class CromaLegalProService {
 
             // 6.c) Extraer enlaces directos embebidos en las anotaciones del juzgado (ej. acortar.link, micrositios)
             //      más el enlace directo al tablero de Estados Electrónicos del despacho en Publicaciones Procesales
-            // Sin ventana de fecha (2026-11-06): se revisa TODO el historial consolidado, no
-            // solo el último mes -- un enlace embebido en una anotación antigua sigue siendo
-            // un documento real que el cliente/abogado puede necesitar.
+            // Acotado a ventanaBoletines (2026-11-09, revierte el "sin ventana de fecha" del
+            // 2026-11-06): mismo criterio que el resto de esta sección -- solo documentos/
+            // enlaces recientes, no todo el historial.
             Pattern patronUrl = Pattern.compile("(https?://[^\\s\"'<>]+)", Pattern.CASE_INSENSITIVE);
             for (ActuacionRegistradaResponse act : actuacionesConsolidada) {
                 if (act.anotacion() == null || !act.anotacion().toLowerCase().contains("http")) {
+                    continue;
+                }
+                LocalDate fReg = act.fechaRegistro() != null ? act.fechaRegistro().toLocalDate() : null;
+                LocalDate fAct = act.fechaActuacion() != null ? act.fechaActuacion().toLocalDate() : null;
+                if ((fReg == null || fReg.isBefore(ventanaBoletines)) && (fAct == null || fAct.isBefore(ventanaBoletines))) {
                     continue;
                 }
                 Matcher mUrl = patronUrl.matcher(act.anotacion());
@@ -467,16 +478,19 @@ public class CromaLegalProService {
             documentosEnVivo = new ArrayList<>(porUrl.values());
         }
 
-        // Pedido explícito del usuario (2026-11-06): "que croma traiga todo lo que exponga o
-        // lo que nos pueda retornar" -- ANTES esto escondía del informe cualquier boletín ya
-        // cacheado por el ciclo 24/7 (ver BoletinJudicialCacheService) con más de ~30 días de
-        // antigüedad, aunque el documento SÍ estuviera disponible y descargado. Un informe de
-        // "toda la información del caso" tiene que mostrar TODO lo que el sistema ya resolvió,
-        // sin importar cuándo se publicó.
+        // CORRECCIÓN (2026-11-09, pedido explícito del usuario: "el sistema esta trayendo
+        // boletines del 2025 y fechas anteriores... de ahora en adelante el sistema solo busca
+        // los boletines de los ultimos dos meses maximo... necesitamos son los boletines mas
+        // recientes") -- revierte a propósito el "sin importar cuándo se publicó" del
+        // 2026-11-06: el informe ya no muestra boletines cacheados más viejos que 60 días,
+        // aunque el ciclo 24/7 los conserve en caché (otros reportes/el admin de boletines sí
+        // pueden seguir mostrando el historial completo, esto es específico de Legal-Pro).
+        LocalDate ventanaBoletinesCacheados = LocalDate.now().minusDays(60);
         List<BoletinJudicialResponse> boletinesCacheados = caso != null
                 ? boletinRepository.listarConCasoPorCasoId(caso.getId())
                         .stream()
                         .map(BoletinJudicialResponse::desde)
+                        .filter(b -> b.fechaEmision() == null || !b.fechaEmision().toLocalDate().isBefore(ventanaBoletinesCacheados))
                         .toList()
                 : List.of();
 

@@ -13,6 +13,7 @@ import sie.siejuridicos.hojacalculo.HojaCalculoService;
 import sie.siejuridicos.hojacalculo.dto.FilaSincronizacionHoja;
 import sie.siejuridicos.hojacalculo.dto.ResultadoSincronizacionHoja;
 import sie.siejuridicos.registro.RegistroSistemaService;
+import sie.siejuridicos.usuario.UsuarioInternoRepository;
 import sie.siejuridicos.whatsapp.WhatsAppService;
 
 import java.util.List;
@@ -54,10 +55,21 @@ class CasoServiceSincronizacionTest {
     private RegistroSistemaService registroSistemaService;
     @Mock
     private LimiteEnvioMasivoService limiteEnvioMasivoService;
+    // Pedido explícito del usuario (2026-11-09): sincronizarDesdeHoja() ahora cruza el
+    // apoderado de la hoja contra UsuarioInternoRepository en CADA corrida (ver
+    // construirIndiceAbogadosPorNombre()) y registra cambios detectados (radicado, nombre,
+    // abogado) vía CasoCambioDetectadoRepository -- ambos mocks necesarios para que las
+    // pruebas de esta clase sigan ejercitando sincronizarDesdeHoja() sin NullPointerException,
+    // aunque ninguna de ellas verse sobre apoderados o cambios detectados en sí.
+    @Mock
+    private UsuarioInternoRepository usuarioInternoRepository;
+    @Mock
+    private CasoCambioDetectadoRepository casoCambioDetectadoRepository;
 
     private CasoService crearServicio() {
         return new CasoService(casoRepository, clienteRepository, emailService, whatsAppService,
-                hojaCalculoService, cifradoService, registroSistemaService, limiteEnvioMasivoService);
+                hojaCalculoService, cifradoService, registroSistemaService, limiteEnvioMasivoService,
+                null, null, usuarioInternoRepository, null, null, null, casoCambioDetectadoRepository);
     }
 
     private void mockearHashIdentidad() {
@@ -92,7 +104,7 @@ class CasoServiceSincronizacionTest {
         Caso casoDiez = casoExistente("10", "RAD-100", true);
 
         FilaSincronizacionHoja filaNueva = new FilaSincronizacionHoja(
-                FuenteCaso.JUDICIALES, "20", "RAD-100", "Otro Cliente", "otro@correo.com", null);
+                FuenteCaso.JUDICIALES, "20", "RAD-100", "Otro Cliente", "otro@correo.com", null, null);
         when(hojaCalculoService.listarParaSincronizar())
                 .thenReturn(new ResultadoSincronizacionHoja(List.of(filaNueva), List.of()));
         when(casoRepository.findByFuenteAndNumeroCaso(FuenteCaso.JUDICIALES, "20")).thenReturn(Optional.empty());
@@ -131,7 +143,7 @@ class CasoServiceSincronizacionTest {
         Caso caso = casoExistente("10", "RAD-100", true);
 
         FilaSincronizacionHoja filaReconfirmada = new FilaSincronizacionHoja(
-                FuenteCaso.JUDICIALES, "10", "RAD-100", "Cliente 10", "cliente10@correo.com", null);
+                FuenteCaso.JUDICIALES, "10", "RAD-100", "Cliente 10", "cliente10@correo.com", null, null);
         when(hojaCalculoService.listarParaSincronizar())
                 .thenReturn(new ResultadoSincronizacionHoja(List.of(filaReconfirmada), List.of()));
         when(casoRepository.findByFuenteAndNumeroCaso(FuenteCaso.JUDICIALES, "10")).thenReturn(Optional.of(caso));
@@ -157,7 +169,7 @@ class CasoServiceSincronizacionTest {
         Caso caso = casoExistente("10", "RAD-100-VIEJO", true);
 
         FilaSincronizacionHoja filaCorregida = new FilaSincronizacionHoja(
-                FuenteCaso.JUDICIALES, "10", "RAD-100-NUEVO", "Cliente 10", "cliente10@correo.com", null);
+                FuenteCaso.JUDICIALES, "10", "RAD-100-NUEVO", "Cliente 10", "cliente10@correo.com", null, null);
         when(hojaCalculoService.listarParaSincronizar())
                 .thenReturn(new ResultadoSincronizacionHoja(List.of(filaCorregida), List.of()));
         when(casoRepository.findByFuenteAndNumeroCaso(FuenteCaso.JUDICIALES, "10")).thenReturn(Optional.of(caso));
