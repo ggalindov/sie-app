@@ -750,10 +750,34 @@ public class BoletinJudicialDigestService {
         return html.toString();
     }
 
-    // Formato cliente semanal (se mantiene intacto para clientes individuales)
+    // Rediseño (2026-11-09, pedido explícito del usuario: "aplica un rediseno al formato,
+    // hazlo mas bonitos y mas entendibles, hazlos mas anchos... que no unicamente ponga el
+    // numero de radicado sino la ultima accion de su caso tambien") -- antes solo mostraba el
+    // radicado y la lista de documentos de ESTA semana; ahora, antes que nada, muestra la
+    // última actuación real del proceso completo (puede ser de cualquier fecha, incluso sin
+    // documento adjunto) para que el cliente entienda de un vistazo en qué va su caso, no solo
+    // qué PDFs le llegaron.
     private String construirCuerpoDigestCliente(Caso caso, String nombreMostrado, List<BoletinJudicialCache> boletines, String introduccion) {
         String enlace = emailService.enlaceConsultaDirecto(caso.getRadicadoId());
         String radicadoLegible = RadicadoUtil.formatearLegible(caso.getRadicadoId());
+
+        List<ActuacionJudicialRegistrada> actuaciones = actuacionRepository.findByCasoOrderByFechaRegistroDesc(caso);
+        ActuacionJudicialRegistrada ultimaActuacion = actuaciones.isEmpty() ? null : actuaciones.get(0);
+        String bloqueUltimaActuacion = "";
+        if (ultimaActuacion != null) {
+            LocalDateTime fecha = ultimaActuacion.getFechaRegistro() != null
+                    ? ultimaActuacion.getFechaRegistro() : ultimaActuacion.getFechaActuacion();
+            String fechaTexto = fecha != null ? fecha.format(FECHA_CORTO) : "Fecha no disponible";
+            String nombreActuacion = ultimaActuacion.getNombreActuacion() != null && !ultimaActuacion.getNombreActuacion().isBlank()
+                    ? ultimaActuacion.getNombreActuacion() : "Actuación registrada";
+            bloqueUltimaActuacion = """
+                    <div style="background-color:#FBF7ED;border-left:4px solid #D9A925;border-radius:8px;padding:16px 20px;margin:0 0 22px;">
+                      <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.6px;text-transform:uppercase;color:#A9861A;font-weight:bold;">Última actuación de tu proceso</p>
+                      <p style="margin:0 0 3px;font-size:16px;font-weight:bold;color:#0f172a;">%s</p>
+                      <p style="margin:0;font-size:13px;color:#64748b;">%s</p>
+                    </div>
+                    """.formatted(escaparHtml(nombreActuacion), escaparHtml(fechaTexto));
+        }
 
         StringBuilder docs = new StringBuilder();
         for (BoletinJudicialCache boletin : boletines) {
@@ -762,27 +786,33 @@ public class BoletinJudicialDigestService {
                     ? ActuacionRegistradaResponse.desde(actuacion).nombreActuacion()
                     : "Documento oficial del despacho";
             docs.append("""
-                    <li style="margin-bottom:6px;"><strong>%s</strong><br>
-                    <span style="font-size:12px;color:#64748b;">%s</span><br>
-                    <a href="%s" style="font-size:12px;color:#D9A925;font-weight:bold;text-decoration:underline;">Ver documento &rarr;</a></li>
-                    """.formatted(escaparHtml(boletin.getNombreArchivo()), escaparHtml(descripcion), enlaceDocumentoPropio(boletin)));
+                    <div style="background-color:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;margin-bottom:10px;">
+                      <p style="margin:0 0 2px;font-size:14px;font-weight:bold;color:#0f172a;">%s</p>
+                      <p style="margin:0 0 8px;font-size:12px;color:#64748b;">%s</p>
+                      <a href="%s" style="font-size:12px;color:#D9A925;font-weight:bold;text-decoration:underline;">Ver documento &rarr;</a>
+                    </div>
+                    """.formatted(escaparHtml(descripcion), escaparHtml(boletin.getNombreArchivo()), enlaceDocumentoPropio(boletin)));
         }
+        String bloqueDocumentos = docs.isEmpty() ? "" : """
+                <p style="margin:0 0 10px;font-weight:bold;font-size:12px;color:#0f172a;text-transform:uppercase;letter-spacing:0.4px;">Documentos y novedades de la semana</p>
+                %s
+                """.formatted(docs);
 
         return """
-                <p style="margin:0 0 16px;font-size:15px;color:#334155;">%s</p>
-                <div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin-bottom:20px;">
-                  <p style="margin:0 0 4px;font-size:16px;font-weight:bold;color:#0f172a;">%s</p>
-                  <p style="margin:0 0 16px;font-family:monospace;font-size:14px;color:#D9A925;font-weight:bold;">%s</p>
-                  <p style="margin:0 0 8px;font-weight:bold;font-size:13px;color:#0f172a;text-transform:uppercase;">Documentos y Novedades de la Semana:</p>
-                  <ul style="margin:0 0 16px;padding-left:20px;color:#334155;">%s</ul>
-                  <p style="margin:0;">
-                    <a href="%s" style="background-color:#D9A925;color:#ffffff;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block;">
+                <p style="margin:0 0 20px;font-size:15px;color:#334155;">%s</p>
+                <div style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:26px;margin-bottom:22px;">
+                  <p style="margin:0 0 6px;font-size:18px;font-weight:bold;color:#0f172a;line-height:1.3;">%s</p>
+                  <p style="margin:0 0 20px;display:inline-block;font-family:monospace;font-size:13px;color:#A9861A;font-weight:bold;background-color:#FBF7ED;padding:5px 10px;border-radius:5px;">%s</p>
+                  %s
+                  %s
+                  <p style="margin:4px 0 0;">
+                    <a href="%s" style="background-color:#D9A925;color:#ffffff;padding:11px 22px;border-radius:7px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">
                       Consultar estado de mi proceso &rarr;
                     </a>
                   </p>
                 </div>
-                """.formatted(introduccion, escaparHtml(nombreMostrado),
-                escaparHtml(radicadoLegible), docs, enlace);
+                """.formatted(introduccion, escaparHtml(nombreMostrado), escaparHtml(radicadoLegible),
+                bloqueUltimaActuacion, bloqueDocumentos, enlace);
     }
 
     private static String escaparHtml(String texto) {

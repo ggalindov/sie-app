@@ -1178,13 +1178,20 @@ public class EmailService {
     // abogado, ver BoletinJudicialDigestService.construirCuerpoDigest()), que si incluye
     // esa tabla con última actualización, documentos con descripción y el link directo a
     // la consulta de caso.
+    // Pedido explícito del usuario (2026-11-09): "hazlo mas ancho" -- antes se quedaba en el
+    // ancho por defecto de 600px (pensado para un correo de texto simple de una columna);
+    // 680px sigue siendo un ancho seguro para clientes de correo (Outlook, Gmail, Apple Mail)
+    // pero deja más aire a la tarjeta de última actuación y a la lista de documentos.
+    private static final int ANCHO_DIGEST_CLIENTE = 680;
+
     public boolean enviarDigestBoletinCliente(String nombreCliente, String correo, String radicadoId, String cuerpoHtml,
                                                List<Adjunto> adjuntos) {
         if (!configuracionEnviosService.estaActivo(ClaveConfiguracionEnvio.BOLETIN_JUDICIAL_CORREO)) {
             log.info("Digest de boletín judicial al cliente omitido: BOLETIN_JUDICIAL_CORREO está apagado desde el panel.");
             return false;
         }
-        boolean exito = enviarHtmlConAdjuntos(correo, "Novedades de tu proceso " + radicadoId + " - " + nombreFirma, cuerpoHtml, adjuntos);
+        boolean exito = enviarHtmlConAdjuntos(correo, "Novedades de tu proceso " + radicadoId + " - " + nombreFirma, cuerpoHtml,
+                adjuntos, ANCHO_DIGEST_CLIENTE);
         registroEnvioService.registrar(CanalEnvio.EMAIL, TipoEnvio.BOLETIN_JUDICIAL,
                 nombreCliente, correo, "Radicado " + radicadoId + " (" + adjuntos.size() + " documento(s))", exito);
         return exito;
