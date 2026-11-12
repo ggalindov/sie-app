@@ -200,7 +200,14 @@ public class DocumentoPdfStamper {
         if (firmante.getFirmaImagenPng() != null) {
             try {
                 Image imagen = Image.getInstance(firmante.getFirmaImagenPng());
-                imagen.scaleToFit(170, 64);
+                // Pedido explícito del usuario (2026-11-12): "aumenta el tamaño de peso de
+                // las firmas" -- antes 170x64pt se veía pequeña dentro de la celda de firma
+                // (columna de ~210pt de ancho real en carta, ver bloqueFirma: tabla a 100%
+                // con pesos {1.3f, 1f} sobre 528pt de contenido, menos 20pt de padding de la
+                // celda). 200x75pt mantiene la misma proporción (2.656:1, igual que el
+                // lienzo 640x240 de SignatureImageProcessor) y deja ~10pt de margen real
+                // contra el borde de la celda, sin desbordarla.
+                imagen.scaleToFit(200, 75);
                 imagen.setAlignment(Element.ALIGN_CENTER);
                 return imagen;
             } catch (Exception ex) {
