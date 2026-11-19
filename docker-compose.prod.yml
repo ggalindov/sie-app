@@ -30,7 +30,7 @@ services:
       - sie_juridicos_data:/var/lib/postgresql/data
     networks:
       - sie_red
-    mem_limit: ${POSTGRES_MEM_LIMIT:-384m}
+    mem_limit: ${POSTGRES_MEM_LIMIT:-1024m}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s

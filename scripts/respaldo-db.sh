@@ -36,7 +36,7 @@ DB_NAME=$(grep -E '^DB_NAME=' .env.prod | cut -d= -f2-)
 ARCHIVO="$DIR_RESPALDOS/sie-juridicos-${FECHA}.sql.gz"
 
 if docker compose -f docker-compose.prod.yml exec -T postgres \
-    pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$ARCHIVO"; then
+    pg_dump -U "$DB_USER" --exclude-table-data=boletines_judiciales_cache "$DB_NAME" | gzip > "$ARCHIVO"; then
     echo "$(date -Iseconds) OK: respaldo creado en $ARCHIVO ($(du -h "$ARCHIVO" | cut -f1))"
 else
     echo "$(date -Iseconds) ERROR: pg_dump falló, revisa que el contenedor postgres esté sano" >&2
