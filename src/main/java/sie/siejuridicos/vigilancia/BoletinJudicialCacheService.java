@@ -733,14 +733,13 @@ public class BoletinJudicialCacheService {
         nuevo.setActuacion(actuacion);
         nuevo.setNombreArchivo(nombreArchivo);
         nuevo.setUrlOrigen(urlOrigen);
-        nuevo.setContenidoBytes(bytes);
         nuevo.setHashSha256(sha256(bytes));
         nuevo.setTokenPublico(java.util.UUID.randomUUID().toString());
         nuevo.setCoincideNombreActuacion(coincideNombre);
         LocalDateTime ahora = LocalDateTime.now();
         nuevo.setFechaDescarga(ahora);
         nuevo.setFechaExpiracion(ahora.plusDays(DIAS_VENCIMIENTO_CACHE));
-        boletinRepository.save(nuevo);
+        boletinRepository.guardarConContenido(nuevo, bytes);
     }
 
     // Sin @Transactional a propósito: se llama por self-invocation desde procesarActuacion()

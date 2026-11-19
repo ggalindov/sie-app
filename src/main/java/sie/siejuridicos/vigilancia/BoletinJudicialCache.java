@@ -52,8 +52,8 @@ public class BoletinJudicialCache {
     @Column(name = "url_origen", nullable = false)
     private String urlOrigen;
 
-    @Column(name = "contenido_bytes", nullable = false)
-    private byte[] contenidoBytes;
+    // contenido_bytes NO se mapea a proposito (caida 2026-11-19: 324 MB de PDFs cargados en el
+    // heap por cualquier consulta). Ver BoletinJudicialCacheRepository.leerContenido().
 
     @Column(name = "hash_sha256", nullable = false)
     private String hashSha256;
@@ -119,14 +119,6 @@ public class BoletinJudicialCache {
 
     public void setUrlOrigen(String urlOrigen) {
         this.urlOrigen = urlOrigen;
-    }
-
-    public byte[] getContenidoBytes() {
-        return contenidoBytes;
-    }
-
-    public void setContenidoBytes(byte[] contenidoBytes) {
-        this.contenidoBytes = contenidoBytes;
     }
 
     public String getHashSha256() {

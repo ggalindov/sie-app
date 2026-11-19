@@ -261,7 +261,16 @@ public class VigilanciaAdminController {
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         org.springframework.http.ContentDisposition.inline()
                                 .filename(boletin.getNombreArchivo()).build().toString())
-                .body(boletin.getContenidoBytes());
+                .body(leerContenidoBoletin(boletin));
+    }
+
+    // Los bytes del PDF ya no viven en la entidad (migracion V89): se leen solo al entregar.
+    private byte[] leerContenidoBoletin(BoletinJudicialCache boletin) {
+        byte[] bytes = boletinJudicialCacheRepository.leerContenido(boletin.getId());
+        if (bytes == null) {
+            throw new RecursoNoEncontradoException("Boletín no encontrado");
+        }
+        return bytes;
     }
 
     // Línea de tiempo judicial de UN caso: la trazabilidad independiente por caso que pidió
@@ -612,7 +621,7 @@ public class VigilanciaAdminController {
         BoletinJudicialCache masReciente = boletinJudicialCacheRepository.findByCaso_Id(id).stream()
                 .max(Comparator.comparing(BoletinJudicialCache::getFechaDescarga))
                 .orElseThrow(() -> new RecursoNoEncontradoException("Este caso no tiene ningún boletín cacheado todavía."));
-        EmailService.Adjunto adjunto = new EmailService.Adjunto(masReciente.getNombreArchivo(), masReciente.getContenidoBytes());
+        EmailService.Adjunto adjunto = new EmailService.Adjunto(masReciente.getNombreArchivo(), leerContenidoBoletin(masReciente));
         boolean exito = emailService.enviarReporteSemanalCasoConBoletinSincrono(
                 nombreMostrado(caso), caso.getCliente().getCorreo(), caso.getRadicadoId(), adjunto);
         return ResponseEntity.ok(exito);

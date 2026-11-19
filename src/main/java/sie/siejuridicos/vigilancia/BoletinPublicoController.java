@@ -38,6 +38,14 @@ public class BoletinPublicoController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.inline().filename(boletin.getNombreArchivo()).build().toString())
-                .body(boletin.getContenidoBytes());
+                .body(leerContenido(boletin));
+    }
+
+    private byte[] leerContenido(BoletinJudicialCache boletin) {
+        byte[] bytes = boletinRepository.leerContenido(boletin.getId());
+        if (bytes == null) {
+            throw new RecursoNoEncontradoException("Documento no encontrado");
+        }
+        return bytes;
     }
 }

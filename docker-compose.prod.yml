@@ -51,6 +51,8 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
+      # Si la JVM agota el heap, que se CIERRE (Docker la reinicia) en vez de quedar viva y sorda (caida 2026-11-19).
+      - JAVA_TOOL_OPTIONS=-XX:+ExitOnOutOfMemoryError
       - SPRING_PROFILES_ACTIVE=prod
       # Bug real encontrado en auditoría: sin esto, el default de app.bloqueo-total-clientes
       # (true, pensado para desarrollo local) bloqueaba en silencio TODOS los envíos
@@ -139,7 +141,7 @@ services:
     # Metaspace por encima del techo antiguo. El VPS tiene RAM de sobra (confirmado con
     # `free -h`: 3.8G totales, 2.3G libres con los 4 contenedores ya corriendo), así que hay
     # margen real para subir el límite en vez de exprimir la JVM (ver Dockerfile).
-    mem_limit: ${BACKEND_MEM_LIMIT:-1024m}
+    mem_limit: ${BACKEND_MEM_LIMIT:-2048m}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/salud"]
       interval: 30s

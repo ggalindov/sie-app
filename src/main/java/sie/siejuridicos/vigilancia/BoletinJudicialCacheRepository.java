@@ -1,8 +1,10 @@
 package sie.siejuridicos.vigilancia;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,6 +15,24 @@ public interface BoletinJudicialCacheRepository extends JpaRepository<BoletinJud
     // Idempotencia: nunca se vuelve a descargar/cachear el mismo boletín para el mismo caso
     // (ver migración V63, UNIQUE(id_caso, url_origen)).
     boolean existsByCaso_IdAndUrlOrigen(Long casoId, String urlOrigen);
+
+    // Los bytes del PDF viven FUERA de la entidad (caida 2026-11-19, ver migracion V89): solo
+    // se leen aqui, uno a la vez, cuando de verdad se va a entregar el documento.
+    @Query(value = "SELECT contenido_bytes FROM boletines_judiciales_cache WHERE id = :id", nativeQuery = true)
+    byte[] leerContenido(@Param("id") Long id);
+
+    @Modifying
+    @Query(value = "UPDATE boletines_judiciales_cache SET contenido_bytes = :bytes WHERE id = :id", nativeQuery = true)
+    void escribirContenido(@Param("id") Long id, @Param("bytes") byte[] bytes);
+
+    // Guarda la fila y sus bytes de forma atomica (si falla el segundo paso no queda una fila
+    // sin contenido).
+    @Transactional
+    default BoletinJudicialCache guardarConContenido(BoletinJudicialCache boletin, byte[] bytes) {
+        BoletinJudicialCache guardado = save(boletin);
+        escribirContenido(guardado.getId(), bytes);
+        return guardado;
+    }
 
     // Limpieza puntual (2026-11-05) de los boletines mal emparejados que quedaron cacheados
     // ANTES de que BoletinJudicialCacheService.descargarYGuardarCandidatos() empezara a

@@ -104,10 +104,46 @@ public class GlobalExceptionHandler {
                 "El servicio no está disponible en este momento. Intente de nuevo más tarde", request);
     }
 
+    // Caida de produccion 2026-11-19: tras un OutOfMemoryError el hilo que acepta conexiones
+    // HTTP murio y el proceso siguio "vivo" pero sordo durante horas (Docker no lo reinicia si
+    // la JVM no termina). Un OOM es irrecuperable: se responde 503 y se baja la JVM a
+    // proposito para que Docker (restart: unless-stopped) la levante limpia en segundos.
+    @ExceptionHandler(OutOfMemoryError.class)
+    public ResponseEntity<ErrorResponse> handleSinMemoria(OutOfMemoryError ex, HttpServletRequest request) {
+        return responderSinMemoria(ex, request);
+    }
+
+    // El contenedor de servlets suele envolver el Error en una ServletException
+    // ("Handler dispatch failed: java.lang.OutOfMemoryError").
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
+        for (Throwable t = ex; t != null; t = (t.getCause() == t ? null : t.getCause())) {
+            if (t instanceof OutOfMemoryError oom) {
+                return responderSinMemoria(oom, request);
+            }
+        }
         log.error("Error no controlado en {}", request.getRequestURI(), ex);
         return construir(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado", request);
+    }
+
+    private ResponseEntity<ErrorResponse> responderSinMemoria(OutOfMemoryError ex, HttpServletRequest request) {
+        // Sin stacktrace completo a proposito: construirlo tambien necesita memoria.
+        log.error("[CRITICO] OutOfMemoryError en {}: {}. Se reinicia la JVM para recuperar el servicio.",
+                request.getRequestURI(), ex.getMessage());
+        Thread apagado = new Thread(() -> {
+            try {
+                Thread.sleep(1500); // deja salir esta respuesta 503 antes de caer
+            } catch (InterruptedException ignorada) {
+                Thread.currentThread().interrupt();
+            }
+            Runtime.getRuntime().halt(137);
+        }, "apagado-por-oom");
+        apagado.setDaemon(true);
+        apagado.start();
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ErrorResponse(
+                LocalDateTime.now(), HttpStatus.SERVICE_UNAVAILABLE.value(),
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
+                "El servicio se está reiniciando. Intente de nuevo en unos segundos", request.getRequestURI()));
     }
 
     private ResponseEntity<ErrorResponse> construir(HttpStatus status, String mensaje, HttpServletRequest request) {
